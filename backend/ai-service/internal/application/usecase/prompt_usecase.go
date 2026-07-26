@@ -155,9 +155,38 @@ func (uc *PromptUseCase) Delete(ctx context.Context, id int64) error {
 	if p == nil {
 		return errno.New(errno.NotFound, "prompt template not found")
 	}
-	// 软删除：标记 is_active=false 后调用 Update（GORM Delete 会触发软删除字段）。
-	// 这里直接调用 repo 的 Delete 走 GORM 软删除。
-	return uc.repo.Update(ctx, p)
+	// GORM Delete 会自动写入 deleted_at，不会物理删除行。
+	return uc.repo.Delete(ctx, id)
+}
+
+// Activate activates a single prompt template and deactivates every other
+// template in the same scene so that at most one is active per scene.
+// 返回更新后的模板。
+func (uc *PromptUseCase) Activate(ctx context.Context, id int64) (*dto.PromptTemplateResponse, error) {
+	p, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if p == nil {
+		return nil, errno.New(errno.NotFound, "prompt template not found: "+strconv.FormatInt(id, 10))
+	}
+
+	// 已激活：直接返回，避免重复 UPDATE。
+	if p.IsActive {
+		return toPromptTemplateResponse(p), nil
+	}
+
+	// 先把同 scene 下其它激活态模板置为 false，保证场景内唯一激活。
+	if _, err := uc.repo.DeactivateByScene(ctx, p.Scene); err != nil {
+		return nil, err
+	}
+
+	// 激活目标模板。
+	p.IsActive = true
+	if err := uc.repo.Update(ctx, p); err != nil {
+		return nil, err
+	}
+	return toPromptTemplateResponse(p), nil
 }
 
 // Render is a convenience API for rendering a template by scene with variables.

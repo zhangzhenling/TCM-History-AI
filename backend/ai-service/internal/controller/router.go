@@ -48,6 +48,7 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	v1.GET("/prompts/:id", deps.Prompt.Get)
 	v1.PUT("/prompts/:id", deps.Prompt.Update)
 	v1.DELETE("/prompts/:id", deps.Prompt.Delete)
+	v1.PATCH("/prompts/:id/activate", deps.Prompt.Activate)
 
 	// Tools (MCP)
 	v1.GET("/tools", deps.Tool.List)

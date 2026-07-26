@@ -176,15 +176,17 @@ func (m *mockMsgRepo) ListByConversation(_ context.Context, conversationID int64
 // ============================================================================
 
 type mockPromptRepo struct {
-	mu              sync.Mutex
-	items           map[int64]*entity.PromptTemplate
-	create          func(*entity.PromptTemplate) error
-	update          func(*entity.PromptTemplate) error
-	find            func(int64) (*entity.PromptTemplate, error)
-	findByNameScene func(string, string) (*entity.PromptTemplate, error)
-	listByScene     func(string, pagination.Params) ([]entity.PromptTemplate, int, error)
-	findActive      func(string) (*entity.PromptTemplate, error)
-	list            func(pagination.Params) ([]entity.PromptTemplate, int, error)
+	mu               sync.Mutex
+	items            map[int64]*entity.PromptTemplate
+	create           func(*entity.PromptTemplate) error
+	update           func(*entity.PromptTemplate) error
+	delete           func(int64) error
+	find             func(int64) (*entity.PromptTemplate, error)
+	findByNameScene  func(string, string) (*entity.PromptTemplate, error)
+	listByScene      func(string, pagination.Params) ([]entity.PromptTemplate, int, error)
+	findActive       func(string) (*entity.PromptTemplate, error)
+	list             func(pagination.Params) ([]entity.PromptTemplate, int, error)
+	deactivateByScene func(string) (int64, error)
 }
 
 func newMockPromptRepo() *mockPromptRepo {
@@ -209,6 +211,36 @@ func (m *mockPromptRepo) Update(_ context.Context, p *entity.PromptTemplate) err
 	}
 	m.items[p.ID] = p
 	return nil
+}
+
+func (m *mockPromptRepo) Delete(_ context.Context, id int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.delete != nil {
+		return m.delete(id)
+	}
+	if _, ok := m.items[id]; !ok {
+		return errno.New(errno.NotFound, "prompt template not found")
+	}
+	delete(m.items, id)
+	return nil
+}
+
+// DeactivateByScene flips is_active=false for every template in `scene`.
+func (m *mockPromptRepo) DeactivateByScene(_ context.Context, scene string) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.deactivateByScene != nil {
+		return m.deactivateByScene(scene)
+	}
+	var n int64
+	for _, p := range m.items {
+		if p.Scene == scene && p.IsActive {
+			p.IsActive = false
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (m *mockPromptRepo) FindByID(_ context.Context, id int64) (*entity.PromptTemplate, error) {

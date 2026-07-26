@@ -220,17 +220,13 @@ func (uc *RetrievalUseCase) Retrieve(ctx context.Context, in *dto.RetrieveReques
 	// 6. 拉取完整 chunk 数据组装响应
 	chunks := make([]dto.RetrievedChunk, 0, len(reranked))
 	retrievedIDs := make([]int64, 0, len(reranked))
-	for i, rc := range reranked {
+	for _, rc := range reranked {
 		ch, err := uc.chunkRepo.FindByChunkID(ctx, rc.ChunkID)
 		if err != nil || ch == nil {
 			continue
 		}
-		var score float32
-		if i < len(vectorHits) {
-			_ = vectorHits
-		}
-		// 用 RRF 分数作为最终 score
-		score = float32(rrfScores[rc.ChunkID])
+		// 用 RRF 分数作为最终 score（reranker stub 保留 RRF 顺序）
+		score := float32(rrfScores[rc.ChunkID])
 		source := "rerank"
 		if len(reranked) == 0 {
 			source = "rrf"

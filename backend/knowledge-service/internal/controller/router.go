@@ -16,6 +16,7 @@ type Deps struct {
 	Chunk     *ChunkController
 	Retrieval *RetrievalController
 	Task      *TaskController
+	Ingest    *IngestController
 }
 
 // RegisterRoutes wires every Knowledge Service route onto the Hertz server.
@@ -33,9 +34,13 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	// Documents
 	v1.GET("/documents", deps.Document.List)
 	v1.POST("/documents", deps.Document.Create)
+	v1.POST("/documents/upload", deps.Document.UploadMarkdown)
 	v1.GET("/documents/:id", deps.Document.Get)
 	v1.PUT("/documents/:id", deps.Document.Update)
 	v1.DELETE("/documents/:id", deps.Document.Delete)
+
+	// RAG ingestion pipeline
+	v1.POST("/documents/:id/ingest", deps.Ingest.Ingest)
 
 	// Document chunks (nested under documents)
 	v1.GET("/documents/:id/chunks", deps.Chunk.ListByDocument)

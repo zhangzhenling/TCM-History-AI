@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"io"
 	"strconv"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"tcm-history-ai/backend/knowledge-service/internal/domain/entity"
 	"tcm-history-ai/backend/knowledge-service/internal/domain/event"
 	"tcm-history-ai/backend/knowledge-service/internal/domain/repository"
+	"tcm-history-ai/backend/knowledge-service/internal/infrastructure/storage"
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/idgen"
 	"tcm-history-ai/backend/pkg/pagination"
@@ -16,13 +18,14 @@ import (
 
 // DocumentUseCase implements CRUD operations on documents.
 type DocumentUseCase struct {
-	repo repository.DocumentRepository
-	pub  event.EventPublisher
+	repo  repository.DocumentRepository
+	pub   event.EventPublisher
+	minio *storage.MinIOClient
 }
 
-// NewDocumentUseCase constructs a DocumentUseCase.
-func NewDocumentUseCase(repo repository.DocumentRepository, pub event.EventPublisher) *DocumentUseCase {
-	return &DocumentUseCase{repo: repo, pub: pub}
+// NewDocumentUseCase constructs a DocumentUseCase. minio 可为 nil（离线开发时）。
+func NewDocumentUseCase(repo repository.DocumentRepository, pub event.EventPublisher, minio *storage.MinIOClient) *DocumentUseCase {
+	return &DocumentUseCase{repo: repo, pub: pub, minio: minio}
 }
 
 // Create persists a new document. If content_hash matches an existing doc,
@@ -74,13 +77,81 @@ func (uc *DocumentUseCase) Create(ctx context.Context, in *dto.DocumentRequest) 
 	}
 	// 发文献上传事件，触发下游 Worker 处理
 	if d.PDFObjectKey != "" {
+		bucket := ""
+		if uc.minio != nil {
+			bucket = uc.minio.OriginalBucket()
+		}
 		_ = uc.pub.Publish(ctx, event.DocumentUploaded{
 			DocumentID:  d.ID,
 			ClassicCode: d.ClassicCode,
 			ObjectKey:   d.PDFObjectKey,
+			Bucket:      bucket,
 		})
 	}
 	return toDocumentResponse(d), nil
+}
+
+// UploadMarkdown 上传 Markdown 文本到 MinIO markdown bucket 并创建 Document。
+// objectKey 为空时自动生成 docs/{docID}/markdown.md。
+// 上传成功后 Document.MarkdownObjectKey 会被填充。
+func (uc *DocumentUseCase) UploadMarkdown(ctx context.Context, in *dto.DocumentRequest, markdownText string, objectKey string) (*dto.DocumentResponse, error) {
+	if in == nil || in.Title == "" {
+		return nil, errno.New(errno.InvalidParams, "title is required")
+	}
+	if in.ClassicCode == "" {
+		return nil, errno.New(errno.InvalidParams, "classic_code is required")
+	}
+	if markdownText == "" {
+		return nil, errno.New(errno.InvalidParams, "markdown text is required")
+	}
+
+	// 先创建 Document 拿到 ID
+	resp, err := uc.Create(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	if uc.minio == nil {
+		// MinIO 未启用：MarkdownObjectKey 留空，调用方需自行通过 IngestMarkdown 传入文本
+		return resp, nil
+	}
+
+	if objectKey == "" {
+		objectKey = "docs/" + strconv.FormatInt(resp.ID, 10) + "/markdown.md"
+	}
+
+	if err := uc.minio.PutMarkdown(ctx, objectKey, stringReader(markdownText), int64(len(markdownText))); err != nil {
+		return nil, err
+	}
+
+	// 更新 Document.MarkdownObjectKey
+	d, err := uc.repo.FindByID(ctx, resp.ID)
+	if err != nil || d == nil {
+		return resp, err
+	}
+	d.MarkdownObjectKey = objectKey
+	d.Status = entity.DocumentStatusMarked
+	if err := uc.repo.Update(ctx, d); err != nil {
+		return nil, err
+	}
+	return toDocumentResponse(d), nil
+}
+
+// stringReader 将 string 包装为 io.Reader。
+func stringReader(s string) io.Reader { return &stringReaderImpl{s: s} }
+
+type stringReaderImpl struct {
+	s   string
+	pos int
+}
+
+func (r *stringReaderImpl) Read(p []byte) (int, error) {
+	if r.pos >= len(r.s) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.s[r.pos:])
+	r.pos += n
+	return n, nil
 }
 
 // Update modifies an existing document.

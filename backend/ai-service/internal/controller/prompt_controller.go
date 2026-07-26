@@ -70,3 +70,14 @@ func (h *PromptController) Delete(ctx context.Context, c *app.RequestContext) {
 	err := h.uc.Delete(ctx, id)
 	noContentOrFail(ctx, c, err)
 }
+
+// Activate PATCH /api/v1/ai/prompts/:id/activate
+// 将指定模板置为同 scene 下唯一激活态。
+func (h *PromptController) Activate(ctx context.Context, c *app.RequestContext) {
+	id, ok := pathID(c)
+	if !ok {
+		return
+	}
+	resp, err := h.uc.Activate(ctx, id)
+	okOrFail(ctx, c, resp, err)
+}

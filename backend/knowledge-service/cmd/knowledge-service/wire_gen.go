@@ -37,10 +37,11 @@ type App struct {
 	taskRepo   *persistence.EmbeddingTaskRepo
 	queryRepo  *persistence.RagQueryRepo
 
-	docUC      *usecase.DocumentUseCase
-	chunkUC    *usecase.ChunkUseCase
+	docUC       *usecase.DocumentUseCase
+	chunkUC     *usecase.ChunkUseCase
 	retrievalUC *usecase.RetrievalUseCase
-	taskUC     *usecase.TaskUseCase
+	taskUC      *usecase.TaskUseCase
+	ingestUC    *usecase.IngestUseCase
 
 	db        *gorm.DB
 	vector    *milvus.Client
@@ -58,6 +59,7 @@ func (a *App) ControllerDeps() *controller.Deps {
 		Chunk:     controller.NewChunkController(a.chunkUC),
 		Retrieval: controller.NewRetrievalController(a.retrievalUC),
 		Task:      controller.NewTaskController(a.taskUC),
+		Ingest:    controller.NewIngestController(a.ingestUC),
 	}
 }
 
@@ -145,13 +147,17 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	cleanups = append(cleanups, func() { _ = pub.Close() })
 
 	// Use cases.
-	app.docUC = usecase.NewDocumentUseCase(app.docRepo, app.publisher)
+	app.docUC = usecase.NewDocumentUseCase(app.docRepo, app.publisher, app.minio)
 	app.chunkUC = usecase.NewChunkUseCase(app.chunkRepo, app.docRepo)
 	app.taskUC = usecase.NewTaskUseCase(app.taskRepo)
 	app.retrievalUC = usecase.NewRetrievalUseCase(
 		app.chunkRepo, app.queryRepo,
 		app.vector, app.meili, app.embedder, app.reranker,
 		cfg.Milvus.TopK, cfg.Milvus.RRFK, cfg.Milvus.RerankTopK,
+	)
+	app.ingestUC = usecase.NewIngestUseCase(
+		app.docRepo, app.chunkRepo, app.taskRepo,
+		app.vector, app.embedder, app.minio, app.publisher,
 	)
 
 	cleanups = append(cleanups, func() {
