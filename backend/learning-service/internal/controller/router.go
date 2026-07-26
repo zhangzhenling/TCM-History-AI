@@ -19,6 +19,7 @@ type Deps struct {
 	Attempt       *ExamAttemptController
 	WrongQuestion *WrongQuestionController
 	StudyPlan     *StudyPlanController
+	Dashboard     *DashboardController
 }
 
 // RegisterRoutes wires every Learning Service route onto the Hertz server.
@@ -78,18 +79,24 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	v1.POST("/attempts", deps.Attempt.Start)
 	v1.GET("/attempts/:id", deps.Attempt.Get)
 	v1.GET("/attempts", deps.Attempt.List)
+	v1.POST("/attempts/:id/save", deps.Attempt.Save)
 	v1.POST("/attempts/:id/submit", deps.Attempt.Submit)
 
 	// Wrong questions
 	v1.GET("/wrong-questions", deps.WrongQuestion.List)
+	v1.GET("/wrong-questions/recent", deps.WrongQuestion.RecentIDs)
 	v1.PUT("/wrong-questions/:id/master", deps.WrongQuestion.MarkMastered)
 
 	// Study plans
 	v1.GET("/study-plans", deps.StudyPlan.List)
+	v1.POST("/study-plans/generate", deps.StudyPlan.Generate)
 	v1.POST("/study-plans", deps.StudyPlan.Create)
 	v1.GET("/study-plans/:id", deps.StudyPlan.Get)
 	v1.PUT("/study-plans/:id", deps.StudyPlan.Update)
 	v1.DELETE("/study-plans/:id", deps.StudyPlan.Delete)
+
+	// Dashboard
+	v1.GET("/dashboard", deps.Dashboard.Get)
 
 	// Suppress unused-import warning for consts.
 	_ = consts.StatusOK

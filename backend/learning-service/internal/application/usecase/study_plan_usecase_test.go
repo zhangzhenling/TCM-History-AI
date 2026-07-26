@@ -21,7 +21,7 @@ import (
 func newStudyPlanUseCase() (*usecase.StudyPlanUseCase, *mockStudyPlanRepo, *mockEnrollmentRepo) {
 	planRepo := newMockStudyPlanRepo()
 	enrollRepo := newMockEnrollmentRepo()
-	uc := usecase.NewStudyPlanUseCase(planRepo, enrollRepo)
+	uc := usecase.NewStudyPlanUseCase(planRepo, enrollRepo, nil)
 	return uc, planRepo, enrollRepo
 }
 

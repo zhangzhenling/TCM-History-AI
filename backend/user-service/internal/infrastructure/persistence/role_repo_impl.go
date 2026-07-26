@@ -84,3 +84,120 @@ func (r *RoleRepo) AssignRole(ctx context.Context, userID, roleID int64) error {
 	}
 	return nil
 }
+
+// FindByID fetches a role by id; returns (nil, nil) when not found.
+func (r *RoleRepo) FindByID(ctx context.Context, id int64) (*entity.Role, error) {
+	var role entity.Role
+	err := txFrom(ctx, r.db).First(&role, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errno.Wrap(errno.InternalError, "find role by id", err)
+	}
+	return &role, nil
+}
+
+// Create inserts a new role.
+func (r *RoleRepo) Create(ctx context.Context, role *entity.Role) error {
+	if err := txFrom(ctx, r.db).Create(role).Error; err != nil {
+		return errno.Wrap(errno.InternalError, "create role", err)
+	}
+	return nil
+}
+
+// Update saves changes to an existing role.
+func (r *RoleRepo) Update(ctx context.Context, role *entity.Role) error {
+	if err := txFrom(ctx, r.db).Save(role).Error; err != nil {
+		return errno.Wrap(errno.InternalError, "update role", err)
+	}
+	return nil
+}
+
+// Delete removes a role by id. Returns NotFound if no row matched.
+func (r *RoleRepo) Delete(ctx context.Context, id int64) error {
+	res := txFrom(ctx, r.db).Where("id = ? AND is_builtin = ?", id, false).Delete(&entity.Role{})
+	if res.Error != nil {
+		return errno.Wrap(errno.InternalError, "delete role", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return errno.New(errno.NotFound, "role not found or builtin")
+	}
+	return nil
+}
+
+// SetUserRoles replaces all roles for a user atomically.
+func (r *RoleRepo) SetUserRoles(ctx context.Context, userID int64, roleIDs []int64) error {
+	tx := txFrom(ctx, r.db)
+	if err := tx.Where("user_id = ?", userID).Delete(&entity.UserRole{}).Error; err != nil {
+		return errno.Wrap(errno.InternalError, "clear user roles", err)
+	}
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	now := time.Now()
+	items := make([]entity.UserRole, 0, len(roleIDs))
+	for _, rid := range roleIDs {
+		items = append(items, entity.UserRole{
+			ID:        idgen.Next(),
+			UserID:    userID,
+			RoleID:    rid,
+			GrantedAt: now,
+		})
+	}
+	if err := tx.Create(&items).Error; err != nil {
+		return errno.Wrap(errno.InternalError, "assign user roles", err)
+	}
+	return nil
+}
+
+// AssignPermission adds a permission to a role (idempotent).
+func (r *RoleRepo) AssignPermission(ctx context.Context, roleID, permissionID int64) error {
+	rp := entity.RolePermission{
+		ID:           idgen.Next(),
+		RoleID:       roleID,
+		PermissionID: permissionID,
+	}
+	err := txFrom(ctx, r.db).Create(&rp).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil
+		}
+		return errno.Wrap(errno.InternalError, "assign permission", err)
+	}
+	return nil
+}
+
+// SetRolePermissions replaces all permissions for a role atomically.
+func (r *RoleRepo) SetRolePermissions(ctx context.Context, roleID int64, permissionIDs []int64) error {
+	tx := txFrom(ctx, r.db)
+	if err := tx.Where("role_id = ?", roleID).Delete(&entity.RolePermission{}).Error; err != nil {
+		return errno.Wrap(errno.InternalError, "clear role permissions", err)
+	}
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	items := make([]entity.RolePermission, 0, len(permissionIDs))
+	for _, pid := range permissionIDs {
+		items = append(items, entity.RolePermission{
+			ID:           idgen.Next(),
+			RoleID:       roleID,
+			PermissionID: pid,
+		})
+	}
+	if err := tx.Create(&items).Error; err != nil {
+		return errno.Wrap(errno.InternalError, "assign role permissions", err)
+	}
+	return nil
+}
+
+// RevokePermission removes a permission from a role.
+func (r *RoleRepo) RevokePermission(ctx context.Context, roleID, permissionID int64) error {
+	res := txFrom(ctx, r.db).
+		Where("role_id = ? AND permission_id = ?", roleID, permissionID).
+		Delete(&entity.RolePermission{})
+	if res.Error != nil {
+		return errno.Wrap(errno.InternalError, "revoke permission", res.Error)
+	}
+	return nil
+}

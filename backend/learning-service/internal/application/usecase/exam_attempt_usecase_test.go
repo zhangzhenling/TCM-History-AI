@@ -30,7 +30,7 @@ func newExamAttemptUseCase() (*usecase.ExamAttemptUseCase, *mockExamAttemptRepo,
 	exam := &entity.Exam{Title: "exam", IsPublished: true, PassScore: 60}
 	exam.ID = 1
 	_ = examRepo.Create(context.Background(), exam)
-	uc := usecase.NewExamAttemptUseCase(attemptRepo, examRepo, questionRepo, wrongQRepo, pub)
+	uc := usecase.NewExamAttemptUseCase(attemptRepo, examRepo, questionRepo, wrongQRepo, pub, nil)
 	return uc, attemptRepo, examRepo, questionRepo, wrongQRepo, pub, exam
 }
 
@@ -501,7 +501,7 @@ func TestExamAttemptUseCase_Submit_PassByAbsoluteScore(t *testing.T) {
 	attemptRepo := newMockExamAttemptRepo()
 	pub := newMockEventPublisher()
 	wrongQRepo := newMockWrongQuestionRepo()
-	uc2 := usecase.NewExamAttemptUseCase(attemptRepo, examRepo, qRepo, wrongQRepo, pub)
+	uc2 := usecase.NewExamAttemptUseCase(attemptRepo, examRepo, qRepo, wrongQRepo, pub, nil)
 
 	a, err := uc2.Start(context.Background(), &dto.ExamAttemptStartRequest{
 		ExamID: exam2.ID, UserID: 7,

@@ -15,4 +15,7 @@ type StudyPlanRepository interface {
 	FindByID(ctx context.Context, id int64) (*entity.StudyPlan, error)
 	ListByUser(ctx context.Context, userID int64, p pagination.Params) ([]entity.StudyPlan, int, error)
 	FindActive(ctx context.Context, userID int64) ([]entity.StudyPlan, error)
+	// FindActiveByUserAndCourse returns active study plans for the given user
+	// that contain the given course ID in their courses_json array.
+	FindActiveByUserAndCourse(ctx context.Context, userID, courseID int64) ([]entity.StudyPlan, error)
 }

@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"tcm-history-ai/backend/learning-service/internal/conf"
 	"tcm-history-ai/backend/learning-service/internal/controller"
 	"tcm-history-ai/backend/learning-service/internal/domain/event"
+	"tcm-history-ai/backend/learning-service/internal/infrastructure/aiclient"
 	"tcm-history-ai/backend/learning-service/internal/infrastructure/cache"
 	"tcm-history-ai/backend/learning-service/internal/infrastructure/eventbus"
 	"tcm-history-ai/backend/learning-service/internal/infrastructure/persistence"
@@ -46,9 +48,11 @@ type App struct {
 	attemptUC  *usecase.ExamAttemptUseCase
 	wrongQUC   *usecase.WrongQuestionUseCase
 	planUC     *usecase.StudyPlanUseCase
+	dashboardUC *usecase.DashboardUseCase
 
 	db        *gorm.DB
 	redis     *cache.RedisClient
+	aiClient  *aiclient.Client
 	publisher event.EventPublisher
 }
 
@@ -62,6 +66,7 @@ func (a *App) ControllerDeps() *controller.Deps {
 		Attempt:       controller.NewExamAttemptController(a.attemptUC),
 		WrongQuestion: controller.NewWrongQuestionController(a.wrongQUC),
 		StudyPlan:     controller.NewStudyPlanController(a.planUC),
+		Dashboard:     controller.NewDashboardController(a.dashboardUC),
 	}
 }
 
@@ -100,6 +105,9 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.redis = cache.New(cfg.Redis)
 	cleanups = append(cleanups, func() { _ = app.redis.Close() })
 
+	// AI service client. Base URL empty -> offline/fallback mode.
+	app.aiClient = aiclient.New(cfg.AIService)
+
 	// RabbitMQ publisher. The underlying AMQP connection is opened lazily so
 	// a missing broker does not break service startup.
 	rmqCfg := rabbitmq.Config{
@@ -121,13 +129,16 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	// Use cases.
 	app.courseUC = usecase.NewCourseUseCase(app.courseRepo, app.lessonRepo, app.publisher)
 	app.enrollUC = usecase.NewEnrollmentUseCase(app.enrollmentRepo, app.courseRepo, app.publisher)
-	app.recordUC = usecase.NewLearningRecordUseCase(app.recordRepo)
+	app.recordUC = usecase.NewLearningRecordUseCase(app.recordRepo, app.redis)
 	app.examUC = usecase.NewExamUseCase(app.examRepo, app.questionRepo)
 	app.attemptUC = usecase.NewExamAttemptUseCase(
-		app.attemptRepo, app.examRepo, app.questionRepo, app.wrongQRepo, app.publisher,
+		app.attemptRepo, app.examRepo, app.questionRepo, app.wrongQRepo, app.publisher, app.redis,
 	)
-	app.wrongQUC = usecase.NewWrongQuestionUseCase(app.wrongQRepo)
-	app.planUC = usecase.NewStudyPlanUseCase(app.planRepo, app.enrollmentRepo)
+	app.wrongQUC = usecase.NewWrongQuestionUseCase(app.wrongQRepo, app.redis)
+	app.planUC = usecase.NewStudyPlanUseCase(app.planRepo, app.enrollmentRepo, app.aiClient)
+	app.dashboardUC = usecase.NewDashboardUseCase(
+		app.enrollmentRepo, app.recordRepo, app.attemptRepo, app.planRepo, app.wrongQRepo,
+	)
 
 	// Compile-time interface check: ensure the publisher satisfies the port.
 	var _ event.EventPublisher = app.publisher
@@ -157,12 +168,22 @@ func startEventSubscribers(ctx context.Context, cfg rabbitmq.Config, app *App) {
 		})
 	userSub.Start(ctx)
 
-	// CourseCompleted -> trigger study plan refresh. The handler is a no-op
-	// placeholder; refresh is driven by enrollment use case events.
+	// CourseCompleted -> refresh progress on study plans containing this course.
 	courseSub := eventbus.NewSubscriber(cfg, "learning.course.completed",
 		[]string{"learning.course.completed"},
-		func(_ context.Context, _ []byte) error {
-			logger.Default().Debug("learning subscriber: learning.course.completed received")
+		func(ctx context.Context, body []byte) error {
+			var evt struct {
+				UserID   int64 `json:"user_id"`
+				CourseID int64 `json:"course_id"`
+			}
+			if err := json.Unmarshal(body, &evt); err != nil {
+				logger.Default().Warn("learning subscriber: invalid course.completed payload",
+					zap.Error(err))
+				return nil
+			}
+			if evt.UserID > 0 && evt.CourseID > 0 {
+				_ = app.planUC.RefreshForCourse(ctx, evt.UserID, evt.CourseID)
+			}
 			return nil
 		})
 	courseSub.Start(ctx)

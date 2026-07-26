@@ -113,3 +113,17 @@ func (r *ExamRepo) ListPublished(ctx context.Context, p pagination.Params) ([]en
 	}
 	return items, int(total), nil
 }
+
+// ListAllWithDuration returns all exams that have a positive duration_minutes
+// value. Used by the timeout auto-submit worker to know which exams enforce
+// a time limit.
+func (r *ExamRepo) ListAllWithDuration(ctx context.Context) ([]entity.Exam, error) {
+	var items []entity.Exam
+	err := txFrom(ctx, r.db).
+		Where("duration_minutes > 0").
+		Find(&items).Error
+	if err != nil {
+		return nil, errno.Wrap(errno.InternalError, "list exams with duration", err)
+	}
+	return items, nil
+}

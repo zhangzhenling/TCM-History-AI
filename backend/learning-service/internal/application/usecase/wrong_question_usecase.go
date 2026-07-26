@@ -7,6 +7,7 @@ import (
 	"tcm-history-ai/backend/learning-service/internal/application/dto"
 	"tcm-history-ai/backend/learning-service/internal/domain/entity"
 	"tcm-history-ai/backend/learning-service/internal/domain/repository"
+	"tcm-history-ai/backend/learning-service/internal/infrastructure/cache"
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/pagination"
 )
@@ -15,12 +16,22 @@ import (
 // book plus marking-as-mastered. Wrong questions are persisted during exam
 // submission (see ExamAttemptUseCase.Submit).
 type WrongQuestionUseCase struct {
-	repo repository.WrongQuestionRepository
+	repo  repository.WrongQuestionRepository
+	cache *cache.RedisClient
 }
 
 // NewWrongQuestionUseCase constructs a WrongQuestionUseCase.
-func NewWrongQuestionUseCase(repo repository.WrongQuestionRepository) *WrongQuestionUseCase {
-	return &WrongQuestionUseCase{repo: repo}
+func NewWrongQuestionUseCase(repo repository.WrongQuestionRepository, cache *cache.RedisClient) *WrongQuestionUseCase {
+	return &WrongQuestionUseCase{repo: repo, cache: cache}
+}
+
+// ListRecentWrongIDs returns up to N recent wrong-question IDs from the
+// Redis cache. Returns an empty slice when Redis is unavailable.
+func (uc *WrongQuestionUseCase) ListRecentWrongIDs(ctx context.Context, userID int64, n int) ([]int64, error) {
+	if uc.cache == nil {
+		return []int64{}, nil
+	}
+	return uc.cache.ListRecentWrong(ctx, userID, n)
 }
 
 // Get retrieves a single wrong question by id.

@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -601,6 +602,18 @@ func (m *mockExamRepo) ListPublished(_ context.Context, p pagination.Params) ([]
 	return out, total, nil
 }
 
+func (m *mockExamRepo) ListAllWithDuration(_ context.Context) ([]entity.Exam, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	all := make([]entity.Exam, 0, len(m.items))
+	for _, e := range m.items {
+		if e.DurationMinutes > 0 {
+			all = append(all, *e)
+		}
+	}
+	return all, nil
+}
+
 // ============================================================================
 // QuestionRepository mock
 // ============================================================================
@@ -776,6 +789,35 @@ func (m *mockExamAttemptRepo) FindLatest(_ context.Context, userID, examID int64
 		}
 	}
 	return latest, nil
+}
+
+func (m *mockExamAttemptRepo) ListByUser(_ context.Context, userID int64, p pagination.Params) ([]entity.ExamAttempt, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	all := make([]entity.ExamAttempt, 0, len(m.items))
+	for _, a := range m.items {
+		if a.UserID == userID {
+			all = append(all, *a)
+		}
+	}
+	out, total := paginate(all, p)
+	return out, total, nil
+}
+
+func (m *mockExamAttemptRepo) ListExpired(_ context.Context, before time.Time, limit int) ([]entity.ExamAttempt, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []entity.ExamAttempt
+	for _, a := range m.items {
+		if a.SubmittedAt == nil && a.StartedAt.Before(before) {
+			clone := *a
+			out = append(out, clone)
+			if limit > 0 && len(out) >= limit {
+				break
+			}
+		}
+	}
+	return out, nil
 }
 
 // ============================================================================
@@ -982,6 +1024,31 @@ func (m *mockStudyPlanRepo) FindActive(_ context.Context, userID int64) ([]entit
 	for _, s := range m.items {
 		if s.UserID == userID && s.Status == entity.StudyPlanStatusActive {
 			all = append(all, *s)
+		}
+	}
+	return all, nil
+}
+
+func (m *mockStudyPlanRepo) FindActiveByUserAndCourse(_ context.Context, userID, courseID int64) ([]entity.StudyPlan, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	all := make([]entity.StudyPlan, 0)
+	for _, s := range m.items {
+		if s.UserID != userID || s.Status != entity.StudyPlanStatusActive {
+			continue
+		}
+		var courseIDs []int64
+		if len(s.CoursesJSON) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(s.CoursesJSON, &courseIDs); err != nil {
+			continue
+		}
+		for _, cid := range courseIDs {
+			if cid == courseID {
+				all = append(all, *s)
+				break
+			}
 		}
 	}
 	return all, nil

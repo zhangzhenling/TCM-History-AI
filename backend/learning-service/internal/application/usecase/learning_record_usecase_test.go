@@ -17,9 +17,11 @@ import (
 )
 
 // newLearningRecordUseCase wires up a LearningRecordUseCase with in-memory mocks.
+// A nil *cache.RedisClient is passed because the use case degrades gracefully
+// when the cache is unavailable.
 func newLearningRecordUseCase() (*usecase.LearningRecordUseCase, *mockLearningRecordRepo) {
 	repo := newMockLearningRecordRepo()
-	uc := usecase.NewLearningRecordUseCase(repo)
+	uc := usecase.NewLearningRecordUseCase(repo, nil)
 	return uc, repo
 }
 

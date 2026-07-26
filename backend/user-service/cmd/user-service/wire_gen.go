@@ -31,12 +31,15 @@ import (
 type App struct {
 	userRepo     *persistence.UserRepo
 	roleRepo     *persistence.RoleRepo
+	permRepo     *persistence.PermissionRepo
 	profileRepo  *persistence.ProfileRepo
 	settingsRepo *persistence.SettingsRepo
 
 	authUC     *usecase.AuthUseCase
 	profileUC  *usecase.ProfileUseCase
 	settingsUC *usecase.SettingsUseCase
+	adminUC    *usecase.AdminUseCase
+	roleUC     *usecase.RoleUseCase
 
 	db        *gorm.DB
 	redis     *redis.Client
@@ -49,6 +52,8 @@ func (a *App) ControllerDeps() *controller.Deps {
 		Auth:     controller.NewAuthController(a.authUC),
 		Profile:  controller.NewProfileController(a.profileUC),
 		Settings: controller.NewSettingsController(a.settingsUC),
+		Admin:    controller.NewAdminController(a.adminUC),
+		Role:     controller.NewRoleController(a.roleUC),
 	}
 }
 
@@ -73,6 +78,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	// Repositories.
 	app.userRepo = persistence.NewUserRepo(db)
 	app.roleRepo = persistence.NewRoleRepo(db)
+	app.permRepo = persistence.NewPermissionRepo(db)
 	app.profileRepo = persistence.NewProfileRepo(db)
 	app.settingsRepo = persistence.NewSettingsRepo(db)
 
@@ -117,6 +123,8 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	)
 	app.profileUC = usecase.NewProfileUseCase(app.userRepo, app.profileRepo, app.publisher)
 	app.settingsUC = usecase.NewSettingsUseCase(app.settingsRepo)
+	app.adminUC = usecase.NewAdminUseCase(app.userRepo, app.roleRepo, app.permRepo)
+	app.roleUC = usecase.NewRoleUseCase(app.roleRepo, app.permRepo)
 
 	// Compile-time interface checks: ensure concrete adapters satisfy the
 	// domain ports. These are no-ops at runtime.

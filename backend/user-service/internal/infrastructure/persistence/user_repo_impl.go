@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"tcm-history-ai/backend/pkg/errno"
+	"tcm-history-ai/backend/pkg/pagination"
 	"tcm-history-ai/backend/user-service/internal/domain/entity"
 	"tcm-history-ai/backend/user-service/internal/domain/repository"
 )
@@ -117,4 +118,28 @@ func (r *UserRepo) Delete(ctx context.Context, id int64) error {
 		return errno.New(errno.NotFound, "user not found")
 	}
 	return nil
+}
+
+// List returns paginated users, optionally filtered by status.
+func (r *UserRepo) List(ctx context.Context, p pagination.Params, status string) ([]entity.User, int64, error) {
+	q := txFrom(ctx, r.db).Model(&entity.User{})
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, errno.Wrap(errno.InternalError, "count users", err)
+	}
+	var users []entity.User
+	_, limit, offset := p.Normalise()
+	if limit > 100 {
+		limit = 100
+		// recalculate offset with capped limit
+		page, _, _ := p.Normalise()
+		offset = (page - 1) * limit
+	}
+	if err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, errno.Wrap(errno.InternalError, "list users", err)
+	}
+	return users, total, nil
 }

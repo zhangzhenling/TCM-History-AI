@@ -14,6 +14,8 @@ type Deps struct {
 	Auth     *AuthController
 	Profile  *ProfileController
 	Settings *SettingsController
+	Admin    *AdminController
+	Role     *RoleController
 }
 
 // RegisterRoutes wires every User Service route onto the Hertz server.
@@ -44,4 +46,20 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	users.PUT("/me", deps.Profile.Update)
 	users.GET("/settings", deps.Settings.Get)
 	users.PUT("/settings", deps.Settings.Update)
+
+	// Admin endpoints (require admin role, enforced by gateway RBAC middleware).
+	admin := v1.Group("/admin")
+	admin.GET("/users", deps.Admin.ListUsers)
+	admin.GET("/users/:id", deps.Admin.GetUser)
+	admin.PATCH("/users/:id/status", deps.Admin.UpdateStatus)
+	admin.PUT("/users/:id/roles", deps.Admin.AssignRoles)
+
+	admin.GET("/roles", deps.Role.List)
+	admin.GET("/roles/:id", deps.Role.Get)
+	admin.POST("/roles", deps.Role.Create)
+	admin.PUT("/roles/:id", deps.Role.Update)
+	admin.DELETE("/roles/:id", deps.Role.Delete)
+	admin.PUT("/roles/:id/permissions", deps.Role.AssignPermissions)
+
+	admin.GET("/permissions", deps.Role.ListPermissions)
 }

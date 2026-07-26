@@ -65,3 +65,16 @@ func (r *PermissionRepo) ListAll(ctx context.Context) ([]entity.Permission, erro
 	}
 	return perms, nil
 }
+
+// FindByID fetches a permission by id; returns (nil, nil) when not found.
+func (r *PermissionRepo) FindByID(ctx context.Context, id int64) (*entity.Permission, error) {
+	var perm entity.Permission
+	err := txFrom(ctx, r.db).First(&perm, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errno.Wrap(errno.InternalError, "find permission by id", err)
+	}
+	return &perm, nil
+}

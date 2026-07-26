@@ -80,8 +80,11 @@ func main() {
 		h.Spin()
 	}()
 
+	stopTimeoutWorker := startTimeoutWorker(app)
+
 	waitForShutdown()
 	logger.Default().Info("learning-service shutting down")
+	_ = stopTimeoutWorker()
 	_ = h.Close()
 }
 
@@ -102,4 +105,35 @@ func waitForShutdown() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
+}
+
+// startTimeoutWorker launches a background goroutine that periodically scans
+// for expired exam attempts and force-submits them. Returns a stop function.
+func startTimeoutWorker(app *App) func() error {
+	ticker := time.NewTicker(60 * time.Second)
+	done := make(chan struct{})
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				n, err := app.attemptUC.ProcessExpiredAttempts(ctx, 100)
+				cancel()
+				if err != nil {
+					logger.Default().Warn("timeout worker: process expired attempts failed", zap.Error(err))
+					continue
+				}
+				if n > 0 {
+					logger.Default().Info("timeout worker: force-submitted expired attempts", zap.Int("count", n))
+				}
+			}
+		}
+	}()
+	return func() error {
+		close(done)
+		return nil
+	}
 }

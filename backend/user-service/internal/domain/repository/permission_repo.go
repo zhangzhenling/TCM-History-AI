@@ -12,4 +12,5 @@ type PermissionRepository interface {
 	FindByRoleID(ctx context.Context, roleID int64) ([]entity.Permission, error)
 	FindByUserID(ctx context.Context, userID int64) ([]entity.Permission, error)
 	ListAll(ctx context.Context) ([]entity.Permission, error)
+	FindByID(ctx context.Context, id int64) (*entity.Permission, error)
 }

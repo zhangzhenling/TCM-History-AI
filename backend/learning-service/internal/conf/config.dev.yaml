@@ -35,6 +35,9 @@ rabbitmq:
   password: tcm_pass
   vhost: /tcm
 
+ai_service:
+  base_url: "http://localhost:8083"
+
 log:
   level: info
   encoding: console

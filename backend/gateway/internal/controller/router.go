@@ -16,13 +16,14 @@ type Deps struct {
 }
 
 // RegisterRoutes wires every gateway route onto the Hertz server and installs
-// the cross-cutting middleware chain (recovery → tracing → ratelimit → auth).
+// the cross-cutting middleware chain (recovery → tracing → ratelimit → auth → rbac).
 func RegisterRoutes(h *server.Hertz, deps *Deps, mw *middleware.Chain) {
 	h.Use(
 		mw.Recovery(),
 		mw.Tracing(),
 		mw.RateLimit(),
 		mw.Auth(),
+		mw.RBAC(),
 	)
 
 	h.GET("/health", deps.Health.Health)
