@@ -1,0 +1,80 @@
+{{- /*
+全局非敏感配置 ConfigMap，键名以 TCM_ 前缀注入，由 viper AutomaticEnv() 加载
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tcm.fullName" . }}-config
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  APP_ENV: {{ .Values.global.appEnv | quote }}
+  LOG_LEVEL: {{ .Values.global.logLevel | quote }}
+  LOG_ENCODING: "json"
+
+  # PostgreSQL
+  TCM_DB_DRIVER: {{ .Values.config.dbDriver | quote }}
+  TCM_DB_HOST: {{ .Values.config.dbHost | quote }}
+  TCM_DB_PORT: {{ .Values.config.dbPort | quote }}
+  TCM_DB_USER: {{ .Values.config.dbUser | quote }}
+  TCM_DB_DBNAME: {{ .Values.config.dbName | quote }}
+  TCM_DB_SSLMODE: {{ .Values.config.dbSslmode | quote }}
+
+  # Redis
+  TCM_REDIS_HOST: {{ .Values.config.redisHost | quote }}
+  TCM_REDIS_PORT: {{ .Values.config.redisPort | quote }}
+  TCM_REDIS_DB: "0"
+
+  # Neo4j
+  TCM_NEO4J_HOST: {{ .Values.config.neo4jHost | quote }}
+  TCM_NEO4J_PORT: {{ .Values.config.neo4jPort | quote }}
+  TCM_NEO4J_USER: {{ .Values.config.neo4jUser | quote }}
+  TCM_NEO4J_ENABLED: "true"
+
+  # Milvus
+  TCM_MILVUS_HOST: {{ .Values.config.milvusHost | quote }}
+  TCM_MILVUS_PORT: {{ .Values.config.milvusPort | quote }}
+  TCM_MILVUS_COLLECTION: "tcm_chunks"
+  TCM_MILVUS_DIM: "1024"
+  TCM_MILVUS_ENABLED: "true"
+
+  # MinIO
+  TCM_MINIO_ENDPOINT: {{ .Values.config.minioEndpoint | quote }}
+  TCM_MINIO_BUCKET_NAME: {{ .Values.config.minioBucket | quote }}
+  TCM_MINIO_USE_SSL: "false"
+
+  # Meilisearch
+  TCM_MEILI_HOST: {{ .Values.config.meiliHost | quote }}
+  TCM_MEILI_PORT: {{ .Values.config.meiliPort | quote }}
+  TCM_MEILI_INDEX_PREFIX: "history_"
+
+  # RabbitMQ
+  TCM_RABBITMQ_HOST: {{ .Values.config.rabbitmqHost | quote }}
+  TCM_RABBITMQ_PORT: {{ .Values.config.rabbitmqPort | quote }}
+  TCM_RABBITMQ_USER: {{ .Values.config.rabbitmqUser | quote }}
+  TCM_RABBITMQ_VHOST: {{ .Values.config.rabbitmqVhost | quote }}
+
+  # JWT
+  TCM_JWT_ISSUER: {{ .Values.config.jwtIssuer | quote }}
+  TCM_JWT_ACCESS_TOKEN_TTL: "2h"
+  TCM_JWT_REFRESH_TOKEN_TTL: "168h"
+
+  # Tracing
+  TCM_TRACING_OTLP_ENDPOINT: {{ .Values.config.tracingOtlpEndpoint | quote }}
+  TCM_TRACING_ENABLED: {{ .Values.config.tracingEnabled | quote }}
+
+  # Gateway 下游微服务地址（K8s Service DNS）
+  # 注意：服务名含连字符，必须用 index 访问，不能写 .Values.backend.user-service
+  TCM_DOWNSTREAM_USER_SERVICE: "user-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "user-service").port }}"
+  TCM_DOWNSTREAM_HISTORY_SERVICE: "history-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "history-service").port }}"
+  TCM_DOWNSTREAM_KNOWLEDGE_SERVICE: "knowledge-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "knowledge-service").port }}"
+  TCM_DOWNSTREAM_GRAPH_SERVICE: "graph-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "graph-service").port }}"
+  TCM_DOWNSTREAM_AI_SERVICE: "ai-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "ai-service").port }}"
+  TCM_DOWNSTREAM_LEARNING_SERVICE: "learning-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "learning-service").port }}"
+
+  # AI Service 上游服务地址
+  TCM_SERVICES_KNOWLEDGE_URL: "http://knowledge-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "knowledge-service").port }}/api/v1/knowledge"
+  TCM_SERVICES_GRAPH_URL: "http://graph-service.{{ include "tcm.namespace" . }}.svc:{{ (index .Values.backend "graph-service").port }}/api/v1/graph"
+  TCM_SERVICES_TIMEOUT_SECONDS: "10"

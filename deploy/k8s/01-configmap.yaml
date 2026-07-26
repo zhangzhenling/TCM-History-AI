@@ -1,0 +1,86 @@
+# TCM-History-AI 全局非敏感配置
+# 通过 TCM_ 前缀的环境变量注入，由 backend/pkg/config 的 viper.AutomaticEnv() 自动加载
+# 命名规则：TCM_<SECTION>_<KEY>（配置文件中的点号转为下划线），例如 db.host -> TCM_DB_HOST
+# 敏感配置（密码、JWT secret、API key）见 02-secret.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcm-config
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: tcm-history-ai
+    app.kubernetes.io/component: config
+    app.kubernetes.io/managed-by: kubectl
+data:
+  # ===== 应用通用 =====
+  APP_ENV: "prod"
+  LOG_LEVEL: "info"
+  LOG_ENCODING: "json"
+
+  # ===== PostgreSQL（中间件 Service 名: postgres）=====
+  TCM_DB_DRIVER: "postgres"
+  TCM_DB_HOST: "postgres"
+  TCM_DB_PORT: "5432"
+  TCM_DB_USER: "tcm"
+  TCM_DB_DBNAME: "tcm_history"
+  TCM_DB_SSLMODE: "disable"
+  TCM_DB_MAX_OPEN_CONNS: "50"
+  TCM_DB_MAX_IDLE_CONNS: "10"
+  TCM_DB_CONN_MAX_LIFETIME_SECONDS: "3600"
+  TCM_DB_LOG_LEVEL: "warn"
+
+  # ===== Redis =====
+  TCM_REDIS_HOST: "redis"
+  TCM_REDIS_PORT: "6379"
+  TCM_REDIS_DB: "0"
+
+  # ===== Neo4j =====
+  TCM_NEO4J_HOST: "neo4j"
+  TCM_NEO4J_PORT: "7687"
+  TCM_NEO4J_USER: "neo4j"
+  TCM_NEO4J_ENABLED: "true"
+
+  # ===== Milvus =====
+  TCM_MILVUS_HOST: "milvus"
+  TCM_MILVUS_PORT: "19530"
+  TCM_MILVUS_COLLECTION: "tcm_chunks"
+  TCM_MILVUS_DIM: "1024"
+  TCM_MILVUS_ENABLED: "true"
+
+  # ===== MinIO =====
+  TCM_MINIO_ENDPOINT: "minio:9000"
+  TCM_MINIO_BUCKET_NAME: "tcm-history"
+  TCM_MINIO_USE_SSL: "false"
+
+  # ===== Meilisearch =====
+  TCM_MEILI_HOST: "meilisearch"
+  TCM_MEILI_PORT: "7700"
+  TCM_MEILI_INDEX_PREFIX: "history_"
+
+  # ===== RabbitMQ =====
+  TCM_RABBITMQ_HOST: "rabbitmq"
+  TCM_RABBITMQ_PORT: "5672"
+  TCM_RABBITMQ_USER: "tcm"
+  TCM_RABBITMQ_VHOST: "/tcm"
+
+  # ===== JWT =====
+  TCM_JWT_ISSUER: "tcm-history-ai"
+  TCM_JWT_ACCESS_TOKEN_TTL: "2h"
+  TCM_JWT_REFRESH_TOKEN_TTL: "168h"
+
+  # ===== 链路追踪（OTel Collector，部署后填充实际地址）=====
+  TCM_TRACING_OTLP_ENDPOINT: "otel-collector:4317"
+  TCM_TRACING_ENABLED: "false"
+
+  # ===== Gateway 下游微服务地址（K8s Service DNS）=====
+  TCM_DOWNSTREAM_USER_SERVICE: "user-service.tcm-history-ai.svc:8081"
+  TCM_DOWNSTREAM_HISTORY_SERVICE: "history-service.tcm-history-ai.svc:8082"
+  TCM_DOWNSTREAM_KNOWLEDGE_SERVICE: "knowledge-service.tcm-history-ai.svc:8084"
+  TCM_DOWNSTREAM_GRAPH_SERVICE: "graph-service.tcm-history-ai.svc:8085"
+  TCM_DOWNSTREAM_AI_SERVICE: "ai-service.tcm-history-ai.svc:8086"
+  TCM_DOWNSTREAM_LEARNING_SERVICE: "learning-service.tcm-history-ai.svc:8087"
+
+  # ===== AI Service 上游服务地址 =====
+  TCM_SERVICES_KNOWLEDGE_URL: "http://knowledge-service.tcm-history-ai.svc:8084/api/v1/knowledge"
+  TCM_SERVICES_GRAPH_URL: "http://graph-service.tcm-history-ai.svc:8085/api/v1/graph"
+  TCM_SERVICES_TIMEOUT_SECONDS: "10"

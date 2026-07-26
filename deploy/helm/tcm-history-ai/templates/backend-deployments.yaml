@@ -1,0 +1,121 @@
+{{- /*
+7 个后端微服务的 Deployment + Service，用 range 遍历避免重复 YAML
+服务清单与端口取自 backend 各服务的 internal/conf/config.dev.yaml：
+  gateway 8080 / user-service 8081 / history-service 8082 / knowledge-service 8084
+  graph-service 8085 / ai-service 8086 / learning-service 8087
+每个服务可通过 backend.<svc>.env 注入额外环境变量
+*/ -}}
+{{- $root := . -}}
+{{- range $name, $cfg := .Values.backend }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "tcm.namespace" $root }}
+  labels:
+    {{- include "tcm.serviceLabels" (list $root $name $cfg.component) | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ $cfg.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list $root $name) | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "tcm.namespace" $root }}
+  labels:
+    {{- include "tcm.serviceLabels" (list $root $name $cfg.component) | nindent 4 }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list $root $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list $root $name $cfg.component) | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $cfg.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      imagePullSecrets:
+        {{- toYaml $root.Values.global.imagePullSecrets | nindent 8 }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "tcm.image" (list $root $name) }}
+          imagePullPolicy: {{ $root.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $cfg.port }}
+              protocol: TCP
+          env:
+            - name: TCM_APP_NAME
+              value: {{ $name | quote }}
+            - name: TCM_APP_ENV
+              value: {{ $root.Values.global.appEnv | quote }}
+            - name: TCM_HTTP_PORT
+              value: {{ $cfg.port | quote }}
+            - name: TCM_LOG_LEVEL
+              value: {{ $root.Values.global.logLevel | quote }}
+            {{- with $cfg.env }}
+            {{- range $k, $v := . }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tcm.fullName" $root }}-config
+            - secretRef:
+                name: {{ include "tcm.fullName" $root }}-secret
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+{{- end }}

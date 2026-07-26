@@ -1,0 +1,95 @@
+# 开发环境覆盖值（单副本、低资源）
+# 用法：helm install tcm-history-ai deploy/helm/tcm-history-ai -f deploy/helm/tcm-history-ai/values.dev.yaml
+global:
+  imageRegistry: ghcr.io/tcm-history-ai   # 本地构建可改为 tcm-history-ai
+  imagePullPolicy: IfNotPresent
+  storageClass: standard
+  logLevel: debug
+  appEnv: dev
+
+ingress:
+  enabled: true
+  host: api.tcm-history.local
+  tls:
+    enabled: false
+
+# 中间件最小资源
+middleware:
+  postgres:
+    storage: 20Gi
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1Gi }
+  redis:
+    storage: 5Gi
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 250m, memory: 256Mi }
+  neo4j:
+    storage: 20Gi
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "1", memory: 2Gi }
+  milvus:
+    storage: 20Gi
+    etcdStorage: 5Gi
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "1", memory: 2Gi }
+  minio:
+    storage: 20Gi
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  meilisearch:
+    storage: 5Gi
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  rabbitmq:
+    storage: 5Gi
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+
+# 后端微服务全部单副本、低资源，关闭 HPA
+backend:
+  gateway:
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+    hpa:
+      enabled: false
+  user-service:
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  history-service:
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  knowledge-service:
+    replicas: 1
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: "1", memory: 1Gi }
+  graph-service:
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 1Gi }
+  ai-service:
+    replicas: 1
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1Gi }
+    hpa:
+      enabled: false
+  learning-service:
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 512Mi }

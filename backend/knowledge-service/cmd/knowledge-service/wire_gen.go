@@ -91,6 +91,8 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 		Port:       cfg.Milvus.Port,
 		Collection: cfg.Milvus.Collection,
 		Dim:        cfg.Milvus.Dim,
+		Username:   cfg.Milvus.Username,
+		Password:   cfg.Milvus.Password,
 		Enabled:    cfg.Milvus.Enabled,
 	})
 	_ = app.vector.EnsureCollection(context.Background())
@@ -106,6 +108,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 		APIKey:   cfg.Embedding.APIKey,
 		Model:    cfg.Embedding.Model,
 		Dim:      cfg.Embedding.Dim,
+		Timeout:  cfg.Embedding.Timeout,
 	})
 	if err != nil {
 		cleanup()

@@ -1,0 +1,177 @@
+# Milvus 2.4 Standalone StatefulSet
+# 简化方案：单 StatefulSet 内含 milvus + etcd sidecar（etcd 为 milvus 元数据依赖）
+# 对象存储依赖外部 minio Service（见 14-minio.yaml），与 docker-compose.dev.yml 拓扑一致
+# 生产高可用建议改用官方 Helm Chart 分布式集群（见 doc/16-Kubernetes部署.md 第 3.4 节）
+# 端口：19530（gRPC）/ 9091（metrics & healthz）
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: milvus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.4"
+    app.kubernetes.io/component: vector-database
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: grpc
+      port: 19530
+      targetPort: grpc
+      protocol: TCP
+    - name: metrics
+      port: 9091
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: milvus
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: milvus
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: milvus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.4"
+    app.kubernetes.io/component: vector-database
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  serviceName: milvus
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: milvus
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: milvus
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "2.4"
+        app.kubernetes.io/component: vector-database
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      # milvus standalone 默认 seccomp 配置较宽松，关闭限制避免启动失败
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        # 等 minio 就绪后再启动 milvus，避免启动期连不上对象存储
+        - name: wait-for-minio
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z minio 9000; do echo waiting for minio; sleep 2; done; echo minio is up"]
+      containers:
+        # etcd sidecar：milvus 元数据存储
+        - name: etcd
+          image: quay.io/coreos/etcd:v3.5.5
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ETCD_AUTO_COMPACTION_MODE
+              value: revision
+            - name: ETCD_AUTO_COMPACTION_RETENTION
+              value: "1000"
+            - name: ETCD_QUOTA_BACKEND_BYTES
+              value: "4294967296"
+            - name: ETCD_SNAPSHOT_COUNT
+              value: "50000"
+          command:
+            - etcd
+            - -advertise-client-urls=http://127.0.0.1:2379
+            - -listen-client-urls=http://0.0.0.0:2379
+            - --data-dir=/etcd
+          ports:
+            - name: etcd-client
+              containerPort: 2379
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: etcd-data
+              mountPath: /etcd
+        # milvus 主容器
+        - name: milvus
+          image: milvusdb/milvus:v2.4.0
+          imagePullPolicy: IfNotPresent
+          command: ["milvus", "run", "standalone"]
+          securityContext:
+            seccompProfile:
+              type: Unconfined
+          env:
+            - name: ETCD_ENDPOINTS
+              value: "127.0.0.1:2379"
+            - name: MINIO_ADDRESS
+              value: "minio:9000"
+            - name: MINIO_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_MINIO_SECRET_KEY
+            - name: MINIO_BUCKET_NAME
+              value: "milvus"
+            - name: MINIO_USE_SSL
+              value: "false"
+          ports:
+            - name: grpc
+              containerPort: 19530
+              protocol: TCP
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: milvus-data
+              mountPath: /var/lib/milvus
+  volumeClaimTemplates:
+    - metadata:
+        name: etcd-data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+    - metadata:
+        name: milvus-data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi

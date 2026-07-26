@@ -1,0 +1,15 @@
+# TCM-History-AI 平台命名空间
+# 所有中间件与微服务统一部署在 tcm-history-ai 命名空间
+# 生产环境如需按 tcm-system / tcm-app 分离，请参考 doc/16-Kubernetes部署.md 第 2 节
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tcm-history-ai
+  labels:
+    name: tcm-history-ai
+    app.kubernetes.io/name: tcm-history-ai
+    app.kubernetes.io/managed-by: kubectl
+    # Pod Security Standards：基线级别，允许中间件（部分需特定权限）运行
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

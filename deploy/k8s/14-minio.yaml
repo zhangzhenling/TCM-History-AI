@@ -1,0 +1,117 @@
+# MinIO 单实例 StatefulSet
+# 同时服务：应用文献原文存储 + Milvus 段文件（按 bucket 隔离）
+# 生产高可用建议改用 MinIO Operator 4 节点分布式（见 doc/16-Kubernetes部署.md 第 3.5 节）
+# 端口：9000（S3 API）/ 9001（控制台）
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: object-storage
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: 9000
+      targetPort: api
+      protocol: TCP
+    - name: console
+      port: 9001
+      targetPort: console
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: object-storage
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  serviceName: minio
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/component: object-storage
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+          imagePullPolicy: IfNotPresent
+          command:
+            - server
+            - /data
+            - --console-address
+            - ":9001"
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_MINIO_ACCESS_KEY
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_MINIO_SECRET_KEY
+          ports:
+            - name: api
+              containerPort: 9000
+              protocol: TCP
+            - name: console
+              containerPort: 9001
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Gi

@@ -26,8 +26,9 @@ func newStub(t *testing.T, model string, dim int) *embedding.StubProvider {
 	return sp
 }
 
-// TestNew_StubProvider exercises the "", "stub", "local", and "openai" branches
-// which all return a StubProvider with the configured model/dim.
+// TestNew_StubProvider exercises the "", "stub", and "local" branches which all
+// return a StubProvider with the configured model/dim. provider="openai" now
+// returns a real *OpenAIProvider (见 TestNew_OpenAIProvider)。
 func TestNew_StubProvider(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -36,7 +37,6 @@ func TestNew_StubProvider(t *testing.T) {
 		{"empty defaults to stub", ""},
 		{"explicit stub", "stub"},
 		{"local falls back to stub", "local"},
-		{"openai falls back to stub", "openai"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -51,6 +51,39 @@ func TestNew_StubProvider(t *testing.T) {
 			assert.Equal(t, 1024, p.Dim())
 		})
 	}
+}
+
+// TestNew_OpenAIProvider verifies that provider="openai" returns a real
+// *OpenAIProvider (而非 stub 回退)，且 model/dim 透传正确。
+func TestNew_OpenAIProvider(t *testing.T) {
+	p, err := embedding.New(embedding.Config{
+		Provider: "openai",
+		Endpoint: "https://api.openai.com/v1",
+		APIKey:   "sk-test",
+		Model:    "text-embedding-3-small",
+		Dim:      1536,
+		Timeout:  10,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	_, ok := p.(*embedding.OpenAIProvider)
+	assert.True(t, ok, "expected *OpenAIProvider, got %T", p)
+	assert.Equal(t, "text-embedding-3-small", p.Model())
+	assert.Equal(t, 1536, p.Dim())
+}
+
+// TestNew_OpenAIProvider_Defaults confirms empty endpoint/model/dim fall back
+// to the OpenAI defaults inside NewOpenAIProvider.
+func TestNew_OpenAIProvider_Defaults(t *testing.T) {
+	p, err := embedding.New(embedding.Config{Provider: "openai", APIKey: "sk-test"})
+	require.NoError(t, err)
+	op, ok := p.(*embedding.OpenAIProvider)
+	require.True(t, ok)
+	assert.Contains(t, op.String(), "https://api.openai.com/v1") // String() 含 base URL
+	assert.Contains(t, op.String(), "text-embedding-3-small")    // 默认 model
+	assert.Contains(t, op.String(), "dim=1536")                  // 默认 dim
+	assert.Equal(t, "text-embedding-3-small", p.Model())
+	assert.Equal(t, 1536, p.Dim())
 }
 
 // TestNew_UnknownProvider verifies that an unrecognised provider string

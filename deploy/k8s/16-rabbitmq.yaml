@@ -1,0 +1,119 @@
+# RabbitMQ 3.13 单实例 StatefulSet（含 management 插件）
+# 生产高可用建议改用 RabbitMQ Cluster Operator 3 节点仲裁队列（见 doc/16-Kubernetes部署.md 第 3.6 节）
+# 端口：5672（AMQP）/ 15672（管理控制台）
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "3.13"
+    app.kubernetes.io/component: message-broker
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+      protocol: TCP
+    - name: management
+      port: 15672
+      targetPort: management
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "3.13"
+    app.kubernetes.io/component: message-broker
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  serviceName: rabbitmq
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "3.13"
+        app.kubernetes.io/component: message-broker
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: tcm-config
+                  key: TCM_RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_RABBITMQ_PASSWORD
+            - name: RABBITMQ_DEFAULT_VHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: tcm-config
+                  key: TCM_RABBITMQ_VHOST
+          ports:
+            - name: amqp
+              containerPort: 5672
+              protocol: TCP
+            - name: management
+              containerPort: 15672
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 8
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi

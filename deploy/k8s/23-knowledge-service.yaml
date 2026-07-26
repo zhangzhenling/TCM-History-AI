@@ -1,0 +1,133 @@
+# Knowledge Service 微服务（RAG 检索、文献管理、向量入库）
+# 端口：8084（HTTP）
+# 镜像构建：docker build -f backend/knowledge-service/Dockerfile -t ghcr.io/tcm-history-ai/knowledge-service:latest backend/
+apiVersion: v1
+kind: Service
+metadata:
+  name: knowledge-service
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: knowledge-service
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.1"
+    app.kubernetes.io/component: microservice
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: knowledge-service
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knowledge-service
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: knowledge-service
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.1"
+    app.kubernetes.io/component: microservice
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  replicas: 2
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: knowledge-service
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: knowledge-service
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "2.1"
+        app.kubernetes.io/component: microservice
+        app.kubernetes.io/managed-by: kubectl
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: knowledge-service
+          image: ghcr.io/tcm-history-ai/knowledge-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8084
+              protocol: TCP
+          env:
+            - name: TCM_APP_NAME
+              value: knowledge-service
+            - name: TCM_APP_ENV
+              value: prod
+            - name: TCM_HTTP_PORT
+              value: "8084"
+            - name: TCM_LOG_LEVEL
+              value: warn
+            # 知识服务额外覆盖 MinIO bucket 与 embedding provider
+            - name: TCM_MINIO_BUCKET_NAME
+              value: "tcm-knowledge"
+            - name: TCM_EMBEDDING_PROVIDER
+              value: "local"
+            - name: TCM_EMBEDDING_MODEL
+              value: "bge-large-zh-v1.5"
+          envFrom:
+            - configMapRef:
+                name: tcm-config
+            - secretRef:
+                name: tcm-secret
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "4"
+              memory: 3Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      imagePullSecrets:
+        - name: ghcr-pull-secret

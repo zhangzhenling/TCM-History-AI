@@ -1,0 +1,44 @@
+{{- /*
+部署后提示，helm install 完成后自动打印
+*/ -}}
+TCM-History-AI 平台已部署到命名空间 {{ include "tcm.namespace" . }}。
+
+1. 查看所有资源：
+   kubectl -n {{ include "tcm.namespace" . }} get pods,svc,ingress
+
+2. 等待中间件与微服务就绪：
+   kubectl -n {{ include "tcm.namespace" . }} wait --for=condition=ready pod --all --timeout=300s
+
+3. 访问 Gateway（Ingress host: {{ .Values.ingress.host }}）：
+   {{- if .Values.ingress.tls.enabled }}
+   curl -k https://{{ .Values.ingress.host }}/health
+   {{- else }}
+   curl http://{{ .Values.ingress.host }}/health
+   {{- end }}
+
+   若本地访问，可临时 port-forward：
+   kubectl -n {{ include "tcm.namespace" . }} port-forward svc/gateway 8080:8080
+   curl http://127.0.0.1:8080/health
+
+4. 查看某服务日志：
+   kubectl -n {{ include "tcm.namespace" . }} logs -f deployment/gateway
+
+5. !!! 重要：本 chart 的 Secret 为占位值，生产部署前必须通过 --set 或外部 secret 覆盖 !!!
+   示例：
+   helm upgrade {{ .Release.Name }} . \
+     --reuse-values \
+     --set secrets.dbPassword=<strong-password> \
+     --set secrets.jwtSecret=<long-random-string> \
+     --set secrets.llmApiKey=<your-llm-key>
+
+6. 滚动更新镜像（修改 global.appVersion 后）：
+   helm upgrade {{ .Release.Name }} . --set global.appVersion=<new-sha>
+
+7. 回滚：
+   helm rollback {{ .Release.Name }} <REVISION>
+
+端口映射（取自 backend/*/internal/conf/config.dev.yaml）：
+  gateway 8080 | user 8081 | history 8082 | knowledge 8084
+  graph 8085   | ai 8086   | learning 8087
+中间件：pg 5432 | redis 6379 | neo4j 7474/7687 | milvus 19530
+        minio 9000/9001 | meili 7700 | rabbitmq 5672/15672

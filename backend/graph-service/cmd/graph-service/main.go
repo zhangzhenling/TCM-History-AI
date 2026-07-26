@@ -79,7 +79,8 @@ func main() {
 
 	// Start the RabbitMQ subscriber in the background. The handler dispatches
 	// each consumed event into SyncUseCase (doc/05 §5.6). Subscribe blocks
-	// until ctx is cancelled; the stub implementation returns immediately.
+	// until ctx is cancelled or the broker delivery channel closes; best-effort
+	// on dial failure (returns nil after logging).
 	subscriberCtx, cancelSubscriber := context.WithCancel(context.Background())
 	defer cancelSubscriber()
 	go func() {

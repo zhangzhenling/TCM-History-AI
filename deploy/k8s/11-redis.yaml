@@ -1,0 +1,106 @@
+# Redis 7 单实例 StatefulSet（AOF 持久化）
+# 生产高可用建议改用 redis-operator 一主两从三哨兵（见 doc/16-Kubernetes部署.md 第 3.2 节）
+# 端口：6379（容器内 / Service）
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "7"
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp-redis
+      port: 6379
+      targetPort: tcp-redis
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "7"
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  serviceName: redis
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "7"
+        app.kubernetes.io/component: cache
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
+            - --appendonly
+            - "yes"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_REDIS_PASSWORD
+          ports:
+            - name: tcp-redis
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$(REDIS_PASSWORD)\" ping | grep -q PONG"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$(REDIS_PASSWORD)\" ping | grep -q PONG"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

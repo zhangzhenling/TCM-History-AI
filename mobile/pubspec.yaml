@@ -1,0 +1,55 @@
+name: tcm_history_ai
+description: TCM-History-AI 中医发展史 AI 学习平台移动端。基于 Flutter 的碎片化学习入口，与 PC 端共用同一套后端 API。
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # 状态管理：Riverpod
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # 路由：go_router
+  go_router: ^14.2.0
+
+  # 网络层：Dio + retrofit（生成类型化 API 客户端）
+  dio: ^5.5.0+1
+  retrofit: ^4.4.1
+
+  # JSON 序列化
+  json_annotation: ^4.9.0
+
+  # 本地存储：token 持久化
+  shared_preferences: ^2.3.1
+
+  # 国际化
+  intl: ^0.19.0
+
+  # UI 辅助
+  cached_network_image: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  # 代码生成（后续可启用 retrofit + json_serializable 生成 .g.dart）
+  build_runner: ^2.4.11
+  json_serializable: ^6.8.0
+  retrofit_generator: ^8.1.2
+  riverpod_generator: ^2.4.0
+  riverpod_lint: ^2.3.10
+  custom_lint: ^0.6.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

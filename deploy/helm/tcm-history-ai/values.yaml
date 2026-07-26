@@ -1,0 +1,215 @@
+# TCM-History-AI Helm Chart 默认值（dev 友好）
+# 生产覆盖见 values.prod.yaml，开发覆盖见 values.dev.yaml
+# 端口取自 backend/*/internal/conf/config.dev.yaml 实际确认值
+
+# ===== 全局 =====
+global:
+  imageRegistry: ghcr.io/tcm-history-ai
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: ghcr-pull-secret
+  storageClass: standard      # PVC storageClass，生产建议换 fast-ssd
+  namespace: tcm-history-ai
+  appVersion: "2.1"
+  logLevel: info
+  appEnv: dev
+
+# ===== Ingress =====
+ingress:
+  enabled: true
+  className: nginx
+  host: api.tcm-history.local
+  tls:
+    enabled: false
+    secretName: tcm-tls
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/limit-rps: "200"
+
+# ===== 中间件（StatefulSet，单实例为默认；prod 通过 values.prod.yaml 调整资源/存储）=====
+middleware:
+  postgres:
+    enabled: true
+    image: postgres:16-alpine
+    port: 5432
+    replicas: 1
+    storage: 50Gi
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  redis:
+    enabled: true
+    image: redis:7-alpine
+    port: 6379
+    replicas: 1
+    storage: 10Gi
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  neo4j:
+    enabled: true
+    image: neo4j:5-community
+    ports: { http: 7474, bolt: 7687 }
+    replicas: 1
+    storage: 50Gi
+    logStorage: 10Gi
+    resources:
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  milvus:
+    enabled: true
+    image: milvusdb/milvus:v2.4.0
+    etcdImage: quay.io/coreos/etcd:v3.5.5
+    ports: { grpc: 19530, metrics: 9091 }
+    replicas: 1
+    storage: 50Gi
+    etcdStorage: 10Gi
+    resources:
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { cpu: "2", memory: 4Gi }
+    etcdResources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  minio:
+    enabled: true
+    image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+    ports: { api: 9000, console: 9001 }
+    replicas: 1
+    storage: 100Gi
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1Gi }
+  meilisearch:
+    enabled: true
+    image: getmeili/meilisearch:v1.6
+    port: 7700
+    replicas: 1
+    storage: 20Gi
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1Gi }
+  rabbitmq:
+    enabled: true
+    image: rabbitmq:3.13-management-alpine
+    ports: { amqp: 5672, management: 15672 }
+    replicas: 1
+    storage: 20Gi
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1Gi }
+
+# ===== 后端微服务（Deployment + Service，用 range 遍历，见 templates/backend-deployments.yaml）=====
+# 端口取自 config.dev.yaml 实际值：gateway 8080 / user 8081 / history 8082 /
+#   knowledge 8084 / graph 8085 / ai 8086 / learning 8087
+backend:
+  gateway:
+    port: 8080
+    replicas: 1
+    component: api-gateway
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 4
+      cpuUtilization: 70
+  user-service:
+    port: 8081
+    replicas: 1
+    component: microservice
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  history-service:
+    port: 8082
+    replicas: 1
+    component: microservice
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  knowledge-service:
+    port: 8084
+    replicas: 1
+    component: microservice
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: "1", memory: 1Gi }
+    # 额外环境变量（覆盖默认 configmap）
+    env:
+      TCM_MINIO_BUCKET_NAME: tcm-knowledge
+      TCM_EMBEDDING_PROVIDER: local
+      TCM_EMBEDDING_MODEL: bge-large-zh-v1.5
+  graph-service:
+    port: 8085
+    replicas: 1
+    component: microservice
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: 500m, memory: 1Gi }
+  ai-service:
+    port: 8086
+    replicas: 1
+    component: microservice
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "2", memory: 2Gi }
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 6
+      cpuUtilization: 70
+    env:
+      TCM_LLM_PROVIDER: openai
+      TCM_LLM_MODEL: gpt-4o-mini
+      TCM_LLM_ENABLED: "true"
+  learning-service:
+    port: 8087
+    replicas: 1
+    component: microservice
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+
+# ===== 凭据（占位，生产必须替换；可用 --set 或外部 secret 覆盖）=====
+secrets:
+  dbPassword: "postgres-password-placeholder"
+  redisPassword: "redis-password-placeholder"
+  neo4jPassword: "neo4j-password-placeholder"
+  minioAccessKey: "minio-accesskey-placeholder"
+  minioSecretKey: "minio-secretkey-placeholder"
+  meiliApiKey: "meili-masterkey-placeholder"
+  rabbitmqPassword: "rabbitmq-password-placeholder"
+  jwtSecret: "CHANGE_ME_TO_A_LONG_RANDOM_STRING"
+  llmApiKey: "CHANGE_ME_LLM_API_KEY"
+  embeddingApiKey: "CHANGE_ME_EMBEDDING_API_KEY"
+
+# ===== 非敏感全局配置（注入 ConfigMap，TCM_ 前缀）=====
+config:
+  dbDriver: postgres
+  dbHost: postgres
+  dbPort: "5432"
+  dbUser: tcm
+  dbName: tcm_history
+  dbSslmode: disable
+  redisHost: redis
+  redisPort: "6379"
+  neo4jHost: neo4j
+  neo4jPort: "7687"
+  neo4jUser: neo4j
+  milvusHost: milvus
+  milvusPort: "19530"
+  minioEndpoint: minio:9000
+  minioBucket: tcm-history
+  meiliHost: meilisearch
+  meiliPort: "7700"
+  rabbitmqHost: rabbitmq
+  rabbitmqPort: "5672"
+  rabbitmqUser: tcm
+  rabbitmqVhost: /tcm
+  jwtIssuer: tcm-history-ai
+  tracingOtlpEndpoint: otel-collector:4317
+  tracingEnabled: "false"

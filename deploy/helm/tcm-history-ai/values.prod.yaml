@@ -1,0 +1,103 @@
+# 生产环境覆盖值
+# 用法：helm install tcm-history-ai deploy/helm/tcm-history-ai -f deploy/helm/tcm-history-ai/values.prod.yaml
+global:
+  imageRegistry: ghcr.io/tcm-history-ai
+  imagePullPolicy: IfNotPresent
+  storageClass: fast-ssd        # 生产换更高性能 SC
+  logLevel: warn
+  appEnv: prod
+
+# Ingress 启用 TLS
+ingress:
+  enabled: true
+  host: api.tcm-history.ai
+  tls:
+    enabled: true
+    secretName: tcm-tls
+
+# 中间件生产配额（单实例仍为 StatefulSet；多副本高可用建议改用 Operator，见 doc/16-Kubernetes部署.md）
+middleware:
+  postgres:
+    storage: 200Gi
+    resources:
+      requests: { cpu: "2", memory: 8Gi }
+      limits: { cpu: "4", memory: 16Gi }
+  redis:
+    storage: 50Gi
+    resources:
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  neo4j:
+    storage: 200Gi
+    resources:
+      requests: { cpu: "2", memory: 8Gi }
+      limits: { cpu: "4", memory: 16Gi }
+  milvus:
+    storage: 200Gi
+    etcdStorage: 50Gi
+    resources:
+      requests: { cpu: "2", memory: 8Gi }
+      limits: { cpu: "4", memory: 16Gi }
+  minio:
+    storage: 500Gi
+    resources:
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  meilisearch:
+    storage: 100Gi
+    resources:
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  rabbitmq:
+    storage: 100Gi
+    resources:
+      requests: { cpu: "2", memory: 2Gi }
+      limits: { cpu: "4", memory: 4Gi }
+
+# 后端微服务生产副本数与资源（参考 doc/14-部署方案.md 第 11.1 节）
+backend:
+  gateway:
+    replicas: 3
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: "2", memory: 2Gi }
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      cpuUtilization: 70
+  user-service:
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: "1500m", memory: 1Gi }
+  history-service:
+    replicas: 2
+    resources:
+      requests: { cpu: "1", memory: 1Gi }
+      limits: { cpu: "3", memory: 2Gi }
+  knowledge-service:
+    replicas: 2
+    resources:
+      requests: { cpu: "1", memory: 1Gi }
+      limits: { cpu: "4", memory: 3Gi }
+  graph-service:
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "2", memory: 2Gi }
+  ai-service:
+    replicas: 3
+    resources:
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { cpu: "4", memory: 4Gi }
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 12
+      cpuUtilization: 70
+  learning-service:
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: "2", memory: 1Gi }

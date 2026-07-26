@@ -1,0 +1,109 @@
+# Meilisearch 单实例 StatefulSet（v1.6，含 master key）
+# 生产多副本读分担需配合其分布式特性评估，本清单按单主实例 + 备份恢复
+# 端口：7700（HTTP）
+apiVersion: v1
+kind: Service
+metadata:
+  name: meilisearch
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: meilisearch
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "1.6"
+    app.kubernetes.io/component: search-engine
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 7700
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: meilisearch
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: meilisearch
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: meilisearch
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "1.6"
+    app.kubernetes.io/component: search-engine
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  serviceName: meilisearch
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: meilisearch
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: meilisearch
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "1.6"
+        app.kubernetes.io/component: search-engine
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      containers:
+        - name: meilisearch
+          image: getmeili/meilisearch:v1.6
+          imagePullPolicy: IfNotPresent
+          args: ["--env", "production", "--master-key", "$(MEILI_MASTER_KEY)"]
+          env:
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tcm-secret
+                  key: TCM_MEILI_API_KEY
+            - name: MEILI_ENV
+              value: production
+            - name: MEILI_NO_ANALYTICS
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 7700
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /meili_data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
