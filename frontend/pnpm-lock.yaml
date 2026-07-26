@@ -39,6 +39,61 @@ importers:
         specifier: ^5.5.4
         version: 5.9.3
 
+  apps/admin:
+    dependencies:
+      '@ant-design/icons-vue':
+        specifier: ^7.0.1
+        version: 7.0.1(vue@3.5.40(typescript@5.9.3))
+      '@tcm/api':
+        specifier: workspace:*
+        version: link:../../packages/api
+      '@tcm/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@tcm/stores':
+        specifier: workspace:*
+        version: link:../../packages/stores
+      ant-design-vue:
+        specifier: ^4.2.5
+        version: 4.2.6(vue@3.5.40(typescript@5.9.3))
+      axios:
+        specifier: ^1.7.4
+        version: 1.18.1
+      dayjs:
+        specifier: ^1.11.13
+        version: 1.11.21
+      pinia:
+        specifier: ^2.2.2
+        version: 2.3.1(typescript@5.9.3)(vue@3.5.40(typescript@5.9.3))
+      pinia-plugin-persistedstate:
+        specifier: ^3.2.3
+        version: 3.2.3(pinia@2.3.1(typescript@5.9.3)(vue@3.5.40(typescript@5.9.3)))
+      vue:
+        specifier: ^3.4.38
+        version: 3.5.40(typescript@5.9.3)
+      vue-router:
+        specifier: ^4.4.3
+        version: 4.6.4(vue@3.5.40(typescript@5.9.3))
+    devDependencies:
+      '@vitejs/plugin-vue':
+        specifier: ^5.1.2
+        version: 5.2.4(vite@5.4.21(@types/node@20.19.43)(less@4.8.0))(vue@3.5.40(typescript@5.9.3))
+      less:
+        specifier: ^4.2.0
+        version: 4.8.0
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      unplugin-vue-components:
+        specifier: ^0.27.4
+        version: 0.27.5(@babel/parser@7.29.7)(rollup@4.62.2)(vue@3.5.40(typescript@5.9.3))
+      vite:
+        specifier: ^5.4.2
+        version: 5.4.21(@types/node@20.19.43)(less@4.8.0)
+      vue-tsc:
+        specifier: ^2.0.29
+        version: 2.2.12(typescript@5.9.3)
+
   apps/learner:
     dependencies:
       '@ant-design/icons-vue':

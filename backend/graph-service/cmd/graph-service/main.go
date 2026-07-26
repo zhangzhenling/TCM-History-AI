@@ -77,6 +77,17 @@ func main() {
 		zap.Int64("node_id", cfg.App.NodeID),
 		zap.Bool("neo4j_enabled", cfg.Neo4j.Enabled))
 
+	// Start the RabbitMQ subscriber in the background. The handler dispatches
+	// each consumed event into SyncUseCase (doc/05 §5.6). Subscribe blocks
+	// until ctx is cancelled; the stub implementation returns immediately.
+	subscriberCtx, cancelSubscriber := context.WithCancel(context.Background())
+	defer cancelSubscriber()
+	go func() {
+		if err := app.StartSubscriber(subscriberCtx); err != nil {
+			logger.Default().Warn("graph subscriber exited", zap.Error(err))
+		}
+	}()
+
 	go func() {
 		h.Spin()
 	}()

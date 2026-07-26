@@ -1,0 +1,62 @@
+// 全局样式：注入设计 Token 为 CSS 变量，定义基础排版。
+// 管理端主色调采用更具「管理感」的深藏青，与学习端朱砂红区分。
+// Token 值与 packages/shared/src/design-tokens.ts 保持风格同步。
+
+:root {
+  --tcm-color-primary: #2c4a6b;
+  --tcm-color-primary-hover: #1d3958;
+  --tcm-color-ink: #1f2a44;
+  --tcm-color-paper: #f5f7fa;
+  --tcm-color-sider: #001529;
+  --tcm-color-celadon: #5c8a6a;
+  --tcm-color-indigo: #2c4a6b;
+  --tcm-color-gold: #c9a24a;
+  --tcm-shadow-card: 0 2px 8px rgba(31, 42, 68, 0.08);
+  --tcm-shadow-hover: 0 4px 16px rgba(31, 42, 68, 0.12);
+  --tcm-radius-base: 6px;
+  --tcm-radius-lg: 8px;
+  --tcm-spacing-base: 12px;
+  --tcm-spacing-lg: 16px;
+  --tcm-spacing-xl: 24px;
+  --tcm-font-size-base: 14px;
+  --tcm-font-size-lg: 16px;
+  --tcm-font-size-display: 28px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI',
+    sans-serif;
+  font-size: var(--tcm-font-size-base);
+  color: var(--tcm-color-ink);
+  background-color: var(--tcm-color-paper);
+}
+
+a {
+  color: var(--tcm-color-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--tcm-color-primary-hover);
+}
+
+.admin-page {
+  padding: var(--tcm-spacing-xl);
+}
+
+.admin-page-title {
+  font-size: var(--tcm-font-size-display);
+  font-weight: 600;
+  margin: 0 0 var(--tcm-spacing-lg);
+}

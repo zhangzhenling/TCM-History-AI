@@ -62,3 +62,22 @@ export interface UpdateSettingsRequest {
   notify_push?: boolean;
   preferences?: unknown;
 }
+
+/** 管理端用户列表项（对齐设计文档 GET /admin/users 响应行）。 */
+export interface UserListItem {
+  id: number;
+  username: string;
+  nickname?: string;
+  email?: string;
+  phone?: string;
+  status: string;
+  created_at: string;
+}
+
+/** 管理端用户列表查询参数。 */
+export interface UserListParams {
+  page?: number;
+  page_size?: number;
+  keyword?: string;
+  status?: string;
+}

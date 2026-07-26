@@ -3,11 +3,14 @@
 
 import type { AxiosInstance } from 'axios';
 
+import { buildQuery, type ListResponse } from '../types';
 import type {
   ProfileResponse,
   SettingsResponse,
   UpdateProfileRequest,
   UpdateSettingsRequest,
+  UserListItem,
+  UserListParams,
 } from './user-types';
 
 export class UserApi {
@@ -27,5 +30,12 @@ export class UserApi {
 
   updateSettings(payload: UpdateSettingsRequest): Promise<SettingsResponse> {
     return this.http.put('/api/v1/users/settings', payload) as unknown as Promise<SettingsResponse>;
+  }
+
+  // ---- Admin: 用户列表（管理端，对齐设计文档 GET /admin/users） ----
+  list(params?: UserListParams): Promise<ListResponse<UserListItem>> {
+    return this.http.get('/api/v1/users', {
+      params: buildQuery(params ?? {}),
+    }) as unknown as Promise<ListResponse<UserListItem>>;
   }
 }

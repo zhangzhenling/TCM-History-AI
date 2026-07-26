@@ -7,6 +7,7 @@ import (
 )
 
 // ListResponse is the generic paginated payload returned by every list endpoint.
+// 复用 knowledge-service 的 ListResponse 模式。
 type ListResponse[T any] struct {
 	Page      int `json:"page"`
 	PageSize  int `json:"page_size"`
@@ -27,24 +28,7 @@ func NewListResponse[T any](p pagination.Params, total int, items []T) ListRespo
 	}
 }
 
-// PageFrom extracts pagination params from any request struct that has them.
-type PageFrom struct {
-	Page     int `query:"page,optional"`
-	PageSize int `query:"page_size,optional"`
-}
-
-// ToParams converts to a pagination.Params.
-func (p PageFrom) ToParams() pagination.Params {
-	return pagination.Params{Page: p.Page, PageSize: p.PageSize}
-}
-
 // UIDResponse is returned by create endpoints to give callers the new uid.
 type UIDResponse struct {
 	UID string `json:"uid"`
-}
-
-// SyncResponse is returned by the manual sync trigger endpoint.
-type SyncResponse struct {
-	Accepted bool   `json:"accepted"`
-	Message  string `json:"message"`
 }

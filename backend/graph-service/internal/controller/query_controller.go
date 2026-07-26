@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
+	"tcm-history-ai/backend/graph-service/internal/application/dto"
 	"tcm-history-ai/backend/graph-service/internal/application/usecase"
 )
 
@@ -74,5 +75,18 @@ func (h *QueryController) GetSubgraph(ctx context.Context, c *app.RequestContext
 	depth := queryInt(c, "depth", 2)
 	limit := queryInt(c, "limit", 100)
 	resp, err := h.uc.GetSubgraph(ctx, centerUID, depth, limit)
+	okOrFail(ctx, c, resp, err)
+}
+
+// Search GET /api/v1/graph/search?keyword=&label=&limit=
+// 调用 Neo4j 全文索引检索节点（doc/05 §5.8.3），与 NodeController.List 的
+// PostgreSQL 镜像检索解耦。
+func (h *QueryController) Search(ctx context.Context, c *app.RequestContext) {
+	params := &dto.SearchParams{
+		Keyword: queryString(c, "keyword"),
+		Label:   queryString(c, "label"),
+		Limit:   queryInt(c, "limit", 20),
+	}
+	resp, err := h.uc.SearchNodes(ctx, params)
 	okOrFail(ctx, c, resp, err)
 }

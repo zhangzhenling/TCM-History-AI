@@ -13,7 +13,7 @@
     "dev:admin": "pnpm --filter @tcm/admin dev",
     "build": "pnpm --filter @tcm/learner build",
     "build:admin": "pnpm --filter @tcm/admin build",
-    "typecheck": "pnpm -r --filter=./packages/* --filter=@tcm/learner typecheck",
+    "typecheck": "pnpm -r --filter=./packages/* --filter=@tcm/learner --filter=@tcm/admin typecheck",
     "lint": "eslint --ext .ts,.tsx,.vue .",
     "lint:fix": "eslint --ext .ts,.tsx,.vue . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,vue,json,md,less,css}\"",

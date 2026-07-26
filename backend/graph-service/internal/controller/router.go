@@ -12,14 +12,14 @@ import (
 
 // Deps bundles every controller the router needs. It is populated by wire.
 type Deps struct {
-	Node         *NodeController
-	Relationship *RelationshipController
-	Query        *QueryController
-	Sync         *SyncController
+	Node  *NodeController
+	Edge  *EdgeController
+	Query *QueryController
+	Sync  *SyncController
 }
 
 // RegisterRoutes wires every Graph Service route onto the Hertz server.
-// Routes follow RESTful conventions under /api/v1/graph.
+// Routes follow RESTful conventions under /api/v1/graph (doc/05 §5.7).
 func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	h.GET("/health", func(ctx context.Context, c *app.RequestContext) {
 		response.OKWith(ctx, c, "graph-service up", map[string]any{
@@ -34,21 +34,24 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	v1.GET("/nodes", deps.Node.List)
 	v1.POST("/nodes", deps.Node.Create)
 	v1.GET("/nodes/:uid", deps.Node.Get)
+	v1.PUT("/nodes/:uid", deps.Node.Update)
 	v1.DELETE("/nodes/:uid", deps.Node.Delete)
-	v1.GET("/nodes/search", deps.Node.Search)
 
-	// Relationships
-	v1.POST("/relationships", deps.Relationship.Create)
-	v1.GET("/relationships/:uid", deps.Relationship.Get)
-	v1.DELETE("/relationships/:uid", deps.Relationship.Delete)
+	// Edges
+	v1.GET("/edges", deps.Edge.List)
+	v1.POST("/edges", deps.Edge.Create)
+	v1.GET("/edges/:uid", deps.Edge.Get)
+	v1.PUT("/edges/:uid", deps.Edge.Update)
+	v1.DELETE("/edges/:uid", deps.Edge.Delete)
 
-	// Complex queries
+	// Complex queries (doc/05 §5.5)
 	v1.GET("/persons/:uid/works", deps.Query.GetPersonWorks)
 	v1.GET("/schools/:name/lineage", deps.Query.GetSchoolLineage)
 	v1.GET("/paths/shortest", deps.Query.FindShortestPath)
 	v1.GET("/dynasties/:name/figures", deps.Query.GetDynastyFigures)
 	v1.GET("/prescriptions/:uid/detail", deps.Query.GetPrescriptionDetail)
 	v1.GET("/subgraph", deps.Query.GetSubgraph)
+	v1.GET("/search", deps.Query.Search)
 
 	// Sync
 	v1.POST("/sync", deps.Sync.TriggerSync)

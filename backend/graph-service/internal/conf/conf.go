@@ -39,8 +39,9 @@ type HTTPConfig struct {
 // Neo4jConfig captures the Neo4j broker coordinates. Enabled=false 时
 // infrastructure/neo4j.Client 退化为内存 stub，便于离线开发（doc/05 §5.7）。
 type Neo4jConfig struct {
-	URI      string `mapstructure:"uri"`
-	Username string `mapstructure:"username"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
 	Enabled  bool   `mapstructure:"enabled"`
 }
@@ -100,11 +101,14 @@ func (c *Config) Validate() error {
 	if c.DB.DBName == "" {
 		problems = append(problems, "db.dbname is required")
 	}
-	if c.Neo4j.URI == "" {
-		c.Neo4j.URI = "bolt://localhost:7687"
+	if c.Neo4j.Host == "" {
+		c.Neo4j.Host = "localhost"
 	}
-	if c.Neo4j.Username == "" {
-		c.Neo4j.Username = "neo4j"
+	if c.Neo4j.Port <= 0 {
+		c.Neo4j.Port = 7687
+	}
+	if c.Neo4j.User == "" {
+		c.Neo4j.User = "neo4j"
 	}
 	if c.RabbitMQ.Host == "" {
 		problems = append(problems, "rabbitmq.host is required")

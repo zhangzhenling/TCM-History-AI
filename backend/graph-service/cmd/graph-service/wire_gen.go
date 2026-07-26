@@ -20,6 +20,7 @@ import (
 	"tcm-history-ai/backend/graph-service/internal/controller"
 	"tcm-history-ai/backend/graph-service/internal/domain/event"
 	"tcm-history-ai/backend/graph-service/internal/domain/repository"
+	"tcm-history-ai/backend/graph-service/internal/domain/service"
 	"tcm-history-ai/backend/graph-service/internal/infrastructure/eventbus"
 	"tcm-history-ai/backend/graph-service/internal/infrastructure/neo4j"
 	"tcm-history-ai/backend/graph-service/internal/infrastructure/persistence"
@@ -28,28 +29,42 @@ import (
 
 // App holds every wired dependency required to serve HTTP traffic.
 type App struct {
-	graphRepo  repository.GraphRepository
-	syncLogRepo repository.SyncLogRepository
-	publisher  event.EventPublisher
+	nodeRepo     repository.GraphNodeRepository
+	edgeRepo     repository.GraphEdgeRepository
+	syncLogRepo  repository.GraphSyncLogRepository
+	graphStore   service.GraphStore
+	publisher    event.EventPublisher
 
-	nodeUC         *usecase.NodeUseCase
-	relationshipUC *usecase.RelationshipUseCase
-	queryUC        *usecase.QueryUseCase
-	syncUC         *usecase.SyncUseCase
+	nodeUC  *usecase.NodeUseCase
+	edgeUC  *usecase.EdgeUseCase
+	queryUC *usecase.QueryUseCase
+	syncUC  *usecase.SyncUseCase
 
-	db      *gorm.DB
-	neo4j   *neo4j.Client
-	pub     *eventbus.RabbitMQEventPublisher
+	db     *gorm.DB
+	neo4j  *neo4j.Client
+	pub    *eventbus.RabbitMQEventPublisher
+	sub    *eventbus.RabbitMQEventSubscriber
 }
 
 // ControllerDeps returns the bundle of controllers required by the router.
 func (a *App) ControllerDeps() *controller.Deps {
 	return &controller.Deps{
-		Node:         controller.NewNodeController(a.nodeUC),
-		Relationship: controller.NewRelationshipController(a.relationshipUC),
-		Query:        controller.NewQueryController(a.queryUC),
-		Sync:         controller.NewSyncController(a.syncUC),
+		Node:  controller.NewNodeController(a.nodeUC),
+		Edge:  controller.NewEdgeController(a.edgeUC),
+		Query: controller.NewQueryController(a.queryUC),
+		Sync:  controller.NewSyncController(a.syncUC),
 	}
+}
+
+// StartSubscriber launches the RabbitMQ consumer. The handler dispatches each
+// delivered event into SyncUseCase.Dispatch (doc/05 §5.6). The call blocks
+// until ctx is cancelled; the stub implementation returns immediately so
+// development can proceed without a live broker.
+func (a *App) StartSubscriber(ctx context.Context) error {
+	handler := func(c context.Context, routingKey string, body []byte) error {
+		return a.syncUC.Dispatch(c, routingKey, body)
+	}
+	return a.sub.Subscribe(ctx, handler)
 }
 
 // InitializeApp builds the full dependency graph from configuration.
@@ -70,20 +85,23 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	}
 	app.db = db
 
-	// Neo4j client. 在 enabled=false 时为内存 stub（doc/05 §5.7）。
+	// Repositories (PostgreSQL-backed mirror tables).
+	app.nodeRepo = persistence.NewGraphNodeRepo(db)
+	app.edgeRepo = persistence.NewGraphEdgeRepo(db)
+	app.syncLogRepo = persistence.NewGraphSyncLogRepo(db)
+
+	// Neo4j client (GraphStore). 在 enabled=false 时为内存 stub（doc/05 §5.7）。
 	neo4jClient := neo4j.New(neo4j.Config{
-		URI:      cfg.Neo4j.URI,
-		Username: cfg.Neo4j.Username,
+		Host:     cfg.Neo4j.Host,
+		Port:     cfg.Neo4j.Port,
+		User:     cfg.Neo4j.User,
 		Password: cfg.Neo4j.Password,
 		Enabled:  cfg.Neo4j.Enabled,
 	})
 	app.neo4j = neo4jClient
-	app.graphRepo = neo4jClient
+	app.graphStore = neo4jClient
 	// Best-effort: 建立 8 类节点唯一约束与索引（doc/05 §5.8）。
 	_ = neo4jClient.EnsureConstraints(context.Background())
-
-	// Sync log repository (PostgreSQL-backed).
-	app.syncLogRepo = persistence.NewSyncLogRepo(db)
 
 	// Event publisher (RabbitMQ).
 	rmqCfg := rabbitmq.Config{
@@ -98,11 +116,15 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.publisher = pub
 	cleanups = append(cleanups, func() { _ = pub.Close() })
 
+	// Event subscriber (RabbitMQ). Subscribe is invoked asynchronously from
+	// main after the HTTP server starts; the handler dispatches into SyncUseCase.
+	app.sub = eventbus.NewRabbitMQEventSubscriber(rmqCfg, "graph-service.sync")
+
 	// Use cases.
-	app.nodeUC = usecase.NewNodeUseCase(app.graphRepo, app.publisher)
-	app.relationshipUC = usecase.NewRelationshipUseCase(app.graphRepo, app.publisher)
-	app.queryUC = usecase.NewQueryUseCase(app.graphRepo)
-	app.syncUC = usecase.NewSyncUseCase(app.graphRepo, app.syncLogRepo)
+	app.nodeUC = usecase.NewNodeUseCase(app.nodeRepo, app.graphStore, app.publisher)
+	app.edgeUC = usecase.NewEdgeUseCase(app.edgeRepo, app.graphStore, app.publisher)
+	app.queryUC = usecase.NewQueryUseCase(app.graphStore)
+	app.syncUC = usecase.NewSyncUseCase(app.graphStore, app.syncLogRepo)
 
 	cleanups = append(cleanups, func() {
 		sqlDB, _ := db.DB()

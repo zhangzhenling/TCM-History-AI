@@ -1,0 +1,45 @@
+# Learning Service 开发环境配置
+app:
+  name: learning-service
+  env: dev
+  node_id: 7
+
+http:
+  port: 8087
+  read_timeout_seconds: 30
+  write_timeout_seconds: 60
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: tcm
+  password: tcm_pass
+  dbname: tcm_learning
+  sslmode: disable
+  max_open_conns: 20
+  max_idle_conns: 5
+  conn_max_lifetime_seconds: 300
+  log_level: warn
+
+redis:
+  host: localhost:6379
+  port: 6379
+  password: redis_pass
+  db: 0
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: tcm
+  password: tcm_pass
+  vhost: /tcm
+
+log:
+  level: info
+  encoding: console
+
+tracing:
+  service_name: learning-service
+  otlp_endpoint: localhost:4317
+  enabled: false
