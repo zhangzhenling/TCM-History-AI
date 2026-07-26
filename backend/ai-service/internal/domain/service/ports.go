@@ -55,3 +55,55 @@ type ToolExecutor interface {
 type PromptRenderer interface {
 	Render(template string, variables map[string]any) (string, error)
 }
+
+// RetrievedChunk mirrors the Knowledge Service RetrieveResponse chunk.
+// 用于 AI Service 接收 RAG 检索结果，作为 Agent rag 通道的证据。
+type RetrievedChunk struct {
+	ChunkID         string  `json:"chunk_id"`
+	DocumentID      int64   `json:"document_id"`
+	ClassicCode     string  `json:"classic_code"`
+	Volume          string  `json:"volume"`
+	ClauseNo        string  `json:"clause_no"`
+	ContentType     string  `json:"content_type"`
+	Content         string  `json:"content"`
+	TextOriginal    string  `json:"text_original"`
+	TextTranslation string  `json:"text_translation"`
+	Score           float32 `json:"score"`
+	Source          string  `json:"source"`
+}
+
+// RetrieveResult carries the RAG retrieval response from Knowledge Service.
+type RetrieveResult struct {
+	Query      string            `json:"query"`
+	TopK       int               `json:"top_k"`
+	LatencyMs  int               `json:"latency_ms"`
+	Total      int               `json:"total"`
+	Chunks     []RetrievedChunk  `json:"chunks"`
+	QueryLogID int64             `json:"query_log_id"`
+}
+
+// GraphNode is the minimal node view returned by Graph Service.
+type GraphNode struct {
+	UID        string         `json:"uid"`
+	Label      string         `json:"label"`
+	Name       string         `json:"name"`
+	Properties map[string]any `json:"properties"`
+}
+
+// GraphSearchResult carries the Graph Service search response.
+type GraphSearchResult struct {
+	Keyword string      `json:"keyword"`
+	Label   string      `json:"label"`
+	Total   int         `json:"total"`
+	Items   []GraphNode `json:"items"`
+}
+
+// RetrievalClient is the port for calling Knowledge/Graph Service.
+// Agent rag 通道调用 Retrieve，graph 通道调用 SearchNodes。
+// 在 services 未配置时实现可返回空结果，保证离线开发链路可运行。
+type RetrievalClient interface {
+	// Retrieve calls Knowledge Service POST /api/v1/knowledge/retrieve.
+	Retrieve(ctx context.Context, query string, topK int) (*RetrieveResult, error)
+	// SearchNodes calls Graph Service GET /api/v1/graph/search.
+	SearchNodes(ctx context.Context, keyword, label string, limit int) (*GraphSearchResult, error)
+}

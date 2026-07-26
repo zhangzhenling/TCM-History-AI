@@ -23,6 +23,7 @@ import (
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/llm"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/persistence"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/prompt"
+	"tcm-history-ai/backend/ai-service/internal/infrastructure/retrieval"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/tool"
 	"tcm-history-ai/backend/pkg/rabbitmq"
 )
@@ -44,6 +45,7 @@ type App struct {
 	llm       service.LLMProvider
 	renderer  service.PromptRenderer
 	toolExec  service.ToolExecutor
+	retriever service.RetrievalClient
 	publisher event.EventPublisher
 }
 
@@ -107,6 +109,13 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 		Enabled:     cfg.LLM.Enabled,
 	})
 
+	// Retrieval client (HTTP-based; empty URLs degrade to no-op).
+	app.retriever = retrieval.New(retrieval.Config{
+		KnowledgeURL: cfg.Services.KnowledgeURL,
+		GraphURL:     cfg.Services.GraphURL,
+		Timeout:      cfg.Services.Timeout,
+	})
+
 	// Event publisher (RabbitMQ).
 	rmqCfg := rabbitmq.Config{
 		Host:     cfg.RabbitMQ.Host,
@@ -126,7 +135,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	)
 	app.agentUC = usecase.NewAgentUseCase(
 		app.convRepo, app.agentRepo, app.promptRepo, app.toolRepo,
-		app.llm, app.toolExec, app.renderer, app.publisher,
+		app.llm, app.toolExec, app.retriever, app.renderer, app.publisher,
 	)
 	app.promptUC = usecase.NewPromptUseCase(app.promptRepo, app.renderer)
 	app.toolUC = usecase.NewToolUseCase(app.toolRepo, app.toolExec)

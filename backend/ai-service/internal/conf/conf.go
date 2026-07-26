@@ -17,9 +17,19 @@ type Config struct {
 	DB        gormutil.DBConfig `mapstructure:"db"`
 	JWT       JWTConfig         `mapstructure:"jwt"`
 	LLM       LLMConfig         `mapstructure:"llm"`
+	Services  ServicesConfig    `mapstructure:"services"`
 	RabbitMQ  RabbitMQConfig    `mapstructure:"rabbitmq"`
 	Log       LogConfig         `mapstructure:"log"`
 	Tracing   TracingConfig     `mapstructure:"tracing"`
+}
+
+// ServicesConfig captures the upstream service base URLs that AI Service
+// calls as a client (Knowledge Service for RAG, Graph Service for Cypher).
+// 任一为空时 RetrievalClient 对应方法返回空结果，保证离线开发链路可运行。
+type ServicesConfig struct {
+	KnowledgeURL string `mapstructure:"knowledge_url"` // 例: http://gateway:8080/api/v1/knowledge
+	GraphURL     string `mapstructure:"graph_url"`     // 例: http://gateway:8080/api/v1/graph
+	Timeout      int    `mapstructure:"timeout_seconds"`
 }
 
 // AppConfig carries process-wide metadata.
@@ -114,6 +124,9 @@ func (c *Config) Validate() error {
 	}
 	if c.LLM.Timeout <= 0 {
 		c.LLM.Timeout = 30
+	}
+	if c.Services.Timeout <= 0 {
+		c.Services.Timeout = 10
 	}
 	if c.RabbitMQ.Host == "" {
 		problems = append(problems, "rabbitmq.host is required")
