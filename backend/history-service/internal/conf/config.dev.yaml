@@ -1,0 +1,56 @@
+app:
+  name: history-service
+  env: dev
+  node_id: 3
+
+http:
+  port: 8082
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: tcm_history
+  sslmode: disable
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime_seconds: 3600
+  log_level: warn
+
+jwt:
+  enabled: false
+  secret: ""
+  issuer: tcm-history-ai
+
+meili:
+  host: localhost
+  port: 7700
+  api_key: ""
+  index_prefix: "history_"
+
+minio:
+  endpoint: localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin
+  bucket_name: tcm-history
+  use_ssl: false
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: guest
+  password: guest
+  vhost: "/"
+
+log:
+  level: info
+  encoding: console
+
+tracing:
+  service_name: history-service
+  otlp_endpoint: ""
+  enabled: false

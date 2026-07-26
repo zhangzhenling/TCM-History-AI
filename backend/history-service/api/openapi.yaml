@@ -1,0 +1,870 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI History Service API
+  version: 1.0.0
+  description: |
+    History Service 是中医发展史知识底座，承载八大实体（朝代/学派/人物/著作/事件/方剂/药物/疾病）
+    与四张关联表。本 OpenAPI 描述覆盖各实体 CRUD、跨实体检索以及文件上传。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8082
+    description: local dev
+  - url: http://gateway/api
+    description: production via gateway
+tags:
+  - name: dynasty
+  - name: school
+  - name: person
+  - name: book
+  - name: event
+  - name: prescription
+  - name: medicine
+  - name: disease
+  - name: search
+  - name: upload
+  - name: health
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/history/dynasties:
+    get:
+      tags: [dynasty]
+      summary: List dynasties (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of dynasties
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DynastyList'
+    post:
+      tags: [dynasty]
+      summary: Create a dynasty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DynastyRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DynastyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/history/dynasties/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [dynasty]
+      summary: Get a dynasty
+      responses:
+        '200':
+          description: dynasty
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DynastyResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [dynasty]
+      summary: Update a dynasty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DynastyRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DynastyResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [dynasty]
+      summary: Delete a dynasty
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/history/persons:
+    get:
+      tags: [person]
+      summary: List persons (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of persons
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PersonList'
+    post:
+      tags: [person]
+      summary: Create a person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PersonResponse'
+
+  /api/v1/history/persons/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [person]
+      summary: Get a person
+      responses:
+        '200':
+          description: person
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [person]
+      summary: Update a person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonRequest'
+      responses:
+        '200':
+          description: updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [person]
+      summary: Delete a person
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/schools:
+    get:
+      tags: [school]
+      summary: List schools
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list
+    post:
+      tags: [school]
+      summary: Create a school
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchoolRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/history/schools/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [school]
+      summary: Get a school
+      responses:
+        '200':
+          description: school
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [school]
+      summary: Update a school
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [school]
+      summary: Delete a school
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/books:
+    get:
+      tags: [book]
+      summary: List books
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list
+    post:
+      tags: [book]
+      summary: Create a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/history/books/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [book]
+      summary: Get a book
+      responses:
+        '200':
+          description: book
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [book]
+      summary: Update a book
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [book]
+      summary: Delete a book
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/events:
+    get:
+      tags: [event]
+      summary: List events
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list
+    post:
+      tags: [event]
+      summary: Create an event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/history/events/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [event]
+      summary: Get an event
+      responses:
+        '200':
+          description: event
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [event]
+      summary: Update an event
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [event]
+      summary: Delete an event
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/prescriptions:
+    get:
+      tags: [prescription]
+      summary: List prescriptions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list
+    post:
+      tags: [prescription]
+      summary: Create a prescription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/history/prescriptions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [prescription]
+      summary: Get a prescription
+      responses:
+        '200':
+          description: prescription
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [prescription]
+      summary: Update a prescription
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [prescription]
+      summary: Delete a prescription
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/medicines:
+    get:
+      tags: [medicine]
+      summary: List medicines
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list
+    post:
+      tags: [medicine]
+      summary: Create a medicine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/history/medicines/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [medicine]
+      summary: Get a medicine
+      responses:
+        '200':
+          description: medicine
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [medicine]
+      summary: Update a medicine
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [medicine]
+      summary: Delete a medicine
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/diseases:
+    get:
+      tags: [disease]
+      summary: List diseases
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list
+    post:
+      tags: [disease]
+      summary: Create a disease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiseaseRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/history/diseases/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [disease]
+      summary: Get a disease
+      responses:
+        '200':
+          description: disease
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [disease]
+      summary: Update a disease
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [disease]
+      summary: Delete a disease
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/history/search:
+    get:
+      tags: [search]
+      summary: Cross-entity full-text search via Meilisearch
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: types
+          in: query
+          required: false
+          description: comma-separated indices; defaults to all
+          schema:
+            type: string
+          example: person,book
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/history/upload:
+    post:
+      tags: [upload]
+      summary: Upload a binary file (person portrait, book PDF, ...)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                purpose:
+                  type: string
+                  example: portraits
+              required: [file]
+      responses:
+        '200':
+          description: upload result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UploadResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    BadRequest:
+      description: invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          description: payload; shape depends on the endpoint
+        trace_id:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 10004
+        message:
+          type: string
+          example: resource not found
+        trace_id:
+          type: string
+    DynastyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        start_year:
+          type: integer
+          format: int16
+        end_year:
+          type: integer
+          format: int16
+        sort_order:
+          type: integer
+          default: 0
+        description:
+          type: string
+    DynastyResponse:
+      allOf:
+        - $ref: '#/components/schemas/DynastyRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+    DynastyList:
+      $ref: '#/components/schemas/PaginationEnvelope'
+    PersonRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        courtesy_name:
+          type: string
+        alias_name:
+          type: string
+        dynasty_id:
+          type: integer
+          format: int64
+        birth_year:
+          type: integer
+          format: int16
+        death_year:
+          type: integer
+          format: int16
+        gender:
+          type: string
+          enum: [male, female, unknown]
+        title:
+          type: string
+        biography:
+          type: string
+        achievements:
+          type: string
+        portrait_url:
+          type: string
+    PersonResponse:
+      allOf:
+        - $ref: '#/components/schemas/PersonRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+    PersonList:
+      $ref: '#/components/schemas/PaginationEnvelope'
+    SchoolRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        dynasty_id:
+          type: integer
+          format: int64
+        founder_person_id:
+          type: integer
+          format: int64
+        summary:
+          type: string
+        established_year:
+          type: integer
+          format: int16
+    BookRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        dynasty_id:
+          type: integer
+          format: int64
+        published_year:
+          type: integer
+          format: int16
+        category:
+          type: string
+        summary:
+          type: string
+        volume_count:
+          type: integer
+        is_extant:
+          type: boolean
+          default: true
+        file_url:
+          type: string
+    EventRequest:
+      type: object
+      required: [title, event_type]
+      properties:
+        title:
+          type: string
+        dynasty_id:
+          type: integer
+          format: int64
+        occurred_year:
+          type: integer
+          format: int16
+        event_type:
+          type: string
+          enum: [publish, war, academic, system]
+        description:
+          type: string
+        impact:
+          type: string
+        location:
+          type: string
+    PrescriptionRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        pinyin:
+          type: string
+        source_book_id:
+          type: integer
+          format: int64
+        source_person_id:
+          type: integer
+          format: int64
+        dynasty_id:
+          type: integer
+          format: int64
+        composition:
+          type: string
+        usage:
+          type: string
+        indications:
+          type: string
+        category:
+          type: string
+          enum: [exterior_releasing, purgative, harmonizing, heat_clearing, warming, tonifying]
+    MedicineRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        pinyin:
+          type: string
+        alias_json:
+          type: array
+          items:
+            type: string
+        nature:
+          type: string
+          enum: [cold, hot, warm, cool, flat]
+        flavor:
+          type: string
+        meridian:
+          type: string
+        efficacy:
+          type: string
+        dosage:
+          type: string
+        toxicity:
+          type: string
+    DiseaseRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        pinyin:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        symptoms:
+          type: string
+        tcm_pathogenesis:
+          type: string
+    PaginationEnvelope:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_page:
+          type: integer
+        items:
+          type: array
+          items: {}
+    SearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+    SearchHit:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: integer
+          format: int64
+        score:
+          type: number
+          format: float
+        source:
+          type: object
+          additionalProperties: true
+    UploadResult:
+      type: object
+      properties:
+        object_key:
+          type: string
+        url:
+          type: string
+        size:
+          type: integer
+          format: int64
+        mime_type:
+          type: string

@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+coverage
+.env
+.env.*
+!.env.example
+*.log
+.turbo
+.vite-cache
+stats.html

@@ -1,0 +1,51 @@
+# Graph Service 开发环境配置
+app:
+  name: graph-service
+  env: dev
+  node_id: 5
+
+http:
+  port: 8085
+  read_timeout_seconds: 30
+  write_timeout_seconds: 60
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: tcm
+  password: tcm_pass
+  dbname: tcm_graph
+  sslmode: disable
+  max_open_conns: 20
+  max_idle_conns: 5
+  conn_max_lifetime_seconds: 300
+  log_level: warn
+
+neo4j:
+  host: localhost
+  port: 7687
+  user: neo4j
+  password: neo4j_pass
+  enabled: false
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: tcm
+  password: tcm_pass
+  vhost: /tcm
+
+jwt:
+  secret: dev-secret-please-change
+  issuer: tcm-history-ai
+  enabled: false
+
+log:
+  level: info
+  encoding: console
+
+tracing:
+  service_name: graph-service
+  otlp_endpoint: localhost:4317
+  enabled: false

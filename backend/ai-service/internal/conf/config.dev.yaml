@@ -1,0 +1,54 @@
+# AI Service 开发环境配置
+app:
+  name: ai-service
+  env: dev
+  node_id: 6
+
+http:
+  port: 8086
+  read_timeout_seconds: 30
+  write_timeout_seconds: 120
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: tcm
+  password: tcm_pass
+  dbname: tcm_ai
+  sslmode: disable
+  max_open_conns: 20
+  max_idle_conns: 5
+  conn_max_lifetime_seconds: 300
+  log_level: warn
+
+# LLM 适配器：enabled=false 时返回桩响应，与 knowledge-service embedding 一致。
+llm:
+  provider: stub
+  endpoint: localhost:8500
+  api_key: ""
+  model: gpt-4o-mini
+  dim: 1024
+  timeout_seconds: 30
+  enabled: false
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: tcm
+  password: tcm_pass
+  vhost: /tcm
+
+jwt:
+  secret: dev-secret-please-change
+  issuer: tcm-history-ai
+  enabled: false
+
+log:
+  level: info
+  encoding: console
+
+tracing:
+  service_name: ai-service
+  otlp_endpoint: localhost:4317
+  enabled: false

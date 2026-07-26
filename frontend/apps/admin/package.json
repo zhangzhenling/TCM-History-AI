@@ -1,0 +1,33 @@
+{
+  "name": "@tcm/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@tcm/api": "workspace:*",
+    "@tcm/shared": "workspace:*",
+    "@tcm/stores": "workspace:*",
+    "@ant-design/icons-vue": "^7.0.1",
+    "ant-design-vue": "^4.2.5",
+    "axios": "^1.7.4",
+    "dayjs": "^1.11.13",
+    "pinia": "^2.2.2",
+    "pinia-plugin-persistedstate": "^3.2.3",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.2",
+    "less": "^4.2.0",
+    "typescript": "^5.5.4",
+    "unplugin-vue-components": "^0.27.4",
+    "vite": "^5.4.2",
+    "vue-tsc": "^2.0.29"
+  }
+}
