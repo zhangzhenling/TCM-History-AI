@@ -1,6 +1,6 @@
 # 15 Docker 部署
 
-Docker Compose 是 TCM-History-AI 在开发与测试环境下的唯一启动方式，通过一份 `docker-compose.yml` 把 PostgreSQL、Redis、Neo4j、Milvus、MinIO、Meilisearch、Kafka 及七个 Go 微服务、Vue3 前端一次性拉起，团队成员无需关心中间件安装与版本对齐。生产环境不使用 Compose，统一见第十六章 Kubernetes 部署，原因在于 Compose 单机编排无法满足滚动升级、HPA 弹性、多可用区打散等生产诉求。
+Docker Compose 是 TCM-History-AI 在开发与测试环境下的唯一启动方式，通过一份 `docker-compose.yml` 把 PostgreSQL、Redis、Neo4j、Milvus、MinIO、Meilisearch、RabbitMQ 及七个 Go 微服务、Vue3 前端一次性拉起，团队成员无需关心中间件安装与版本对齐。生产环境不使用 Compose，统一见第十六章 Kubernetes 部署，原因在于 Compose 单机编排无法满足滚动升级、HPA 弹性、多可用区打散等生产诉求。
 
 本章覆盖镜像构建、Compose 全量编排、网络与卷规划、环境变量、健康检查、启动依赖链、一键脚本与常见排错八个维度，目标是让新成员克隆仓库后执行 `make up` 即可在 5 分钟内拿到一个可访问的本地全栈环境。
 
@@ -160,8 +160,7 @@ Compose 共编排 17 个服务，分为基础设施、应用、前端三组。�
 | minio | 9000 / 9001 | 9000 / 9001 | 对象存储 API / 控制台 |
 | milvus | 19530 / 9091 | 19530 / 9091 | 向量库 gRPC / 指标 |
 | meilisearch | 7700 | 7700 | 全文检索 |
-| zookeeper | 2181 | — | Kafka 协调 |
-| kafka | 9092 | 9092 | 消息队列 |
+| rabbitmq | 5672 / 15672 | 5672 / 15672 | 消息队列 AMQP / 管理控制台 |
 | gateway | 8080 | 8080 | API 网关 |
 | user-service | 9001 / 8081 | — | RPC / 指标 |
 | history-service | 9002 / 8082 | — | RPC / 指标 |
@@ -338,48 +337,26 @@ services:
       retries: 5
     networks: [tcm-net]
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: tcm-zookeeper
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: tcm-rabbitmq
     restart: unless-stopped
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    volumes:
-      - zookeeper_data:/var/lib/zookeeper/data
-      - zookeeper_log:/var/lib/zookeeper/log
-    healthcheck:
-      test: ["CMD", "nc", "-z", "127.0.0.1", "2181"]
-      interval: 15s
-      timeout: 3s
-      retries: 5
-    networks: [tcm-net]
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: tcm-kafka
-    restart: unless-stopped
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://127.0.0.1:${KAFKA_PORT}
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    depends_on:
-      zookeeper:
-        condition: service_healthy
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-tcm}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-tcm_pass}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/tcm}
     ports:
-      - "${KAFKA_PORT}:9092"
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
     volumes:
-      - kafka_data:/var/lib/kafka/data
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./deploy/docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "127.0.0.1:9092"]
-      interval: 20s
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
       timeout: 10s
       retries: 8
-      start_period: 30s
+      start_period: 20s
     networks: [tcm-net]
 
   # ======================== 应用服务 ========================
@@ -590,9 +567,7 @@ volumes:
   minio_data:
   milvus_data:
   meili_data:
-  zookeeper_data:
-  zookeeper_log:
-  kafka_data:
+  rabbitmq_data:
 ```
 
 ## 3 网络规划
@@ -620,7 +595,7 @@ graph LR
         MIL[(milvus:19530)]
         MIN[(minio:9000)]
         MEI[(meilisearch:7700)]
-        KF[(kafka:29092)]
+        KF[(rabbitmq:5672)]
     end
     FE --> GW
     GW --> US & HS & KS & GS & AIS & LS
@@ -646,9 +621,7 @@ graph LR
 | `minio_data` | /data | minio | 对象存储（应用 + Milvus 共用，按 bucket 隔离） |
 | `milvus_data` | /var/lib/milvus | milvus | 向量索引落盘 |
 | `meili_data` | /meili_data | meilisearch | 倒排索引 |
-| `zookeeper_data` | /var/lib/zookeeper/data | zookeeper | 协调数据 |
-| `zookeeper_log` | /var/lib/zookeeper/log | zookeeper | 事务日志 |
-| `kafka_data` | /var/lib/kafka/data | kafka | 分区日志 |
+| `rabbitmq_data` | /var/lib/rabbitmq | rabbitmq | 队列消息与节点状态 |
 
 MinIO 采用单实例同时服务应用文件存储与 Milvus 的对象存储，通过 bucket 隔离：应用用 `tcm-assets`，Milvus 用 `milvus`。这样减少一个容器与一份存储，代价是 IO 共享，但开发环境流量极低，不构成瓶颈。生产环境按第十六章方案拆分。
 
@@ -688,8 +661,12 @@ MILVUS_METRICS_PORT=9091
 MEILI_MASTER_KEY=change-me-in-local
 MEILI_PORT=7700
 
-# ===== Kafka =====
-KAFKA_PORT=9092
+# ===== RabbitMQ =====
+RABBITMQ_USER=tcm
+RABBITMQ_PASSWORD=tcm_pass
+RABBITMQ_VHOST=/tcm
+RABBITMQ_AMQP_PORT=5672
+RABBITMQ_MGMT_PORT=15672
 
 # ===== 应用 =====
 GATEWAY_PORT=8080
@@ -714,8 +691,7 @@ LLM_BASE_URL=https://api.example.com/v1
 | minio | `curl /minio/health/live` | 20s | 存活探针 |
 | milvus | `curl http://127.0.0.1:9091/healthz` | 60s | 索引服务初始化慢 |
 | meilisearch | `wget http://127.0.0.1:7700/health` | — | 引擎就绪 |
-| zookeeper | `nc -z 127.0.0.1 2181` | — | 端口监听即就绪 |
-| kafka | `kafka-broker-api-versions` | 30s | Broker 可服务 |
+| rabbitmq | `rabbitmq-diagnostics -q ping` | 20s | 节点可服务 |
 | Go 微服务 | `wget http://127.0.0.1:808x/health` | 20s | 自实现 `/health` 端点 |
 
 Go 微服务的 `/health` 端点返回 200 表示进程存活且配置加载完成，不检查下游依赖（依赖检查归 `/ready`，避免级联重启）。`start_period` 期间失败不计入 retries，给 JVM（Neo4j）与索引初始化（Milvus）留足冷启动时间。
@@ -732,10 +708,9 @@ graph TD
     ETCD[(etcd)]
     MIN[(minio)]
     MEI[(meilisearch)]
-    ZK[(zookeeper)]
+    RMQ[(rabbitmq)]
 
     MIL[(milvus)]
-    KAFKA[(kafka)]
 
     GW[gateway]
     US[user-service]
@@ -748,7 +723,6 @@ graph TD
 
     ETCD --> MIL
     MIN --> MIL
-    ZK --> KAFKA
 
     PG --> GW
     RD --> GW
@@ -769,7 +743,7 @@ graph TD
     GW --> FE
 ```
 
-启动分三层推进：第一层是无依赖的基础设施（postgres、redis、neo4j、etcd、minio、meilisearch、zookeeper）并行启动；第二层是依赖第一层的 milvus（依赖 etcd + minio）与 kafka（依赖 zookeeper）；第三层是七个 Go 微服务，各自等待自己依赖的基础设施 healthy 后启动；最末是 frontend，等 gateway healthy 才启动，保证 Nginx 反代目标已就绪。Compose 会按拓扑序自动调度，无需手动排序。
+启动分两层推进：第一层是无依赖的基础设施（postgres、redis、neo4j、etcd、minio、meilisearch、rabbitmq）并行启动；其中 milvus 依赖 etcd + minio，由 Compose 拓扑序保证；第二层是七个 Go 微服务，各自等待自己依赖的基础设施 healthy 后启动；最末是 frontend，等 gateway healthy 才启动，保证 Nginx 反代目标已就绪。Compose 会按拓扑序自动调度，无需手动排序。
 
 ## 8 一键启动脚本
 
@@ -851,6 +825,6 @@ Neo4j 默认按宿主机内存自动分配 heap，在内存紧张的本地机器
 
 Gateway healthy 只代表进程启动，若下游微服务未全部就绪，Gateway 转发会 502。用 `make ps` 确认七个微服务全部 `healthy`，再访问接口。Kitex RPC 连接是懒建立的，首个请求可能慢，属正常。
 
-### 9.7 Kafka 消费者无法连接
+### 9.7 RabbitMQ 消费者无法连接
 
-Kafka 的 `advertised.listeners` 决定 broker 返回给客户端的连接地址。本 Compose 配置 `PLAINTEXT://kafka:29092`（容器内）与 `PLAINTEXT_HOST://127.0.0.1:9092`（宿主机），容器内服务用 `kafka:29092` 连接，宿主机调试用 `127.0.0.1:9092`。若应用配置写错地址会导致 `Connection refused` 或超时，核对配置中的 broker 地址与服务所在网络一致。
+容器内服务通过 `rabbitmq:5672` 连接 AMQP，宿主机调试用 `127.0.0.1:5672`。若出现 `Connection refused` 或鉴权失败，先确认 `.env` 中 `RABBITMQ_USER` / `RABBITMQ_PASSWORD` 与 `rabbitmq` 服务的 `RABBITMQ_DEFAULT_USER` / `RABBITMQ_DEFAULT_PASS` 一致，再核对 vhost 是否为 `/tcm`。管理控制台 `http://127.0.0.1:15672` 可用于排查 Exchange/Queue 绑定与消息堆积。

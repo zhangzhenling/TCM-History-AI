@@ -32,7 +32,7 @@ flowchart LR
 
 ### 6.2.1 PDF 上传到 MinIO
 
-运营人员通过管理后台上传经典 PDF（含影印古籍扫描件）。前端分片直传至 MinIO 的 `tcm-original` 桶，对象 Key 采用 `{classic_code}/{upload_id}.pdf` 规则，例如 `shanghan_lun/20260115_001.pdf`。上传完成后向 Kafka topic `doc.uploaded` 发送消息，触发 Worker 消费。MinIO 对象设置 `Content-Type: application/pdf` 并计算 MD5 用于后续幂等校验，重复上传相同 MD5 的文件直接复用既有处理结果。
+运营人员通过管理后台上传经典 PDF（含影印古籍扫描件）。前端分片直传至 MinIO 的 `tcm-original` 桶，对象 Key 采用 `{classic_code}/{upload_id}.pdf` 规则，例如 `shanghan_lun/20260115_001.pdf`。上传完成后向 RabbitMQ Exchange `tcm.events` 投递消息（routing key `doc.uploaded`），由 Knowledge Service 绑定的 `knowledge.doc.uploaded` 队列消费，触发 Worker 处理。MinIO 对象设置 `Content-Type: application/pdf` 并计算 MD5 用于后续幂等校验，重复上传相同 MD5 的文件直接复用既有处理结果。
 
 ### 6.2.2 OCR 提取文本
 

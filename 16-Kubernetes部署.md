@@ -12,7 +12,7 @@ Kubernetes 是 TCM-History-AI 生产环境唯一的编排平台。第十四章�
 | ------ | ---- | ------ | ---------- | ---- | ----------- |
 | system-pool | 4 核 8Gi 100Gi SSD | 3 | AZ-A x2 / AZ-B x1 | 控制面组件、CoreDNS、Cilium、Ingress Controller | 无污点，系统组件优先 |
 | app-pool | 8 核 16Gi 100Gi SSD | 6 | AZ-A x3 / AZ-B x3 | 无状态微服务（Gateway 及六个微服务） | 无污点，跨 AZ 均匀打散 |
-| data-pool | 16 核 64Gi 500Gi NVMe | 4 | AZ-A x2 / AZ-B x2 | PostgreSQL、Redis、Neo4j、Milvus、MinIO、Kafka、Meilisearch | `dedicated=data:NoSchedule` |
+| data-pool | 16 核 64Gi 500Gi NVMe | 4 | AZ-A x2 / AZ-B x2 | PostgreSQL、Redis、Neo4j、Milvus、MinIO、RabbitMQ、Meilisearch | `dedicated=data:NoSchedule` |
 | gpu-pool | 8 核 32Gi + NVIDIA T4 16GB | 2 | AZ-A x1 / AZ-B x1 | AI Service GPU 副本（Embedding/Rerank 推理） | `nvidia.com/gpu=present:NoSchedule` |
 | infra-pool | 4 核 8Gi 200Gi SSD | 3 | AZ-A x2 / AZ-B x1 | Prometheus、Grafana、Loki、Tempo、Jaeger、OTel Collector | `dedicated=infra:NoSchedule` |
 
@@ -46,7 +46,7 @@ graph TB
 
 | 命名空间 | 用途 | 核心工作负载 | ResourceQuota 概要 |
 | -------- | ---- | ------------ | ------------------ |
-| `tcm-system` | 基础设施与数据层 | PostgreSQL、Redis、Neo4j、Milvus、MinIO、Kafka、Meilisearch、etcd | CPU 100 核 / 内存 256Gi |
+| `tcm-system` | 基础设施与数据层 | PostgreSQL、Redis、Neo4j、Milvus、MinIO、RabbitMQ、Meilisearch、etcd | CPU 100 核 / 内存 256Gi |
 | `tcm-app` | 业务微服务 | Gateway、User/History/Knowledge/Graph/AI/Learning Service | CPU 48 核 / 内存 96Gi |
 | `tcm-monitoring` | 可观测性栈 | Prometheus、Grafana、Loki、Promtail、Tempo、Jaeger、OTel Collector、Alertmanager | CPU 16 核 / 内存 64Gi |
 | `tcm-ingress` | 入口与证书 | Nginx Ingress Controller、cert-manager、Frontend Nginx | CPU 8 核 / 内存 16Gi |
@@ -63,7 +63,7 @@ graph LR
         SVC[六个微服务]
     end
     subgraph tcm-system
-        DB[PG/Redis/Neo4j/Milvus/MinIO/Kafka/Meili]
+        DB[PG/Redis/Neo4j/Milvus/MinIO/RabbitMQ/Meili]
     end
     subgraph tcm-monitoring
         OBS[Prom/Grafana/Loki/Tempo/Jaeger]
@@ -454,71 +454,61 @@ spec:
 
 `servers: 4` + `volumesPerServer: 4` 构成 16 块盘的分布式集群，单节点或单盘故障不影响数据完整性。`requestAutoCert` 启用内部 TLS，`metrics.enabled` 暴露 Prometheus 指标。
 
-### 3.6 Kafka Strimzi Operator
+### 3.6 RabbitMQ Cluster Operator
 
-Kafka 通过 Strimzi Operator 管理，3 Broker 集群，KRaft 模式（无需 ZooKeeper），Topic 与用户均通过 CR 声明式管理。
+RabbitMQ 通过 Cluster Operator 管理，3 节点仲裁队列（Quorum Queue）集群，Exchange/Queue/Binding 通过 `definitions.json` 启动时导入或 management plugin 声明，纳入 GitOps。
 
 ```yaml
-# kafka-cluster.yaml
-apiVersion: kafka.strimzi.io/v1beta2
-kind: Kafka
+# rabbitmq-cluster.yaml
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
 metadata:
-  name: tcm-kafka
+  name: tcm-rabbitmq
   namespace: tcm-system
 spec:
-  kafka:
-    version: 3.7.0
-    replicas: 3
-    listeners:
-      - name: plain
-        port: 9092
-        type: internal
-        tls: false
-      - name: tls
-        port: 9093
-        type: internal
-        tls: true
-    config:
-      offsets.topic.replication.factor: 3
-      transaction.state.log.replication.factor: 3
-      transaction.state.log.min.isr: 2
-      default.replication.factor: 3
-      min.insync.replicas: 2
-      log.retention.hours: "168"
-      auto.create.topics.enable: "false"
-    storage:
-      type: jbod
-      volumes:
-        - id: 0
-          type: persistent-claim
-          size: 300Gi
-          class: fast-ssd
-          deleteClaim: false
-    resources:
-      requests: { cpu: "4", memory: 8Gi }
-      limits: { cpu: "4", memory: 8Gi }
-    template:
-      pod:
-        affinity:
-          podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              - labelSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: kafka
-                topologyKey: topology.kubernetes.io/zone
-        tolerations:
-          - key: dedicated
-            value: data
-            effect: NoSchedule
-  zookeeper:
-    replicas: 0
-  entityOperator:
-    topicOperator: {}
-    userOperator: {}
-  cruiseControl: {}
+  replicas: 3
+  image: rabbitmq:3.13-management
+  service:
+    type: ClusterIP
+  rabbitmq:
+    additionalConfig: |
+      default_vhost = /tcm
+      default_user_tags.administrator = true
+      default_permissions.configure = .*
+      default_permissions.write = .*
+      default_permissions.read = .*
+      quorum_commands_default = 128
+      cluster_partition_handling = pause_minority
+    additionalPlugins:
+      - rabbitmq_management
+      - rabbitmq_peer_discovery_k8s
+      - rabbitmq_prometheus
+    envConfig: |
+      RABBITMQ_DEFAULT_USER=tcm
+      RABBITMQ_DEFAULT_PASS_FILE=/etc/rabbitmq/secret/password
+  persistence:
+    storageClassName: fast-ssd
+    storage: 100Gi
+  resources:
+    requests: { cpu: "4", memory: 8Gi }
+    limits: { cpu: "4", memory: 8Gi }
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: tcm-rabbitmq
+          topologyKey: topology.kubernetes.io/zone
+  tolerations:
+    - key: dedicated
+      value: data
+      effect: NoSchedule
+  secretBackend:
+    externalSecret:
+      name: rabbitmq-secret
 ```
 
-`zookeeper.replicas: 0` 表示采用 KRaft 模式，Broker 自身完成元数据共识，省去 ZooKeeper 运维。`min.insync.replicas: 2` 配合生产者 `acks=all` 保证消息不丢。Strimzi 的 TopicOperator 与 UserOperator 让 Topic 与 ACL 通过 CR 声明，纳入 GitOps。CruiseControl 负责 Broker 间分区再平衡。
+3 副本跨可用区打散，任一节点故障剩余 2 节点仍可形成多数派继续服务，配合 `pause_minority` 防止脑裂。仲裁队列（Quorum Queue）基于 Raft 协议保证消息不丢，替代旧的镜像队列。Exchange/Queue/Binding 通过 `definitions.json` 挂载启动时导入，运维变更走 GitOps；用户与密码经 `secretBackend.externalSecret` 对接 External Secrets Operator，从 Vault 拉取，不入仓库。`rabbitmq_prometheus` 插件暴露 `/metrics` 供 Prometheus 抓取。
 
 ### 3.7 Meilisearch StatefulSet
 
@@ -1437,7 +1427,7 @@ parameters:
 | Milvus Data Node | fast-ssd | Filesystem | 100Gi | RWO | 2 | 写入缓冲 |
 | etcd（Milvus 元数据） | fast-ssd | Filesystem | 50Gi | RWO | 3 | 元数据 |
 | MinIO（每盘） | fast-nvme | Filesystem | 2Ti | RWO | 16 | 对象存储 4 节点 x4 盘 |
-| Kafka（每 Broker） | fast-ssd | Filesystem | 300Gi | RWO | 3 | 分区日志 |
+| RabbitMQ（每节点） | fast-ssd | Filesystem | 100Gi | RWO | 3 | 队列消息与节点状态 |
 | Meilisearch | fast-ssd | Filesystem | 100Gi | RWO | 1 | 倒排索引 |
 | Prometheus | standard | Filesystem | 100Gi | RWO | 2 | 指标 15 天 |
 | Grafana | standard | Filesystem | 10Gi | RWO | 1 | 仪表板配置 |
@@ -1567,7 +1557,7 @@ spec:
 
 ### 10.1 NetworkPolicy 网络隔离
 
-集群默认拒绝所有跨命名空间流量，通过 NetworkPolicy 显式放行合法链路。Cilium CNI 提供高性能 NetworkPolicy 实现，且支持 L7 协议（HTTP method、Kafka topic）级策略。核心隔离规则：仅 ingress 命名空间可访问 app 命名空间，仅 app 命名空间可访问 system 命名空间的数据端口，monitoring 命名空间只读采集所有命名空间的 metrics 端口。
+集群默认拒绝所有跨命名空间流量，通过 NetworkPolicy 显式放行合法链路。Cilium CNI 提供高性能 NetworkPolicy 实现，且支持 L7 协议（HTTP method、AMQP routing key）级策略。核心隔离规则：仅 ingress 命名空间可访问 app 命名空间，仅 app 命名空间可访问 system 命名空间的数据端口，monitoring 命名空间只读采集所有命名空间的 metrics 端口。
 
 ```yaml
 # networkpolicy-app.yaml
