@@ -32,6 +32,14 @@ llm:
   timeout_seconds: 30
   enabled: false
 
+# 上游服务地址：Knowledge Service (RAG) / Graph Service (Cypher)
+# 任一为空时 RetrievalClient 对应方法返回空结果。
+# 离线开发时可保持为空，AI Agent 的 rag/graph 通道降级为桩证据。
+services:
+  knowledge_url: "" # 例: http://localhost:8083/api/v1/knowledge
+  graph_url: ""     # 例: http://localhost:8084/api/v1/graph
+  timeout_seconds: 10
+
 rabbitmq:
   host: localhost
   port: 5672

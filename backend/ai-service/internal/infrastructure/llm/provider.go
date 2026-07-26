@@ -33,6 +33,16 @@ type Config struct {
 
 // New constructs an LLMProvider based on cfg.Provider.
 // 未识别的 provider 与 enabled=false 一律回退到 stub，保证可运行。
+//
+// 厂商默认 base URL：
+//   - openai    → https://api.openai.com/v1
+//   - deepseek  → https://api.deepseek.com/v1 （OpenAI 兼容协议）
+//   - qwen      → https://dashscope.aliyuncs.com/compatible-mode/v1 （OpenAI 兼容协议）
+//   - kimi      → https://api.moonshot.cn/v1 （OpenAI 兼容协议）
+//   - glm       → https://open.bigmodel.cn/api/paas/v4 （OpenAI 兼容协议）
+//   - anthropic → https://api.anthropic.com （原生 Messages API）
+//
+// cfg.Endpoint 非空时覆盖默认值，便于接入私有化部署或代理网关。
 func New(cfg Config) (service.LLMProvider, error) {
 	if !cfg.Enabled {
 		return &StubProvider{model: cfg.Model}, nil
@@ -41,20 +51,46 @@ func New(cfg Config) (service.LLMProvider, error) {
 	case "", "stub":
 		return &StubProvider{model: cfg.Model}, nil
 	case "openai":
-		// TODO(llm-sdk): 接入 OpenAI Chat Completions HTTP 客户端
-		return &StubProvider{model: cfg.Model}, nil
-	case "anthropic":
-		// TODO(llm-sdk): 接入 Anthropic Messages API
-		return &StubProvider{model: cfg.Model}, nil
-	case "qwen":
-		// TODO(llm-sdk): 接入通义千问 DashScope
-		return &StubProvider{model: cfg.Model}, nil
+		return NewOpenAIProvider(cfg.Endpoint, cfg.APIKey, cfg.Model, cfg.Timeout), nil
 	case "deepseek":
-		// TODO(llm-sdk): 接入 DeepSeek OpenAI 兼容协议
-		return &StubProvider{model: cfg.Model}, nil
+		// DeepSeek 完全兼容 OpenAI 协议，复用 OpenAIProvider。
+		endpoint := cfg.Endpoint
+		if endpoint == "" {
+			endpoint = "https://api.deepseek.com/v1"
+		}
+		return NewOpenAIProvider(endpoint, cfg.APIKey, defaultModel(cfg.Model, "deepseek-chat"), cfg.Timeout), nil
+	case "qwen":
+		// 通义千问 DashScope 兼容模式，协议与 OpenAI 一致。
+		endpoint := cfg.Endpoint
+		if endpoint == "" {
+			endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		}
+		return NewOpenAIProvider(endpoint, cfg.APIKey, defaultModel(cfg.Model, "qwen-turbo"), cfg.Timeout), nil
+	case "kimi":
+		endpoint := cfg.Endpoint
+		if endpoint == "" {
+			endpoint = "https://api.moonshot.cn/v1"
+		}
+		return NewOpenAIProvider(endpoint, cfg.APIKey, defaultModel(cfg.Model, "moonshot-v1-8k"), cfg.Timeout), nil
+	case "glm":
+		endpoint := cfg.Endpoint
+		if endpoint == "" {
+			endpoint = "https://open.bigmodel.cn/api/paas/v4"
+		}
+		return NewOpenAIProvider(endpoint, cfg.APIKey, defaultModel(cfg.Model, "glm-4-flash"), cfg.Timeout), nil
+	case "anthropic":
+		return NewAnthropicProvider(cfg.Endpoint, cfg.APIKey, defaultModel(cfg.Model, "claude-3-5-sonnet-20240620"), cfg.Timeout), nil
 	default:
 		return nil, errno.New(errno.InvalidParams, "unknown llm provider: "+cfg.Provider)
 	}
+}
+
+// defaultModel returns the configured model if non-empty, else the fallback.
+func defaultModel(configured, fallback string) string {
+	if configured != "" {
+		return configured
+	}
+	return fallback
 }
 
 // StubProvider returns deterministic placeholder chat completions.

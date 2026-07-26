@@ -23,7 +23,10 @@ import (
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/llm"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/persistence"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/prompt"
+	"tcm-history-ai/backend/ai-service/internal/infrastructure/retrieval"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/tool"
+	"tcm-history-ai/backend/pkg/logger"
+	"tcm-history-ai/backend/pkg/outbox"
 	"tcm-history-ai/backend/pkg/rabbitmq"
 )
 
@@ -40,11 +43,14 @@ type App struct {
 	promptUC *usecase.PromptUseCase
 	toolUC   *usecase.ToolUseCase
 
-	db        *gorm.DB
-	llm       service.LLMProvider
-	renderer  service.PromptRenderer
-	toolExec  service.ToolExecutor
-	publisher event.EventPublisher
+	db         *gorm.DB
+	llm        service.LLMProvider
+	renderer   service.PromptRenderer
+	toolExec   service.ToolExecutor
+	retriever  service.RetrievalClient
+	publisher  event.EventPublisher
+	outboxRepo *outbox.Repository
+	Relay      *outbox.Relay
 }
 
 // ControllerDeps returns the bundle of controllers required by the router.
@@ -107,6 +113,13 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 		Enabled:     cfg.LLM.Enabled,
 	})
 
+	// Retrieval client (HTTP-based; empty URLs degrade to no-op).
+	app.retriever = retrieval.New(retrieval.Config{
+		KnowledgeURL: cfg.Services.KnowledgeURL,
+		GraphURL:     cfg.Services.GraphURL,
+		Timeout:      cfg.Services.Timeout,
+	})
+
 	// Event publisher (RabbitMQ).
 	rmqCfg := rabbitmq.Config{
 		Host:     cfg.RabbitMQ.Host,
@@ -119,6 +132,15 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.publisher = pub
 	cleanups = append(cleanups, func() { _ = pub.Close() })
 
+	// Transactional outbox (doc/02 §6.2): business write + event enqueue
+	// share one DB tx; a background Relay polls and delivers to RabbitMQ.
+	app.outboxRepo = outbox.NewRepository(db)
+	rawPub := eventbus.NewRawPublisher(pub.Inner())
+	app.Relay = outbox.NewRelay(
+		app.outboxRepo, rawPub,
+		outbox.WithLogger(logger.Default()),
+	)
+
 	// Use cases.
 	app.chatUC = usecase.NewChatUseCase(
 		app.convRepo, app.msgRepo, app.promptRepo,
@@ -126,7 +148,8 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	)
 	app.agentUC = usecase.NewAgentUseCase(
 		app.convRepo, app.agentRepo, app.promptRepo, app.toolRepo,
-		app.llm, app.toolExec, app.renderer, app.publisher,
+		app.llm, app.toolExec, app.retriever, app.renderer, app.publisher,
+		db, app.outboxRepo,
 	)
 	app.promptUC = usecase.NewPromptUseCase(app.promptRepo, app.renderer)
 	app.toolUC = usecase.NewToolUseCase(app.toolRepo, app.toolExec)
