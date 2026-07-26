@@ -1,0 +1,99 @@
+{{- if .Values.middleware.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "minio" "object-storage") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: {{ .Values.middleware.minio.ports.api }}
+      targetPort: api
+      protocol: TCP
+    - name: console
+      port: {{ .Values.middleware.minio.ports.console }}
+      targetPort: console
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list . "minio") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "minio" "object-storage") | nindent 4 }}
+spec:
+  serviceName: minio
+  replicas: {{ .Values.middleware.minio.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list . "minio") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list . "minio" "object-storage") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: minio
+          image: {{ .Values.middleware.minio.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - server
+            - /data
+            - --console-address
+            - ":9001"
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_MINIO_ACCESS_KEY
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_MINIO_SECRET_KEY
+          ports:
+            - name: api
+              containerPort: 9000
+              protocol: TCP
+            - name: console
+              containerPort: 9001
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.minio.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.minio.storage }}
+{{- end }}

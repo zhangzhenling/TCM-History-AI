@@ -1,0 +1,18 @@
+apiVersion: v2
+name: tcm-history-ai
+description: |
+  TCM-History-AI 平台 Helm Chart，包含 7 个后端微服务（gateway/user/history/knowledge/graph/ai/learning）
+  与 7 个中间件（postgres/redis/neo4j/milvus/minio/meilisearch/rabbitmq）。
+type: application
+version: 0.1.0
+appVersion: "2.1"
+keywords:
+  - tcm
+  - history
+  - ai
+  - rag
+  - knowledge-graph
+home: https://github.com/tcm-history-ai
+maintainers:
+  - name: TCM-History-AI Team
+icon: ""

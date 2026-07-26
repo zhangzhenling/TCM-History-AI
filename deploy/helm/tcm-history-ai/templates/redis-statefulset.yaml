@@ -1,0 +1,86 @@
+{{- if .Values.middleware.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "redis" "cache") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp-redis
+      port: {{ .Values.middleware.redis.port }}
+      targetPort: tcp-redis
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list . "redis") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "redis" "cache") | nindent 4 }}
+spec:
+  serviceName: redis
+  replicas: {{ .Values.middleware.redis.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list . "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list . "redis" "cache") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: {{ .Values.middleware.redis.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
+            - --appendonly
+            - "yes"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_REDIS_PASSWORD
+          ports:
+            - name: tcp-redis
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.redis.resources | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$(REDIS_PASSWORD)\" ping | grep -q PONG"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$(REDIS_PASSWORD)\" ping | grep -q PONG"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.redis.storage }}
+{{- end }}

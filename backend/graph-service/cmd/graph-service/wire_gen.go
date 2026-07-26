@@ -58,8 +58,9 @@ func (a *App) ControllerDeps() *controller.Deps {
 
 // StartSubscriber launches the RabbitMQ consumer. The handler dispatches each
 // delivered event into SyncUseCase.Dispatch (doc/05 §5.6). The call blocks
-// until ctx is cancelled; the stub implementation returns immediately so
-// development can proceed without a live broker.
+// until ctx is cancelled or the broker delivery channel is closed; best-effort
+// when broker is unreachable (logs a warning and returns nil so service
+// startup is never blocked).
 func (a *App) StartSubscriber(ctx context.Context) error {
 	handler := func(c context.Context, routingKey string, body []byte) error {
 		return a.syncUC.Dispatch(c, routingKey, body)

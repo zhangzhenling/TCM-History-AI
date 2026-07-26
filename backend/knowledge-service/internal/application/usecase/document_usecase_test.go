@@ -146,7 +146,7 @@ func (m *mockEventPublisher) Publish(_ context.Context, evt event.Event) error {
 func TestDocumentUseCase_Create_HappyPath(t *testing.T) {
 	repo := newMockDocumentRepo()
 	pub := &mockEventPublisher{}
-	uc := usecase.NewDocumentUseCase(repo, pub)
+	uc := usecase.NewDocumentUseCase(repo, pub, nil)
 
 	resp, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode: "HuangDiNeiJing",
@@ -171,7 +171,7 @@ func TestDocumentUseCase_Create_HappyPath(t *testing.T) {
 
 func TestDocumentUseCase_Create_DefaultSourceType(t *testing.T) {
 	repo := newMockDocumentRepo()
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 
 	resp, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode: "X",
@@ -185,7 +185,7 @@ func TestDocumentUseCase_Create_DefaultSourceType(t *testing.T) {
 func TestDocumentUseCase_Create_PublishesEventWhenPDFUploaded(t *testing.T) {
 	repo := newMockDocumentRepo()
 	pub := &mockEventPublisher{}
-	uc := usecase.NewDocumentUseCase(repo, pub)
+	uc := usecase.NewDocumentUseCase(repo, pub, nil)
 
 	resp, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode:  "ShangHanLun",
@@ -204,7 +204,7 @@ func TestDocumentUseCase_Create_PublishesEventWhenPDFUploaded(t *testing.T) {
 
 func TestDocumentUseCase_Create_DedupByContentHash(t *testing.T) {
 	repo := newMockDocumentRepo()
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 
 	first, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode: "X",
@@ -225,7 +225,7 @@ func TestDocumentUseCase_Create_DedupByContentHash(t *testing.T) {
 }
 
 func TestDocumentUseCase_Create_ValidationErrors(t *testing.T) {
-	uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{}, nil)
 
 	t.Run("nil request", func(t *testing.T) {
 		resp, err := uc.Create(context.Background(), nil)
@@ -251,7 +251,7 @@ func TestDocumentUseCase_Create_ValidationErrors(t *testing.T) {
 func TestDocumentUseCase_Create_RepoError(t *testing.T) {
 	repo := newMockDocumentRepo()
 	repo.createErr = errors.New("db down")
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 
 	resp, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode: "X", Title: "T",
@@ -263,7 +263,7 @@ func TestDocumentUseCase_Create_RepoError(t *testing.T) {
 func TestDocumentUseCase_Update(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		repo := newMockDocumentRepo()
-		uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 		created, err := uc.Create(context.Background(), &dto.DocumentRequest{
 			ClassicCode: "X", Title: "Old",
 		})
@@ -284,14 +284,14 @@ func TestDocumentUseCase_Update(t *testing.T) {
 	})
 
 	t.Run("nil body", func(t *testing.T) {
-		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{}, nil)
 		resp, err := uc.Update(context.Background(), 1, nil)
 		requireError(t, err, errno.InvalidParams)
 		assert.Nil(t, resp)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{}, nil)
 		resp, err := uc.Update(context.Background(), 999, &dto.DocumentRequest{Title: "x"})
 		requireError(t, err, errno.NotFound)
 		assert.Nil(t, resp)
@@ -300,7 +300,7 @@ func TestDocumentUseCase_Update(t *testing.T) {
 	t.Run("repo error on find", func(t *testing.T) {
 		repo := newMockDocumentRepo()
 		repo.updateErr = errors.New("boom")
-		uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 		created, err := uc.Create(context.Background(), &dto.DocumentRequest{
 			ClassicCode: "X", Title: "T",
 		})
@@ -311,7 +311,7 @@ func TestDocumentUseCase_Update(t *testing.T) {
 
 	t.Run("metadata preserved when not provided", func(t *testing.T) {
 		repo := newMockDocumentRepo()
-		uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 		created, err := uc.Create(context.Background(), &dto.DocumentRequest{
 			ClassicCode: "X", Title: "T",
 			MetadataJSON: []byte(`{"k":"v"}`),
@@ -326,7 +326,7 @@ func TestDocumentUseCase_Update(t *testing.T) {
 
 func TestDocumentUseCase_Delete(t *testing.T) {
 	repo := newMockDocumentRepo()
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 	created, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode: "X", Title: "T",
 	})
@@ -340,7 +340,7 @@ func TestDocumentUseCase_Delete(t *testing.T) {
 
 func TestDocumentUseCase_Get(t *testing.T) {
 	t.Run("found", func(t *testing.T) {
-		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{}, nil)
 		created, err := uc.Create(context.Background(), &dto.DocumentRequest{
 			ClassicCode: "X", Title: "T",
 		})
@@ -351,7 +351,7 @@ func TestDocumentUseCase_Get(t *testing.T) {
 		assert.Equal(t, "T", got.Title)
 	})
 	t.Run("not found", func(t *testing.T) {
-		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{})
+		uc := usecase.NewDocumentUseCase(newMockDocumentRepo(), &mockEventPublisher{}, nil)
 		resp, err := uc.Get(context.Background(), 999)
 		requireError(t, err, errno.NotFound)
 		assert.Nil(t, resp)
@@ -360,7 +360,7 @@ func TestDocumentUseCase_Get(t *testing.T) {
 
 func TestDocumentUseCase_List(t *testing.T) {
 	repo := newMockDocumentRepo()
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 	for _, title := range []string{"A", "B", "C"} {
 		_, err := uc.Create(context.Background(), &dto.DocumentRequest{
 			ClassicCode: "X", Title: title,
@@ -378,7 +378,7 @@ func TestDocumentUseCase_List(t *testing.T) {
 func TestDocumentUseCase_List_RepoError(t *testing.T) {
 	repo := newMockDocumentRepo()
 	repo.listErr = errors.New("fail")
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 	resp, err := uc.List(context.Background(), pagination.Params{Page: 1, PageSize: 10})
 	require.Error(t, err)
 	assert.Equal(t, 0, resp.Total)
@@ -386,7 +386,7 @@ func TestDocumentUseCase_List_RepoError(t *testing.T) {
 
 func TestDocumentUseCase_ListByClassic(t *testing.T) {
 	repo := newMockDocumentRepo()
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 	_, err := uc.Create(context.Background(), &dto.DocumentRequest{ClassicCode: "A", Title: "A1"})
 	require.NoError(t, err)
 	_, err = uc.Create(context.Background(), &dto.DocumentRequest{ClassicCode: "A", Title: "A2"})
@@ -412,7 +412,7 @@ func TestToDocumentResponse_TimeFormatting(t *testing.T) {
 	// Test the unexported toDocumentResponse indirectly by ensuring a
 	// document with non-zero CreatedAt/UpdatedAt surfaces them as RFC3339.
 	repo := newMockDocumentRepo()
-	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{})
+	uc := usecase.NewDocumentUseCase(repo, &mockEventPublisher{}, nil)
 	created, err := uc.Create(context.Background(), &dto.DocumentRequest{
 		ClassicCode: "X", Title: "T",
 	})

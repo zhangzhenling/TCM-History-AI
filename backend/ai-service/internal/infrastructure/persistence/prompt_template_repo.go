@@ -44,6 +44,33 @@ func (r *PromptTemplateRepo) Update(ctx context.Context, p *entity.PromptTemplat
 	return nil
 }
 
+// Delete soft-deletes a prompt template by id. GORM Delete on a model with
+// a DeletedAt column issues UPDATE ... SET deleted_at=now() WHERE id=? AND
+// deleted_at IS NULL; rows already soft-deleted are not matched.
+func (r *PromptTemplateRepo) Delete(ctx context.Context, id int64) error {
+	res := txFrom(ctx, r.db).Delete(&entity.PromptTemplate{}, id)
+	if res.Error != nil {
+		return errno.Wrap(errno.InternalError, "delete prompt template", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return errno.New(errno.NotFound, "prompt template not found")
+	}
+	return nil
+}
+
+// DeactivateByScene sets is_active=false for every (non-deleted) template in
+// the given scene, returning the number of rows updated. Used by Activate to
+// ensure at most one active template per scene.
+func (r *PromptTemplateRepo) DeactivateByScene(ctx context.Context, scene string) (int64, error) {
+	res := txFrom(ctx, r.db).Model(&entity.PromptTemplate{}).
+		Where("scene = ? AND is_active = ? AND deleted_at IS NULL", scene, true).
+		Update("is_active", false)
+	if res.Error != nil {
+		return 0, errno.Wrap(errno.InternalError, "deactivate prompt templates by scene", res.Error)
+	}
+	return res.RowsAffected, nil
+}
+
 // FindByID fetches a single prompt template by id.
 func (r *PromptTemplateRepo) FindByID(ctx context.Context, id int64) (*entity.PromptTemplate, error) {
 	var p entity.PromptTemplate

@@ -1,0 +1,45 @@
+# Ingress：将 gateway 暴露给集群外部
+# host: api.tcm-history.local 为占位域名，生产请替换为实际域名（如 api.tcm-history.ai）
+# 依赖：集群需已安装 Ingress Controller（推荐 nginx-ingress）与对应 ingressClassName
+# TLS：生产请配置 cert-manager + Let's Encrypt 通配符证书（见 doc/16-Kubernetes部署.md 第 5.2 节）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tcm-gateway-ingress
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: tcm-history-ai
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # AI 流式响应可能较长，放宽超时
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # 上传文献原文等场景需放宽 body 大小
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # 单 IP 限流，配合 WAF 抵御爬虫滥用
+    nginx.ingress.kubernetes.io/limit-rps: "200"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-Frame-Options: DENY";
+spec:
+  ingressClassName: nginx
+  # 生产启用 TLS 时取消下方注释并配置 secretName
+  # tls:
+  #   - hosts:
+  #       - api.tcm-history.local
+  #     secretName: tcm-tls
+  rules:
+    - host: api.tcm-history.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 8080

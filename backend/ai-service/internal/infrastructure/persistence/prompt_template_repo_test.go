@@ -90,6 +90,74 @@ func TestPromptTemplateRepo_Update(t *testing.T) {
 // when the UPDATE matches 0 rows, so the RowsAffected == 0 (NotFound)
 // branch in Update is unreachable through normal Save.
 
+// TestPromptTemplateRepo_Delete verifies soft delete: row is invisible to
+// subsequent FindByID but the row count in the table is preserved.
+func TestPromptTemplateRepo_Delete(t *testing.T) {
+	db := setupDB(t, &entity.PromptTemplate{})
+	repo := NewPromptTemplateRepo(db)
+	ctx := context.Background()
+
+	p := newPromptTemplate("del-1", entity.SceneChat)
+	require.NoError(t, repo.Create(ctx, p))
+
+	require.NoError(t, repo.Delete(ctx, p.ID))
+
+	// FindByID must not return the soft-deleted row.
+	got, err := repo.FindByID(ctx, p.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+// TestPromptTemplateRepo_Delete_NotFound verifies Delete on a missing id
+// returns NotFound.
+func TestPromptTemplateRepo_Delete_NotFound(t *testing.T) {
+	db := setupDB(t, &entity.PromptTemplate{})
+	repo := NewPromptTemplateRepo(db)
+
+	err := repo.Delete(context.Background(), 99999)
+	require.Error(t, err)
+}
+
+// TestPromptTemplateRepo_DeactivateByScene verifies only active rows in the
+// given scene are flipped, and the count is correct.
+func TestPromptTemplateRepo_DeactivateByScene(t *testing.T) {
+	db := setupDB(t, &entity.PromptTemplate{})
+	repo := NewPromptTemplateRepo(db)
+	ctx := context.Background()
+
+	// Two active chat templates, one inactive chat template, one active agent template.
+	// 注意：entity 的 is_active 列 default:true，Create 时 GORM 会对零值 false 应用默认值。
+	// 所以"显式 inactive"的模板必须先 Create 再 Update（Save 的 UPDATE 路径不会应用默认值）。
+	c1 := newPromptTemplate("c1", entity.SceneChat)
+	require.NoError(t, repo.Create(ctx, c1))
+	c2 := newPromptTemplate("c2", entity.SceneChat)
+	require.NoError(t, repo.Create(ctx, c2))
+	c3 := newPromptTemplate("c3", entity.SceneChat)
+	require.NoError(t, repo.Create(ctx, c3))
+	c3.IsActive = false
+	require.NoError(t, repo.Update(ctx, c3))
+	a1 := newPromptTemplate("a1", entity.SceneAgent)
+	require.NoError(t, repo.Create(ctx, a1))
+
+	n, err := repo.DeactivateByScene(ctx, entity.SceneChat)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), n, "two chat templates were active")
+
+	// Both previously-active chat templates must now be inactive.
+	for _, id := range []int64{c1.ID, c2.ID} {
+		got, err := repo.FindByID(ctx, id)
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		assert.False(t, got.IsActive)
+	}
+
+	// Agent-scoped template must remain active.
+	got, err := repo.FindByID(ctx, a1.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.True(t, got.IsActive, "agent-scoped template must not be touched")
+}
+
 // TestPromptTemplateRepo_FindByNameAndScene verifies lookup by (name, scene).
 func TestPromptTemplateRepo_FindByNameAndScene(t *testing.T) {
 	db := setupDB(t, &entity.PromptTemplate{})

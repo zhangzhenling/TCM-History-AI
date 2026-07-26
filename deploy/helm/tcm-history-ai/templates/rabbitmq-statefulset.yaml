@@ -1,0 +1,99 @@
+{{- if .Values.middleware.rabbitmq.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "rabbitmq" "message-broker") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: amqp
+      port: {{ .Values.middleware.rabbitmq.ports.amqp }}
+      targetPort: amqp
+      protocol: TCP
+    - name: management
+      port: {{ .Values.middleware.rabbitmq.ports.management }}
+      targetPort: management
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list . "rabbitmq") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "rabbitmq" "message-broker") | nindent 4 }}
+spec:
+  serviceName: rabbitmq
+  replicas: {{ .Values.middleware.rabbitmq.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list . "rabbitmq") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list . "rabbitmq" "message-broker") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: rabbitmq
+          image: {{ .Values.middleware.rabbitmq.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tcm.fullName" . }}-config
+                  key: TCM_RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_RABBITMQ_PASSWORD
+            - name: RABBITMQ_DEFAULT_VHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tcm.fullName" . }}-config
+                  key: TCM_RABBITMQ_VHOST
+          ports:
+            - name: amqp
+              containerPort: 5672
+              protocol: TCP
+            - name: management
+              containerPort: 15672
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.rabbitmq.resources | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 8
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.rabbitmq.storage }}
+{{- end }}

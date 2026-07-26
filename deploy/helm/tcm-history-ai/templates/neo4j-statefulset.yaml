@@ -1,0 +1,113 @@
+{{- if .Values.middleware.neo4j.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "neo4j" "graph-database") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.middleware.neo4j.ports.http }}
+      targetPort: http
+      protocol: TCP
+    - name: bolt
+      port: {{ .Values.middleware.neo4j.ports.bolt }}
+      targetPort: bolt
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list . "neo4j") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: neo4j
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "neo4j" "graph-database") | nindent 4 }}
+spec:
+  serviceName: neo4j
+  replicas: {{ .Values.middleware.neo4j.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list . "neo4j") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list . "neo4j" "graph-database") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 7474
+      containers:
+        - name: neo4j
+          image: {{ .Values.middleware.neo4j.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: NEO4J_AUTH
+              value: neo4j/$(NEO4J_PASSWORD)
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_NEO4J_PASSWORD
+            - name: NEO4J_PLUGINS
+              value: '["apoc"]'
+            - name: NEO4J_server_memory_heap_initial__size
+              value: 1G
+            - name: NEO4J_server_memory_heap_max__size
+              value: 2G
+            - name: NEO4J_server_memory_pagecache_size
+              value: 1G
+            - name: TZ
+              value: Asia/Shanghai
+          ports:
+            - name: http
+              containerPort: 7474
+              protocol: TCP
+            - name: bolt
+              containerPort: 7687
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.neo4j.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: logs
+              mountPath: /logs
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.neo4j.storage }}
+    - metadata:
+        name: logs
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.neo4j.logStorage }}
+{{- end }}

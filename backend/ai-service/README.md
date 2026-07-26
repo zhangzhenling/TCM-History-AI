@@ -27,24 +27,25 @@ ai-service/
 │   │   ├── repository/
 │   │   └── service/           # LLMProvider / ToolExecutor / PromptRenderer 端口
 │   └── infrastructure/        # 适配器
-│       ├── eventbus/          # RabbitMQ
-│       ├── llm/               # LLM 适配（stub / 待接入 OpenAI/Anthropic/Qwen/DeepSeek）
+│       ├── eventbus/          # RabbitMQ 发布（延迟连接）
+│       ├── llm/               # LLM 适配（OpenAI / Anthropic HTTP + stub 回退）
 │       ├── persistence/       # GORM 仓储
 │       ├── prompt/            # Prompt 渲染器
+│       ├── retrieval/         # Knowledge Service RAG 客户端
 │       └── tool/              # Tool 执行器（HTTP 调用注册的 endpoint）
 ├── migrations/                # PostgreSQL 迁移（含 Prompt 模板种子）
 └── Dockerfile
 ```
 
-## 离线 Stub 模式
+## 当前实现状态
 
-LLM 与 Tool 调用默认走 stub 模式（`llm.enabled=false`），与 knowledge-service 的
-`milvus.enabled=false` / embedding stub 一致。stub 模式下：
+为保持离线可构建性，LLM 通过 `net/http` 直连 OpenAI / Anthropic 的 Chat Completions 协议，不引入官方 Go SDK。
 
-- LLM 调用返回固定桩响应（回显最后一条用户消息）
-- Tool 执行返回带 `degraded=true` 标记的桩结果
-
-接入真实 SDK 时搜索 `TODO(llm-sdk)` / `TODO(mcp-sdk)` / `TODO(agent-sdk)` 标记。
+- **LLM Provider**：`internal/infrastructure/llm/provider.go` 实现 OpenAI（`/v1/chat/completions`）与 Anthropic（`/v1/messages`）两种 HTTP 客户端，按 `llm.provider` 配置选择。`llm.provider=stub` 时返回回显响应，便于离线联调。
+- **Tool Executor**：通过 HTTP 调用注册的 endpoint，未注册或调用失败返回 `degraded=true` 的桩结果。
+- **Retrieval Client**：`internal/infrastructure/retrieval/` 通过 HTTP 调用 knowledge-service 的 RAG 检索接口。
+- **Prompt Renderer**：`{{variable}}` 模板渲染，纯本地实现。
+- **Event Publisher**：连接延迟到首次 Publish，避免 broker 未就绪时阻塞启动。
 
 ## 设计依据
 

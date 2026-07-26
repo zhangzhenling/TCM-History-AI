@@ -1,0 +1,151 @@
+{{- if .Values.middleware.milvus.enabled }}
+{{- /*
+Milvus Standalone：单 StatefulSet，etcd 作为 sidecar，对象存储依赖外部 minio Service
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "milvus" "vector-database") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: grpc
+      port: {{ .Values.middleware.milvus.ports.grpc }}
+      targetPort: grpc
+      protocol: TCP
+    - name: metrics
+      port: {{ .Values.middleware.milvus.ports.metrics }}
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list . "milvus") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: milvus
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "milvus" "vector-database") | nindent 4 }}
+spec:
+  serviceName: milvus
+  replicas: {{ .Values.middleware.milvus.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list . "milvus") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list . "milvus" "vector-database") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        {{- if .Values.middleware.minio.enabled }}
+        - name: wait-for-minio
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z minio 9000; do echo waiting for minio; sleep 2; done; echo minio is up"]
+        {{- end }}
+      containers:
+        - name: etcd
+          image: {{ .Values.middleware.milvus.etcdImage }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: ETCD_AUTO_COMPACTION_MODE
+              value: revision
+            - name: ETCD_AUTO_COMPACTION_RETENTION
+              value: "1000"
+            - name: ETCD_QUOTA_BACKEND_BYTES
+              value: "4294967296"
+            - name: ETCD_SNAPSHOT_COUNT
+              value: "50000"
+          command:
+            - etcd
+            - -advertise-client-urls=http://127.0.0.1:2379
+            - -listen-client-urls=http://0.0.0.0:2379
+            - --data-dir=/etcd
+          ports:
+            - name: etcd-client
+              containerPort: 2379
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.milvus.etcdResources | nindent 12 }}
+          volumeMounts:
+            - name: etcd-data
+              mountPath: /etcd
+        - name: milvus
+          image: {{ .Values.middleware.milvus.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["milvus", "run", "standalone"]
+          securityContext:
+            seccompProfile:
+              type: Unconfined
+          env:
+            - name: ETCD_ENDPOINTS
+              value: "127.0.0.1:2379"
+            - name: MINIO_ADDRESS
+              value: "minio:9000"
+            - name: MINIO_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_MINIO_SECRET_KEY
+            - name: MINIO_BUCKET_NAME
+              value: "milvus"
+            - name: MINIO_USE_SSL
+              value: "false"
+          ports:
+            - name: grpc
+              containerPort: 19530
+              protocol: TCP
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.milvus.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: milvus-data
+              mountPath: /var/lib/milvus
+  volumeClaimTemplates:
+    - metadata:
+        name: etcd-data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.milvus.etcdStorage }}
+    - metadata:
+        name: milvus-data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.milvus.storage }}
+{{- end }}

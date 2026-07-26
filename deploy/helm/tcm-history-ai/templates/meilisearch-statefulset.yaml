@@ -1,0 +1,89 @@
+{{- if .Values.middleware.meilisearch.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: meilisearch
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "meilisearch" "search-engine") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.middleware.meilisearch.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "tcm.selectorLabels" (list . "meilisearch") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: meilisearch
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.serviceLabels" (list . "meilisearch" "search-engine") | nindent 4 }}
+spec:
+  serviceName: meilisearch
+  replicas: {{ .Values.middleware.meilisearch.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "tcm.selectorLabels" (list . "meilisearch") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tcm.serviceLabels" (list . "meilisearch" "search-engine") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      containers:
+        - name: meilisearch
+          image: {{ .Values.middleware.meilisearch.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["--env", "production", "--master-key", "$(MEILI_MASTER_KEY)"]
+          env:
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tcm.fullName" . }}-secret
+                  key: TCM_MEILI_API_KEY
+            - name: MEILI_ENV
+              value: production
+            - name: MEILI_NO_ANALYTICS
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 7700
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.middleware.meilisearch.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /meili_data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: {{ .Values.global.storageClass }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.middleware.meilisearch.storage }}
+{{- end }}

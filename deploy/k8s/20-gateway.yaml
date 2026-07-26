@@ -1,0 +1,167 @@
+# Gateway 微服务（API 网关，Hertz）
+# 端口：8080（HTTP，对外经 Ingress 暴露）
+# 镜像构建：docker build -f backend/gateway/Dockerfile -t ghcr.io/tcm-history-ai/gateway:latest backend/
+# 资源配额参考 doc/14-部署方案.md 第 11.1 节；HPA 阈值 CPU 70%
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.1"
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.1"
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "2.1"
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/managed-by: kubectl
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: gateway
+          # 生产固定引用 Git commit SHA 标签以保证可追溯与可回滚；latest 仅占位
+          image: ghcr.io/tcm-history-ai/gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: TCM_APP_NAME
+              value: gateway
+            - name: TCM_APP_ENV
+              value: prod
+            - name: TCM_HTTP_PORT
+              value: "8080"
+            - name: TCM_LOG_LEVEL
+              value: warn
+          envFrom:
+            - configMapRef:
+                name: tcm-config
+            - secretRef:
+                name: tcm-secret
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+      selectPolicy: Min

@@ -274,7 +274,8 @@ func TestPromptUseCase_List(t *testing.T) {
 	})
 }
 
-// TestPromptUseCase_Delete covers found / not-found / error paths.
+// TestPromptUseCase_Delete covers found / not-found / repo-error paths and
+// verifies the row is actually removed from the store.
 func TestPromptUseCase_Delete(t *testing.T) {
 	uc, repo := newPromptUseCase()
 	created, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
@@ -283,6 +284,11 @@ func TestPromptUseCase_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, uc.Delete(context.Background(), created.ID))
+
+	// Repo should no longer hold the row.
+	got, err := repo.FindByID(context.Background(), created.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got)
 
 	t.Run("not found", func(t *testing.T) {
 		err := uc.Delete(context.Background(), 9999)
@@ -298,6 +304,120 @@ func TestPromptUseCase_Delete(t *testing.T) {
 		}
 		err := uc.Delete(context.Background(), 1)
 		require.Error(t, err)
+	})
+	t.Run("delete error", func(t *testing.T) {
+		uc2, repo2 := newPromptUseCase()
+		c, err := uc2.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "n", Scene: entity.SceneChat, SystemPrompt: "p",
+		})
+		require.NoError(t, err)
+		repo2.delete = func(int64) error { return errors.New("del err") }
+		err = uc2.Delete(context.Background(), c.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "del err")
+	})
+}
+
+// TestPromptUseCase_Activate covers happy / not-found / deactivate-error /
+// update-error / already-active paths, and asserts scene-wide uniqueness.
+func TestPromptUseCase_Activate(t *testing.T) {
+	t.Run("happy - deactivates others in same scene", func(t *testing.T) {
+		uc, repo := newPromptUseCase()
+		// Two templates in chat scene, one active, one inactive.
+		active, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "active", Scene: entity.SceneChat, SystemPrompt: "p1", IsActive: true,
+		})
+		require.NoError(t, err)
+		inactive, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "inactive", Scene: entity.SceneChat, SystemPrompt: "p2", IsActive: false,
+		})
+		require.NoError(t, err)
+		// Plus an active template in a different scene — must remain active.
+		other, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "other", Scene: entity.SceneAgent, SystemPrompt: "p3", IsActive: true,
+		})
+		require.NoError(t, err)
+
+		resp, err := uc.Activate(context.Background(), inactive.ID)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.True(t, resp.IsActive)
+
+		// Old active in chat scene must be deactivated.
+		old, err := repo.FindByID(context.Background(), active.ID)
+		require.NoError(t, err)
+		require.NotNil(t, old)
+		assert.False(t, old.IsActive, "previous active template in same scene must be deactivated")
+
+		// Other-scene template must remain active.
+		oth, err := repo.FindByID(context.Background(), other.ID)
+		require.NoError(t, err)
+		require.NotNil(t, oth)
+		assert.True(t, oth.IsActive, "template in a different scene must not be touched")
+	})
+
+	t.Run("already active is a no-op", func(t *testing.T) {
+		uc, repo := newPromptUseCase()
+		created, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "n", Scene: entity.SceneChat, SystemPrompt: "p", IsActive: true,
+		})
+		require.NoError(t, err)
+		// If DeactivateByScene is invoked we'd corrupt the state; ensure it's not.
+		called := false
+		repo.deactivateByScene = func(string) (int64, error) {
+			called = true
+			return 0, nil
+		}
+		resp, err := uc.Activate(context.Background(), created.ID)
+		require.NoError(t, err)
+		assert.True(t, resp.IsActive)
+		assert.False(t, called, "DeactivateByScene should be skipped when already active")
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		uc, _ := newPromptUseCase()
+		_, err := uc.Activate(context.Background(), 9999)
+		require.Error(t, err)
+		var e *errno.Error
+		if errors.As(err, &e) {
+			assert.Equal(t, errno.NotFound, e.Code)
+		}
+	})
+
+	t.Run("find error", func(t *testing.T) {
+		uc, repo := newPromptUseCase()
+		repo.find = func(int64) (*entity.PromptTemplate, error) {
+			return nil, errors.New("find err")
+		}
+		_, err := uc.Activate(context.Background(), 1)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "find err")
+	})
+
+	t.Run("deactivate error", func(t *testing.T) {
+		uc, repo := newPromptUseCase()
+		created, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "n", Scene: entity.SceneChat, SystemPrompt: "p", IsActive: false,
+		})
+		require.NoError(t, err)
+		repo.deactivateByScene = func(string) (int64, error) {
+			return 0, errors.New("deact err")
+		}
+		_, err = uc.Activate(context.Background(), created.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "deact err")
+	})
+
+	t.Run("update error", func(t *testing.T) {
+		uc, repo := newPromptUseCase()
+		created, err := uc.Create(context.Background(), &dto.PromptTemplateRequest{
+			Name: "n", Scene: entity.SceneChat, SystemPrompt: "p", IsActive: false,
+		})
+		require.NoError(t, err)
+		repo.update = func(*entity.PromptTemplate) error { return errors.New("upd err") }
+		_, err = uc.Activate(context.Background(), created.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "upd err")
 	})
 }
 

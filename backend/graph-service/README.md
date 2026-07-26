@@ -26,8 +26,8 @@ graph-service/
 │   │   ├── repository/
 │   │   └── service/            # GraphStore 端口
 │   └── infrastructure/         # 适配器
-│       ├── eventbus/           # RabbitMQ 发布/消费
-│       ├── neo4j/              # Neo4j 客户端（stub + 内存实现）
+│       ├── eventbus/           # RabbitMQ 发布/消费（真实消费循环）
+│       ├── neo4j/              # Neo4j 客户端（HTTP Transaction API + stub 回退）
 │       └── persistence/         # GORM 仓储（graph_sync_log）
 ├── migrations/                 # PostgreSQL 迁移
 └── Dockerfile
@@ -44,9 +44,12 @@ graph-service/
 
 ## 当前实现状态
 
-Neo4j Go driver 未在 `go.mod` 中（离线开发环境），`internal/infrastructure/neo4j/client.go` 暂以 stub 模式实现：定义 `GraphRepository` 接口的内存实现并标记 `TODO(neo4j-sdk)`，待联网后替换为 `neo4j-go-driver` 调用。`neo4j.enabled=false` 时所有写操作记录在内存 map、读操作返回空，便于本地开发联调。
+为保持离线可构建性，Neo4j 与 RabbitMQ 均通过 `net/http` + `amqp091-go` 直连协议端点，不引入官方 Go driver。
 
-`internal/infrastructure/eventbus/rabbitmq.go` 中的消费者循环标记为 `TODO(rabbitmq-consumer)`，开发期通过 `POST /api/v1/graph/sync` 手动触发同步；待 RabbitMQ 联调环境就绪后补全连接重建与消费循环。
+- **Neo4j**：`internal/infrastructure/neo4j/` 拆分为 `client.go`（接口与分发）、`http.go`（HTTP Transaction API + Cypher）、`stub.go`（内存回退）。`neo4j.enabled=true` 时走真实 HTTP，`false` 时走内存 map，便于本地联调。覆盖 11 个 GraphStore 方法（UpsertNode / GetNode / DeleteNode / UpsertEdge / GetEdge / DeleteEdge / QueryPath / GetSubgraph / 场景化查询 / SearchNodes）与 8 类节点唯一约束建立。
+- **RabbitMQ Subscriber**：`internal/infrastructure/eventbus/rabbitmq.go` 实现完整消费循环（dial → channel → exchange declare → queue declare → bind routing keys → QoS → consume → dispatch to SyncUseCase）。handler 错误时 `Nack(requeue=false)` 避免毒消息循环；启动期 broker 不可达返回 nil，不阻塞服务启动；连接断开依赖 k8s 进程重启恢复。
+- **RabbitMQ Publisher**：连接延迟到首次 Publish，避免 broker 未就绪时阻塞启动。
+- **手动同步**：保留 `POST /api/v1/graph/sync` 作为事件外的补充入口。
 
 ## 运行
 
