@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>中医发展史 AI 学习平台</title>
+    <script>
+      // 防止暗色模式 FOUC：首屏渲染前应用持久化的主题。
+      (function () {
+        try {
+          var saved = localStorage.getItem('tcm-theme');
+          if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.dataset.theme = 'dark';
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

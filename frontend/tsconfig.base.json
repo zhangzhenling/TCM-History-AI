@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@tcm/shared": ["packages/shared/src/index.ts"],
+      "@tcm/shared/*": ["packages/shared/src/*"],
+      "@tcm/api": ["packages/api/src/index.ts"],
+      "@tcm/api/*": ["packages/api/src/*"],
+      "@tcm/stores": ["packages/stores/src/index.ts"],
+      "@tcm/stores/*": ["packages/stores/src/*"]
+    }
+  }
+}

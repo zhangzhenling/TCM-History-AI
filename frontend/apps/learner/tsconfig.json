@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@tcm/shared": ["../../packages/shared/src/index.ts"],
+      "@tcm/shared/*": ["../../packages/shared/src/*"],
+      "@tcm/api": ["../../packages/api/src/index.ts"],
+      "@tcm/api/*": ["../../packages/api/src/*"],
+      "@tcm/stores": ["../../packages/stores/src/index.ts"],
+      "@tcm/stores/*": ["../../packages/stores/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "env.d.ts", "../../packages/shared/src/**/*.ts", "../../packages/api/src/**/*.ts", "../../packages/stores/src/**/*.ts"]
+}

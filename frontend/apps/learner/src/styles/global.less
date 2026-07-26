@@ -1,0 +1,78 @@
+// 全局样式：注入设计 Token 为 CSS 变量，定义基础排版与暗色模式覆盖。
+// Token 值与 packages/shared/src/design-tokens.ts 保持同步。
+
+:root {
+  --tcm-color-primary: #a23a30;
+  --tcm-color-primary-hover: #8e2e25;
+  --tcm-color-ink: #1f1a17;
+  --tcm-color-paper: #f7f2e8;
+  --tcm-color-celadon: #5c8a6a;
+  --tcm-color-indigo: #2c4a6b;
+  --tcm-color-gold: #c9a24a;
+  --tcm-shadow-card: 0 2px 8px rgba(31, 26, 23, 0.08);
+  --tcm-shadow-hover: 0 4px 16px rgba(31, 26, 23, 0.12);
+  --tcm-radius-base: 6px;
+  --tcm-radius-lg: 8px;
+  --tcm-spacing-base: 12px;
+  --tcm-spacing-lg: 16px;
+  --tcm-spacing-xl: 24px;
+  --tcm-font-size-base: 14px;
+  --tcm-font-size-lg: 16px;
+  --tcm-font-size-display: 32px;
+}
+
+[data-theme='dark'] {
+  --tcm-color-paper: #2a2520;
+  --tcm-color-ink: #f7f2e8;
+  --tcm-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --tcm-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  font-size: var(--tcm-font-size-base);
+  color: var(--tcm-color-ink);
+  background-color: var(--tcm-color-paper);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+a {
+  color: var(--tcm-color-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--tcm-color-primary-hover);
+}
+
+.tcm-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--tcm-spacing-xl);
+}
+
+.tcm-page-title {
+  font-size: var(--tcm-font-size-display);
+  font-weight: 600;
+  margin: 0 0 var(--tcm-spacing-lg);
+}
+
+.tcm-card-shadow {
+  box-shadow: var(--tcm-shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.tcm-card-shadow:hover {
+  box-shadow: var(--tcm-shadow-hover);
+  transform: translateY(-2px);
+}
