@@ -1,0 +1,77 @@
+# Knowledge Service 开发环境配置
+app:
+  name: knowledge-service
+  env: dev
+  node_id: 4
+
+http:
+  port: 8084
+  read_timeout_seconds: 30
+  write_timeout_seconds: 60
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: tcm
+  password: tcm_pass
+  dbname: tcm_knowledge
+  sslmode: disable
+  max_open_conns: 20
+  max_idle_conns: 5
+  conn_max_lifetime_seconds: 300
+  log_level: warn
+
+milvus:
+  host: localhost
+  port: 19530
+  collection: tcm_chunks
+  dim: 1024
+  enabled: false
+  topk: 20
+  rrf_k: 60
+  rerank_topk: 5
+
+meili:
+  host: localhost
+  port: 7700
+  api_key: meili_master_key_dev
+  index_prefix: knowledge_
+
+minio:
+  endpoint: localhost:9000
+  access_key: minio
+  secret_key: minio_pass
+  bucket_name: tcm-knowledge
+  original_bucket: tcm-original
+  markdown_bucket: tcm-markdown
+  use_ssl: false
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: tcm
+  password: tcm_pass
+  vhost: /tcm
+
+embedding:
+  provider: local
+  endpoint: localhost:8500
+  api_key: ""
+  model: bge-large-zh-v1.5
+  dim: 1024
+  timeout_seconds: 30
+
+jwt:
+  secret: dev-secret-please-change
+  issuer: tcm-history-ai
+  enabled: false
+
+log:
+  level: info
+  encoding: console
+
+tracing:
+  service_name: knowledge-service
+  otlp_endpoint: localhost:4317
+  enabled: false

@@ -3,14 +3,17 @@ export * from './types';
 export * from './http';
 export * from './modules/user-types';
 export * from './modules/history-types';
+export * from './modules/knowledge-types';
 export { AuthApi } from './modules/auth';
 export { UserApi } from './modules/user';
 export { HistoryApi } from './modules/history';
+export { KnowledgeApi } from './modules/knowledge';
 
 import type { AxiosInstance } from 'axios';
 import { AuthApi } from './modules/auth';
 import { UserApi } from './modules/user';
 import { HistoryApi } from './modules/history';
+import { KnowledgeApi } from './modules/knowledge';
 
 /** 在一个 Axios 实例上装配所有 API 模块。 */
 export function createApis(http: AxiosInstance) {
@@ -18,6 +21,7 @@ export function createApis(http: AxiosInstance) {
     auth: new AuthApi(http),
     user: new UserApi(http),
     history: new HistoryApi(http),
+    knowledge: new KnowledgeApi(http),
   };
 }
 
