@@ -12,13 +12,14 @@ import (
 
 // Config is the top-level configuration object.
 type Config struct {
-	App      AppConfig         `mapstructure:"app"`
-	HTTP     HTTPConfig        `mapstructure:"http"`
-	DB       gormutil.DBConfig `mapstructure:"db"`
-	Redis    RedisConfig       `mapstructure:"redis"`
-	RabbitMQ RabbitMQConfig    `mapstructure:"rabbitmq"`
-	Log      LogConfig         `mapstructure:"log"`
-	Tracing  TracingConfig     `mapstructure:"tracing"`
+	App       AppConfig         `mapstructure:"app"`
+	HTTP      HTTPConfig        `mapstructure:"http"`
+	DB        gormutil.DBConfig `mapstructure:"db"`
+	Redis     RedisConfig       `mapstructure:"redis"`
+	RabbitMQ  RabbitMQConfig    `mapstructure:"rabbitmq"`
+	AIService AIServiceConfig   `mapstructure:"ai_service"`
+	Log       LogConfig         `mapstructure:"log"`
+	Tracing   TracingConfig     `mapstructure:"tracing"`
 }
 
 // AppConfig carries process-wide metadata.
@@ -51,6 +52,12 @@ type RabbitMQConfig struct {
 	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
 	VHost    string `mapstructure:"vhost"`
+}
+
+// AIServiceConfig captures the AI Service base URL for study plan generation
+// and other AI-driven features.
+type AIServiceConfig struct {
+	BaseURL string `mapstructure:"base_url"`
 }
 
 // LogConfig captures logger configuration.

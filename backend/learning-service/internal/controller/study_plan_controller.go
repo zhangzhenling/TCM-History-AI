@@ -73,6 +73,20 @@ func (h *StudyPlanController) Update(ctx context.Context, c *app.RequestContext)
 	okOrFail(ctx, c, resp, err)
 }
 
+// Generate POST /api/v1/learning/study-plans/generate
+// Asks the AI service to generate a study plan based on user goal.
+func (h *StudyPlanController) Generate(ctx context.Context, c *app.RequestContext) {
+	var req dto.StudyPlanGenerateRequest
+	if !bindAndValidate(ctx, c, &req) {
+		return
+	}
+	if uid := userIDFromHeader(c); uid > 0 {
+		req.UserID = uid
+	}
+	resp, err := h.uc.Generate(ctx, &req)
+	okOrFail(ctx, c, resp, err)
+}
+
 // Delete DELETE /api/v1/learning/study-plans/:id
 func (h *StudyPlanController) Delete(ctx context.Context, c *app.RequestContext) {
 	id, ok := pathID(c)

@@ -69,6 +69,14 @@ func queryCategory(c *app.RequestContext) string {
 	return string(c.Query("category"))
 }
 
+// userIDFromHeader extracts the user ID from the X-User-ID header set by
+// the API gateway after JWT validation. Returns 0 when absent or invalid.
+func userIDFromHeader(c *app.RequestContext) int64 {
+	raw := string(c.GetHeader("X-User-ID"))
+	id, _ := strconv.ParseInt(raw, 10, 64)
+	return id
+}
+
 // okOrFail writes the result on success or the error envelope on failure.
 func okOrFail(ctx context.Context, c *app.RequestContext, data interface{}, err error) {
 	if err != nil {

@@ -3,29 +3,132 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strconv"
 	"time"
 
 	"tcm-history-ai/backend/learning-service/internal/application/dto"
 	"tcm-history-ai/backend/learning-service/internal/domain/entity"
 	"tcm-history-ai/backend/learning-service/internal/domain/repository"
+	"tcm-history-ai/backend/learning-service/internal/infrastructure/aiclient"
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/idgen"
+	"tcm-history-ai/backend/pkg/logger"
 	"tcm-history-ai/backend/pkg/pagination"
+	"go.uber.org/zap"
 )
 
 // StudyPlanUseCase implements CRUD on study plans plus progress calculation.
 type StudyPlanUseCase struct {
-	planRepo      repository.StudyPlanRepository
+	planRepo       repository.StudyPlanRepository
 	enrollmentRepo repository.EnrollmentRepository
+	aiClient       *aiclient.Client
 }
 
 // NewStudyPlanUseCase constructs a StudyPlanUseCase.
 func NewStudyPlanUseCase(
 	planRepo repository.StudyPlanRepository,
 	enrollmentRepo repository.EnrollmentRepository,
+	aiClient *aiclient.Client,
 ) *StudyPlanUseCase {
-	return &StudyPlanUseCase{planRepo: planRepo, enrollmentRepo: enrollmentRepo}
+	return &StudyPlanUseCase{
+		planRepo:       planRepo,
+		enrollmentRepo: enrollmentRepo,
+		aiClient:       aiClient,
+	}
+}
+
+// Generate asks the AI service to generate a study plan based on the user's
+// goal and target days. Returns a generated plan that the caller can save.
+func (uc *StudyPlanUseCase) Generate(ctx context.Context, in *dto.StudyPlanGenerateRequest) (*dto.StudyPlanGenerateResponse, error) {
+	if in == nil || in.UserID <= 0 || in.Goal == "" {
+		return nil, errno.New(errno.InvalidParams, "user_id and goal are required")
+	}
+	targetDays := in.TargetDays
+	if targetDays <= 0 {
+		targetDays = 30
+	}
+	if uc.aiClient == nil {
+		return uc.fallbackPlan(in.Goal, targetDays), nil
+	}
+	raw, err := uc.aiClient.GenerateStudyPlan(ctx, in.UserID, in.Goal, targetDays)
+	if err != nil {
+		logger.Default().Warn("ai generate study plan failed, using fallback", zap.Error(err))
+		return uc.fallbackPlan(in.Goal, targetDays), nil
+	}
+	if raw == "" {
+		return uc.fallbackPlan(in.Goal, targetDays), nil
+	}
+	parsed := parseAIPlan(raw)
+	parsed.RawText = raw
+	return parsed, nil
+}
+
+// fallbackPlan returns a reasonable default plan when AI is unavailable.
+func (uc *StudyPlanUseCase) fallbackPlan(goal string, targetDays int) *dto.StudyPlanGenerateResponse {
+	return &dto.StudyPlanGenerateResponse{
+		Title:       goal + "学习计划",
+		Description: "为期" + strconv.Itoa(targetDays) + "天的中医历史学习计划，循序渐进掌握核心知识。",
+		Courses: []string{
+			"先秦两汉医学史",
+			"魏晋南北朝医学",
+			"隋唐医学",
+			"宋金元医学",
+			"明清医学",
+			"近代中医发展",
+		},
+	}
+}
+
+var jsonBlockRe = regexp.MustCompile("(?s)```json\\s*(.+?)```")
+var jsonObjRe = regexp.MustCompile("(?s)\\{.*\\}")
+
+// parseAIPlan extracts a JSON study plan from the AI's raw text response.
+// Falls back to a minimal plan if parsing fails.
+func parseAIPlan(raw string) *dto.StudyPlanGenerateResponse {
+	fallback := &dto.StudyPlanGenerateResponse{
+		Title:       "AI 生成学习计划",
+		Description: raw,
+		Courses:     []string{},
+	}
+	text := raw
+	if m := jsonBlockRe.FindStringSubmatch(text); len(m) >= 2 {
+		text = m[1]
+	} else if m := jsonObjRe.FindString(text); m != "" {
+		text = m
+	}
+	var parsed struct {
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		Courses     []string `json:"courses"`
+	}
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		return fallback
+	}
+	if parsed.Title == "" {
+		parsed.Title = "AI 生成学习计划"
+	}
+	return &dto.StudyPlanGenerateResponse{
+		Title:       parsed.Title,
+		Description: parsed.Description,
+		Courses:     parsed.Courses,
+	}
+}
+
+// RefreshForCourse refreshes progress on every active study plan that
+// contains the given course. Used when enrollment progress changes.
+func (uc *StudyPlanUseCase) RefreshForCourse(ctx context.Context, userID, courseID int64) error {
+	plans, err := uc.planRepo.FindActiveByUserAndCourse(ctx, userID, courseID)
+	if err != nil {
+		return err
+	}
+	for i := range plans {
+		if err := uc.refreshProgress(ctx, &plans[i]); err != nil {
+			// Log and continue – one plan failing should not block others.
+			continue
+		}
+	}
+	return nil
 }
 
 // Create persists a new study plan for a user.

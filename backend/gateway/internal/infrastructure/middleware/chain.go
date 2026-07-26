@@ -14,7 +14,8 @@ import (
 // they need. It is constructed once at boot by the wire graph and referenced
 // by the router.
 type Chain struct {
-	cfg *conf.Config
+	cfg      *conf.Config
+	rbacCfg  RBACConfig
 }
 
 // NewChain constructs a Chain and prepares Sentinel flow rules so that the
@@ -37,5 +38,5 @@ func NewChain(cfg *conf.Config) (*Chain, error) {
 			logger.Default().Error("sentinel load flow rules", zap.Error(err))
 		}
 	}
-	return &Chain{cfg: cfg}, nil
+	return &Chain{cfg: cfg, rbacCfg: DefaultRBACConfig()}, nil
 }

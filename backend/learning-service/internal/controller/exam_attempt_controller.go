@@ -54,6 +54,21 @@ func (h *ExamAttemptController) List(ctx context.Context, c *app.RequestContext)
 	okOrFail(ctx, c, resp, err)
 }
 
+// Save POST /api/v1/learning/attempts/:id/save
+// Auto-save current answers without submitting the exam.
+func (h *ExamAttemptController) Save(ctx context.Context, c *app.RequestContext) {
+	id, ok := pathID(c)
+	if !ok {
+		return
+	}
+	var req dto.ExamAttemptSaveRequest
+	if !bindAndValidate(ctx, c, &req) {
+		return
+	}
+	resp, err := h.uc.SaveAnswers(ctx, id, &req)
+	okOrFail(ctx, c, resp, err)
+}
+
 // Submit POST /api/v1/learning/attempts/:id/submit
 func (h *ExamAttemptController) Submit(ctx context.Context, c *app.RequestContext) {
 	id, ok := pathID(c)

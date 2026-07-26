@@ -33,7 +33,7 @@ func newWrongQuestionUseCase() (*usecase.WrongQuestionUseCase, *mockWrongQuestio
 	}
 	wq.ID = idgen.Next()
 	_ = repo.Create(context.Background(), wq)
-	uc := usecase.NewWrongQuestionUseCase(repo)
+	uc := usecase.NewWrongQuestionUseCase(repo, nil)
 	return uc, repo, wq
 }
 

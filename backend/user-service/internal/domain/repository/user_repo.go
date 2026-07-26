@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"tcm-history-ai/backend/pkg/pagination"
 	"tcm-history-ai/backend/user-service/internal/domain/entity"
 )
 
@@ -20,4 +21,5 @@ type UserRepository interface {
 	UpdateLastLogin(ctx context.Context, id int64, at time.Time, ip string) error
 	Update(ctx context.Context, u *entity.User) error
 	Delete(ctx context.Context, id int64) error
+	List(ctx context.Context, p pagination.Params, status string) ([]entity.User, int64, error)
 }

@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -90,6 +91,20 @@ func (r *StudyPlanRepo) FindActive(ctx context.Context, userID int64) ([]entity.
 	if err := txFrom(ctx, r.db).Where("user_id = ? AND status = ?", userID, entity.StudyPlanStatusActive).
 		Order("created_at DESC, id DESC").Find(&items).Error; err != nil {
 		return nil, errno.Wrap(errno.InternalError, "list active study plans", err)
+	}
+	return items, nil
+}
+
+// FindActiveByUserAndCourse returns active study plans containing the course.
+// Uses PostgreSQL jsonb containment operator @> for efficient lookup.
+func (r *StudyPlanRepo) FindActiveByUserAndCourse(ctx context.Context, userID, courseID int64) ([]entity.StudyPlan, error) {
+	var items []entity.StudyPlan
+	if err := txFrom(ctx, r.db).
+		Where("user_id = ? AND status = ? AND courses_json @> ?::jsonb",
+			userID, entity.StudyPlanStatusActive, "["+strconv.FormatInt(courseID, 10)+"]").
+		Order("created_at DESC, id DESC").
+		Find(&items).Error; err != nil {
+		return nil, errno.Wrap(errno.InternalError, "find study plans by course", err)
 	}
 	return items, nil
 }

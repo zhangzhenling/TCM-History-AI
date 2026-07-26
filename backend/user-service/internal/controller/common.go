@@ -97,3 +97,14 @@ func noContentOrFail(ctx context.Context, c *app.RequestContext, err error) {
 	}
 	c.Status(consts.StatusNoContent)
 }
+
+// pathID extracts and validates a bigint :id path parameter.
+func pathID(c *app.RequestContext) (int64, bool) {
+	raw := c.Param("id")
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		response.FailWith(context.Background(), c, errno.InvalidParams, "invalid id: "+raw)
+		return 0, false
+	}
+	return id, true
+}

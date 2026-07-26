@@ -16,4 +16,5 @@ type ExamRepository interface {
 	List(ctx context.Context, p pagination.Params) ([]entity.Exam, int, error)
 	ListByCourse(ctx context.Context, courseID int64, p pagination.Params) ([]entity.Exam, int, error)
 	ListPublished(ctx context.Context, p pagination.Params) ([]entity.Exam, int, error)
+	ListAllWithDuration(ctx context.Context) ([]entity.Exam, error)
 }

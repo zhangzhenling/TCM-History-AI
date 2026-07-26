@@ -202,6 +202,13 @@ type ExamAttemptStartRequest struct {
 	UserID int64 `json:"user_id,required"`
 }
 
+// ExamAttemptSaveRequest is the payload for saving answers during an exam
+// (auto-save, not final submit).
+type ExamAttemptSaveRequest struct {
+	UserID  int64                   `json:"user_id,required"`
+	Answers []ExamAttemptAnswerItem `json:"answers,required"`
+}
+
 // ExamAttemptSubmitRequest is the payload for submitting an exam attempt.
 // AnswersJSON maps question_id -> user answer (option indices / text).
 type ExamAttemptSubmitRequest struct {
@@ -228,6 +235,8 @@ type ExamAttemptResponse struct {
 	SubmittedAt     string          `json:"submitted_at,omitempty"`
 	DurationSeconds int             `json:"duration_seconds"`
 	AnswersJSON     json.RawMessage `json:"answers_json"`
+	IsExpired       bool            `json:"is_expired,omitempty"`
+	RemainingSeconds int            `json:"remaining_seconds,omitempty"`
 	CreatedAt       string          `json:"created_at"`
 	UpdatedAt       string          `json:"updated_at"`
 }
@@ -252,8 +261,39 @@ type WrongQuestionResponse struct {
 }
 
 // ============================================================================
+// Dashboard
+// ============================================================================
+
+// DashboardResponse is the aggregated learning dashboard for a user.
+type DashboardResponse struct {
+	UserID                int64   `json:"user_id"`
+	TotalCoursesEnrolled  int     `json:"total_courses_enrolled"`
+	TotalCoursesCompleted int     `json:"total_courses_completed"`
+	TotalLearningMinutes  int     `json:"total_learning_minutes"`
+	TotalExamsTaken       int     `json:"total_exams_taken"`
+	AverageExamScore      float64 `json:"average_exam_score"`
+	ActiveStudyPlans      int     `json:"active_study_plans"`
+	RecentWrongQuestions  int     `json:"recent_wrong_questions"`
+}
+
+// ============================================================================
 // StudyPlan
 // ============================================================================
+
+// StudyPlanGenerateRequest is the payload for generating a study plan via AI.
+type StudyPlanGenerateRequest struct {
+	UserID     int64  `json:"user_id,required"`
+	Goal       string `json:"goal,required"`
+	TargetDays int    `json:"target_days,optional"`
+}
+
+// StudyPlanGenerateResponse is the AI-generated study plan.
+type StudyPlanGenerateResponse struct {
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Courses     []string `json:"courses"`
+	RawText     string   `json:"raw_text,omitempty"`
+}
 
 // StudyPlanRequest is the create/update payload for study plans.
 type StudyPlanRequest struct {
