@@ -1,0 +1,189 @@
+{
+  "rabbit_version": "3.13.0",
+  "users": [
+    {
+      "name": "tcm",
+      "password_hash": "obLD1MRIQY/7OSqxBIYXbtQZK1eHc7fdXTMlD058/aVm1DO3",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": [
+        "administrator"
+      ]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/tcm"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "tcm",
+      "vhost": "/tcm",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "tcm.events",
+      "vhost": "/tcm",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "tcm.metrics",
+      "vhost": "/tcm",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "cdc.events",
+      "vhost": "/tcm",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "tcm.dlx",
+      "vhost": "/tcm",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "knowledge.doc.uploaded",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "graph.cdc.history",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "monitor.metrics",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "learning.user.registered",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "ai.course.completed",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "ai.exam.submitted",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "graph.doc.indexed",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlq.default",
+      "vhost": "/tcm",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "tcm.events",
+      "vhost": "/tcm",
+      "destination": "knowledge.doc.uploaded",
+      "destination_type": "queue",
+      "routing_key": "doc.uploaded",
+      "arguments": {}
+    },
+    {
+      "source": "cdc.events",
+      "vhost": "/tcm",
+      "destination": "graph.cdc.history",
+      "destination_type": "queue",
+      "routing_key": "history.*",
+      "arguments": {}
+    },
+    {
+      "source": "tcm.metrics",
+      "vhost": "/tcm",
+      "destination": "monitor.metrics",
+      "destination_type": "queue",
+      "routing_key": "metrics.snapshot",
+      "arguments": {}
+    },
+    {
+      "source": "tcm.events",
+      "vhost": "/tcm",
+      "destination": "learning.user.registered",
+      "destination_type": "queue",
+      "routing_key": "user.registered",
+      "arguments": {}
+    },
+    {
+      "source": "tcm.events",
+      "vhost": "/tcm",
+      "destination": "ai.course.completed",
+      "destination_type": "queue",
+      "routing_key": "course.completed",
+      "arguments": {}
+    },
+    {
+      "source": "tcm.events",
+      "vhost": "/tcm",
+      "destination": "ai.exam.submitted",
+      "destination_type": "queue",
+      "routing_key": "exam.submitted",
+      "arguments": {}
+    },
+    {
+      "source": "tcm.events",
+      "vhost": "/tcm",
+      "destination": "graph.doc.indexed",
+      "destination_type": "queue",
+      "routing_key": "doc.indexed",
+      "arguments": {}
+    },
+    {
+      "source": "tcm.dlx",
+      "vhost": "/tcm",
+      "destination": "dlq.default",
+      "destination_type": "queue",
+      "routing_key": "#",
+      "arguments": {}
+    }
+  ]
+}

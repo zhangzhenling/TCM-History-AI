@@ -1,0 +1,35 @@
+app:
+  name: gateway
+  env: dev
+  node_id: 1
+
+http:
+  port: 8080
+  read_timeout: 10
+  write_timeout: 10
+
+jwt:
+  secret: "dev-only-gateway-secret-please-override-via-JWT_SECRET"
+  access_token_ttl: 2h
+  refresh_token_ttl: 168h
+
+rate_limit:
+  qps: 100
+  burst: 200
+
+tracing:
+  service_name: gateway
+  otlp_endpoint: "otel-collector:4317"
+  enabled: false
+
+log:
+  level: debug
+  encoding: console
+
+downstream:
+  user_service: "localhost:8081"
+  history_service: "localhost:8082"
+  knowledge_service: "localhost:8083"
+  graph_service: "localhost:8084"
+  ai_service: "localhost:8085"
+  learning_service: "localhost:8086"

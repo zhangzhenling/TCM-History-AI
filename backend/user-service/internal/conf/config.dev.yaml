@@ -1,0 +1,49 @@
+app:
+  name: user-service
+  env: dev
+  node_id: 2
+
+http:
+  port: 8081
+  read_timeout: 30
+  write_timeout: 30
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: tcm_history
+  sslmode: disable
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime_seconds: 3600
+  log_level: warn
+
+jwt:
+  secret: "dev-only-user-service-secret-please-override-via-JWT_SECRET"
+  access_token_ttl: 2h
+  refresh_token_ttl: 168h
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: guest
+  password: guest
+  vhost: "/"
+
+log:
+  level: info
+  encoding: console
+
+tracing:
+  service_name: user-service
+  otlp_endpoint: ""
+  enabled: false

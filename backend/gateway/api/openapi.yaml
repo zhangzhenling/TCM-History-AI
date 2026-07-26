@@ -1,0 +1,51 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI Gateway API
+  version: 1.0.0
+  description: |
+    Gateway 是 TCM-History-AI 平台统一入口。本 OpenAPI 仅描述网关自身暴露的
+    /health 端点；所有业务路由（/api/v1/*）由网关透明转发至下游服务，
+    具体形态参见各下游服务的 OpenAPI 文档。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8080
+    description: local dev
+tags:
+  - name: health
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: |
+        返回 200 表示网关进程存活。下游服务的健康检查由各服务自身的
+        /health 端点承担；网关只关心自身进程是否在监听。
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+components:
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ok
+        trace_id:
+          type: string
