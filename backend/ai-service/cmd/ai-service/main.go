@@ -63,6 +63,15 @@ func main() {
 	}
 	defer cleanup()
 
+	// Start the transactional-outbox relay so domain events persisted in the
+	// same DB transaction as business writes are reliably delivered to
+	// RabbitMQ (doc/02 §6.2). The relay exits when ctx is cancelled below.
+	relayCtx, relayCancel := context.WithCancel(context.Background())
+	defer relayCancel()
+	if app.Relay != nil {
+		app.Relay.Start(relayCtx)
+	}
+
 	h := server.Default(
 		server.WithHostPorts(fmt.Sprintf(":%d", cfg.HTTP.Port)),
 		server.WithReadTimeout(time.Duration(cfg.HTTP.ReadTimeout)*time.Second),

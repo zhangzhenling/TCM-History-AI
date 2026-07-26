@@ -8,13 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"tcm-history-ai/backend/ai-service/internal/application/dto"
 	"tcm-history-ai/backend/ai-service/internal/domain/entity"
 	"tcm-history-ai/backend/ai-service/internal/domain/event"
 	"tcm-history-ai/backend/ai-service/internal/domain/repository"
 	"tcm-history-ai/backend/ai-service/internal/domain/service"
+	"tcm-history-ai/backend/ai-service/internal/infrastructure/persistence"
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/idgen"
+	"tcm-history-ai/backend/pkg/outbox"
 	"tcm-history-ai/backend/pkg/pagination"
 )
 
@@ -42,9 +46,15 @@ type AgentUseCase struct {
 	retriever  service.RetrievalClient
 	renderer   service.PromptRenderer
 	pub        event.EventPublisher
+	db         *gorm.DB
+	outboxRepo *outbox.Repository
 }
 
 // NewAgentUseCase constructs an AgentUseCase.
+//
+// db 与 outboxRepo 用于在最终状态更新与事件入队之间保持原子性
+// （transactional outbox 模式，doc/02 §6.2）。在 outboxRepo 为 nil 时
+// 回退到直接 pub.Publish，保证单元测试可注入更轻量的桩。
 func NewAgentUseCase(
 	convRepo repository.ConversationRepository,
 	agentRepo repository.AgentRunRepository,
@@ -55,6 +65,8 @@ func NewAgentUseCase(
 	retriever service.RetrievalClient,
 	renderer service.PromptRenderer,
 	pub event.EventPublisher,
+	db *gorm.DB,
+	outboxRepo *outbox.Repository,
 ) *AgentUseCase {
 	return &AgentUseCase{
 		convRepo:   convRepo,
@@ -66,6 +78,8 @@ func NewAgentUseCase(
 		retriever:  retriever,
 		renderer:   renderer,
 		pub:        pub,
+		db:         db,
+		outboxRepo: outboxRepo,
 	}
 }
 
@@ -152,15 +166,38 @@ func (uc *AgentUseCase) Run(ctx context.Context, in *dto.AgentRequest) (*dto.Age
 	run.TotalTokens = totalTokens + answer.TokensPrompt + answer.TokensCompletion
 	run.TotalLatencyMs = int(time.Since(start).Milliseconds())
 	run.Status = entity.AgentRunStatusDone
-	_ = uc.agentRepo.Update(ctx, run)
 
-	// 6. 发布事件（best-effort）
-	_ = uc.pub.Publish(ctx, event.AgentRunCompleted{
+	// 6. 在同一事务内更新终态 + 入队 AgentRunCompleted 事件
+	//    （transactional outbox，doc/02 §6.2）。
+	//    outboxRepo 为 nil 时回退到直接 pub.Publish（best-effort），
+	//    便于单元测试注入轻量 publisher 而无需 DB。
+	completedEvt := event.AgentRunCompleted{
 		AgentRunID:     run.ID,
 		ConversationID: conv.ID,
 		UserID:         userID,
 		Status:         run.Status,
-	})
+	}
+	if uc.db != nil && uc.outboxRepo != nil {
+		if err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txCtx := persistence.WithTx(ctx, tx)
+			if err := uc.agentRepo.Update(txCtx, run); err != nil {
+				return err
+			}
+			payload, err := json.Marshal(completedEvt)
+			if err != nil {
+				return errno.Wrap(errno.InternalError, "marshal agent event", err)
+			}
+			return uc.outboxRepo.Enqueue(ctx, tx, completedEvt.Topic(), payload)
+		}); err != nil {
+			// 事务失败：尝试回退到直接 publish，避免事件完全丢失
+			_ = uc.pub.Publish(ctx, completedEvt)
+			return nil, errno.Wrap(errno.InternalError, "agent finalize tx", err)
+		}
+	} else {
+		// 离线/测试路径：直接更新 + 直接发布
+		_ = uc.agentRepo.Update(ctx, run)
+		_ = uc.pub.Publish(ctx, completedEvt)
+	}
 
 	return &dto.AgentResponse{
 		AgentRunID:     run.ID,

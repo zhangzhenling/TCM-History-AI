@@ -46,5 +46,12 @@ func (p *RabbitMQEventPublisher) Close() error {
 	return p.pub.Close()
 }
 
+// Inner returns the underlying *rabbitmq.Publisher so it can be reused by
+// the outbox relay adapter (eventbus.NewRawPublisher) without opening a
+// second AMQP connection.
+func (p *RabbitMQEventPublisher) Inner() *rabbitmq.Publisher {
+	return p.pub
+}
+
 // Compile-time check.
 var _ event.EventPublisher = (*RabbitMQEventPublisher)(nil)

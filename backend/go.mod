@@ -19,7 +19,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.51.0
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.25.10
+	gorm.io/gorm v1.30.0
 )
 
 require (
@@ -59,6 +59,7 @@ require (
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/nyaruka/phonenumbers v1.0.55 // indirect
@@ -103,4 +104,5 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/sqlite v1.6.0 // indirect
 )
