@@ -11,11 +11,13 @@ import (
 
 // Deps bundles every controller the router needs. It is populated by wire.
 type Deps struct {
-	Auth     *AuthController
-	Profile  *ProfileController
-	Settings *SettingsController
-	Admin    *AdminController
-	Role     *RoleController
+	Auth       *AuthController
+	Profile    *ProfileController
+	Settings   *SettingsController
+	Admin      *AdminController
+	Role       *RoleController
+	Membership *MembershipController
+	ApiKey     *ApiKeyController
 }
 
 // RegisterRoutes wires every User Service route onto the Hertz server.
@@ -62,4 +64,24 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	admin.PUT("/roles/:id/permissions", deps.Role.AssignPermissions)
 
 	admin.GET("/permissions", deps.Role.ListPermissions)
+
+	admin.GET("/membership/plans", deps.Membership.AdminListPlans)
+	admin.POST("/membership/plans", deps.Membership.AdminCreatePlan)
+	admin.PUT("/membership/plans/:id", deps.Membership.AdminUpdatePlan)
+	admin.DELETE("/membership/plans/:id", deps.Membership.AdminDeletePlan)
+
+	membership := v1.Group("/membership")
+	membership.GET("/plans", deps.Membership.ListPlans)
+	membership.GET("/subscription", deps.Membership.GetSubscription)
+	membership.POST("/subscribe", deps.Membership.Subscribe)
+	membership.POST("/cancel-auto-renew", deps.Membership.CancelAutoRenew)
+	membership.GET("/orders", deps.Membership.ListOrders)
+
+	apiKeys := v1.Group("/api-keys")
+	apiKeys.GET("", deps.ApiKey.List)
+	apiKeys.POST("", deps.ApiKey.Create)
+	apiKeys.GET("/:id", deps.ApiKey.Get)
+	apiKeys.PUT("/:id", deps.ApiKey.Update)
+	apiKeys.DELETE("/:id", deps.ApiKey.Delete)
+	apiKeys.POST("/:id/regenerate", deps.ApiKey.Regenerate)
 }

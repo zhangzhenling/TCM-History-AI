@@ -146,6 +146,18 @@ export interface Medicine {
   toxicity: string;
 }
 
+export interface MedicineRequest {
+  name: string;
+  pinyin?: string;
+  alias?: string[];
+  nature?: string;
+  flavor?: string;
+  meridian?: string;
+  efficacy?: string;
+  dosage?: string;
+  toxicity?: string;
+}
+
 export interface Disease {
   id: number;
   name: string;
@@ -154,6 +166,15 @@ export interface Disease {
   description: string;
   symptoms: string;
   tcm_pathogenesis: string;
+}
+
+export interface DiseaseRequest {
+  name: string;
+  pinyin?: string;
+  category?: string;
+  description?: string;
+  symptoms?: string;
+  tcm_pathogenesis?: string;
 }
 
 export interface SearchHit {

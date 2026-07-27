@@ -46,6 +46,36 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: { title: '著作管理', keepAlive: true },
       },
       {
+        path: 'history/schools',
+        name: 'AdminSchools',
+        component: () => import('@/views/history/schools.vue'),
+        meta: { title: '学派管理', keepAlive: true },
+      },
+      {
+        path: 'history/events',
+        name: 'AdminEvents',
+        component: () => import('@/views/history/events.vue'),
+        meta: { title: '事件管理', keepAlive: true },
+      },
+      {
+        path: 'history/prescriptions',
+        name: 'AdminPrescriptions',
+        component: () => import('@/views/history/prescriptions.vue'),
+        meta: { title: '方剂管理', keepAlive: true },
+      },
+      {
+        path: 'history/medicines',
+        name: 'AdminMedicines',
+        component: () => import('@/views/history/medicines.vue'),
+        meta: { title: '药物管理', keepAlive: true },
+      },
+      {
+        path: 'history/diseases',
+        name: 'AdminDiseases',
+        component: () => import('@/views/history/diseases.vue'),
+        meta: { title: '疾病管理', keepAlive: true },
+      },
+      {
         path: 'knowledge/documents',
         name: 'AdminDocuments',
         component: () => import('@/views/knowledge/documents.vue'),

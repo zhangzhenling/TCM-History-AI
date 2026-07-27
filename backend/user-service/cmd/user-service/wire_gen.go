@@ -29,17 +29,25 @@ import (
 
 // App holds every wired dependency required to serve HTTP traffic.
 type App struct {
-	userRepo     *persistence.UserRepo
-	roleRepo     *persistence.RoleRepo
-	permRepo     *persistence.PermissionRepo
-	profileRepo  *persistence.ProfileRepo
-	settingsRepo *persistence.SettingsRepo
+	userRepo         *persistence.UserRepo
+	roleRepo         *persistence.RoleRepo
+	permRepo         *persistence.PermissionRepo
+	profileRepo      *persistence.ProfileRepo
+	settingsRepo     *persistence.SettingsRepo
+	membershipPlanRepo  *persistence.MembershipPlanRepo
+	userSubscriptionRepo *persistence.UserSubscriptionRepo
+	membershipOrderRepo *persistence.MembershipOrderRepo
+	apiKeyRepo       *persistence.ApiKeyRepo
 
-	authUC     *usecase.AuthUseCase
-	profileUC  *usecase.ProfileUseCase
-	settingsUC *usecase.SettingsUseCase
-	adminUC    *usecase.AdminUseCase
-	roleUC     *usecase.RoleUseCase
+	authUC         *usecase.AuthUseCase
+	profileUC      *usecase.ProfileUseCase
+	settingsUC     *usecase.SettingsUseCase
+	adminUC        *usecase.AdminUseCase
+	roleUC         *usecase.RoleUseCase
+	membershipPlanUC *usecase.MembershipPlanUseCase
+	subscriptionUC *usecase.SubscriptionUseCase
+	orderUC        *usecase.OrderUseCase
+	apiKeyUC       *usecase.ApiKeyUseCase
 
 	db        *gorm.DB
 	redis     *redis.Client
@@ -49,11 +57,13 @@ type App struct {
 // ControllerDeps returns the bundle of controllers required by the router.
 func (a *App) ControllerDeps() *controller.Deps {
 	return &controller.Deps{
-		Auth:     controller.NewAuthController(a.authUC),
-		Profile:  controller.NewProfileController(a.profileUC),
-		Settings: controller.NewSettingsController(a.settingsUC),
-		Admin:    controller.NewAdminController(a.adminUC),
-		Role:     controller.NewRoleController(a.roleUC),
+		Auth:       controller.NewAuthController(a.authUC),
+		Profile:    controller.NewProfileController(a.profileUC),
+		Settings:   controller.NewSettingsController(a.settingsUC),
+		Admin:      controller.NewAdminController(a.adminUC),
+		Role:       controller.NewRoleController(a.roleUC),
+		Membership: controller.NewMembershipController(a.membershipPlanUC, a.subscriptionUC, a.orderUC),
+		ApiKey:     controller.NewApiKeyController(a.apiKeyUC),
 	}
 }
 
@@ -81,6 +91,10 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.permRepo = persistence.NewPermissionRepo(db)
 	app.profileRepo = persistence.NewProfileRepo(db)
 	app.settingsRepo = persistence.NewSettingsRepo(db)
+	app.membershipPlanRepo = persistence.NewMembershipPlanRepo(db)
+	app.userSubscriptionRepo = persistence.NewUserSubscriptionRepo(db)
+	app.membershipOrderRepo = persistence.NewMembershipOrderRepo(db)
+	app.apiKeyRepo = persistence.NewApiKeyRepo(db)
 
 	// Redis client for the refresh token store. Connection is lazy: a missing
 	// broker surfaces as a logged warning on the first refresh, not as a
@@ -125,6 +139,10 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.settingsUC = usecase.NewSettingsUseCase(app.settingsRepo)
 	app.adminUC = usecase.NewAdminUseCase(app.userRepo, app.roleRepo, app.permRepo)
 	app.roleUC = usecase.NewRoleUseCase(app.roleRepo, app.permRepo)
+	app.membershipPlanUC = usecase.NewMembershipPlanUseCase(app.membershipPlanRepo)
+	app.subscriptionUC = usecase.NewSubscriptionUseCase(app.membershipPlanRepo, app.userSubscriptionRepo, app.membershipOrderRepo)
+	app.orderUC = usecase.NewOrderUseCase(app.membershipOrderRepo, app.membershipPlanRepo)
+	app.apiKeyUC = usecase.NewApiKeyUseCase(app.apiKeyRepo)
 
 	// Compile-time interface checks: ensure concrete adapters satisfy the
 	// domain ports. These are no-ops at runtime.

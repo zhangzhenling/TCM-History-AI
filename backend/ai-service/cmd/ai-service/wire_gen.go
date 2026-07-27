@@ -32,16 +32,19 @@ import (
 
 // App holds every wired dependency required to serve HTTP traffic.
 type App struct {
-	convRepo   *persistence.ConversationRepo
-	msgRepo    *persistence.MessageRepo
-	promptRepo *persistence.PromptTemplateRepo
-	toolRepo   *persistence.ToolRepo
-	agentRepo  *persistence.AgentRunRepo
+	convRepo    *persistence.ConversationRepo
+	msgRepo     *persistence.MessageRepo
+	promptRepo  *persistence.PromptTemplateRepo
+	toolRepo    *persistence.ToolRepo
+	agentRepo   *persistence.AgentRunRepo
+	tokenUsageRepo *persistence.TokenUsageRepo
+	tokenQuotaRepo *persistence.TokenQuotaRepo
 
 	chatUC   *usecase.ChatUseCase
 	agentUC  *usecase.AgentUseCase
 	promptUC *usecase.PromptUseCase
 	toolUC   *usecase.ToolUseCase
+	tokenUC  *usecase.TokenUseCase
 
 	db         *gorm.DB
 	llm        service.LLMProvider
@@ -60,6 +63,7 @@ func (a *App) ControllerDeps() *controller.Deps {
 		Agent:  controller.NewAgentController(a.agentUC),
 		Prompt: controller.NewPromptController(a.promptUC),
 		Tool:   controller.NewToolController(a.toolUC),
+		Token:  controller.NewTokenController(a.tokenUC),
 	}
 }
 
@@ -87,6 +91,8 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.promptRepo = persistence.NewPromptTemplateRepo(db)
 	app.toolRepo = persistence.NewToolRepo(db)
 	app.agentRepo = persistence.NewAgentRunRepo(db)
+	app.tokenUsageRepo = persistence.NewTokenUsageRepo(db)
+	app.tokenQuotaRepo = persistence.NewTokenQuotaRepo(db)
 
 	// LLM provider (stub when enabled=false).
 	provider, err := llm.New(llm.Config{
@@ -153,6 +159,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	)
 	app.promptUC = usecase.NewPromptUseCase(app.promptRepo, app.renderer)
 	app.toolUC = usecase.NewToolUseCase(app.toolRepo, app.toolExec)
+	app.tokenUC = usecase.NewTokenUseCase(app.tokenUsageRepo, app.tokenQuotaRepo)
 
 	cleanups = append(cleanups, func() {
 		sqlDB, _ := db.DB()

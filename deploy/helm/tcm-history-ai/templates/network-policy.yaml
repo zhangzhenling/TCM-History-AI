@@ -1,0 +1,107 @@
+{{- /*
+网络策略（NetworkPolicy）— 生产环境安全加固
+通过 .Values.networkPolicy.enabled 控制是否启用
+
+策略清单：
+  1. default-deny-all           — 默认拒绝所有入站流量（白名单模式）
+  2. allow-same-namespace       — 允许同一 namespace 内的服务间通信
+  3. allow-ingress              — 允许 Ingress Controller 访问各服务 HTTP 端口
+  4. allow-prometheus-scraping  — 允许 Prometheus 抓取 metrics
+*/ -}}
+{{- if .Values.networkPolicy.enabled }}
+{{- $root := . -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ include "tcm.namespace" $root }}
+  labels:
+    app.kubernetes.io/name: default-deny-all
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: {{ $root.Release.Service }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: {{ include "tcm.namespace" $root }}
+  labels:
+    app.kubernetes.io/name: allow-same-namespace
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: {{ $root.Release.Service }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress
+  namespace: {{ include "tcm.namespace" $root }}
+  labels:
+    app.kubernetes.io/name: allow-ingress
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: {{ $root.Release.Service }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: {{ (index .Values.backend "gateway").port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: {{ include "tcm.namespace" $root }}
+  labels:
+    app.kubernetes.io/name: allow-prometheus-scraping
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: {{ $root.Release.Service }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        {{- range $name, $cfg := $root.Values.backend }}
+        - protocol: TCP
+          port: {{ $cfg.port }}
+        {{- end }}
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 3100
+        - protocol: TCP
+          port: 9091
+        - protocol: TCP
+          port: 15672
+{{- end }}

@@ -1,4 +1,4 @@
-# Ingress：将 gateway 暴露给集群外部
+# Ingress：将 gateway 与可观测性工具暴露给集群外部
 # host: api.tcm-history.local 为占位域名，生产请替换为实际域名（如 api.tcm-history.ai）
 # 依赖：集群需已安装 Ingress Controller（推荐 nginx-ingress）与对应 ingressClassName
 # TLS：生产请配置 cert-manager + Let's Encrypt 通配符证书（见 doc/16-Kubernetes部署.md 第 5.2 节）
@@ -43,3 +43,47 @@ spec:
                 name: gateway
                 port:
                   number: 8080
+---
+# 可观测性工具 Ingress：Grafana / Prometheus / Jaeger
+# 使用 rewrite-target 将子路径重写为后端服务的根路径
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tcm-observability-ingress
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: tcm-history-ai
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: observability-ingress
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.tcm-history.local
+      http:
+        paths:
+          - path: /grafana(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+          - path: /prometheus(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+          - path: /jaeger(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: jaeger
+                port:
+                  number: 16686

@@ -16,6 +16,7 @@ type Deps struct {
 	Agent  *AgentController
 	Prompt *PromptController
 	Tool   *ToolController
+	Token  *TokenController
 }
 
 // RegisterRoutes wires every AI Service route onto the Hertz server.
@@ -56,6 +57,11 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	v1.PUT("/tools/:id", deps.Tool.Update)
 	v1.DELETE("/tools/:id", deps.Tool.Delete)
 	v1.POST("/tools/:id/execute", deps.Tool.Execute)
+
+	// Token usage & quota
+	v1.GET("/token/quota", deps.Token.GetQuota)
+	v1.GET("/token/usage", deps.Token.GetUsage)
+	v1.GET("/token/records", deps.Token.GetRecords)
 
 	// Suppress unused-import warning for consts.
 	_ = consts.StatusOK

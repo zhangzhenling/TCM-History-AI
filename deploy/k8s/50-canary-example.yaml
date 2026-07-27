@@ -1,0 +1,276 @@
+# 金丝雀发布（Canary Release）示例 — 以 gateway 服务为例
+#
+# 原理：
+#   Stable Deployment（稳定版，3 副本） + Canary Deployment（金丝雀版，1 副本）
+#   两个 Deployment 使用相同的 selector（app.kubernetes.io/name=gateway），
+#   通过同一个 Service 按副本数比例随机分流流量。
+#
+# 流量比例控制（通过调整副本数实现）：
+#   stable=3, canary=1  →  25% 流量到金丝雀
+#   stable=4, canary=1  →  20% 流量到金丝雀
+#   stable=9, canary=1  →  10% 流量到金丝雀
+#   stable=19, canary=1 →  5%  流量到金丝雀
+#
+# 金丝雀发布操作流程：
+#   1. 部署 stable 版本（3 副本），确认线上正常
+#   2. 部署 canary 版本（1 副本），此时约 25% 流量到新版本
+#   3. 观察 canary 版本的 metrics / 日志 / 错误率，无问题则逐步扩容
+#   4. 逐步扩大 canary 副本数、缩小 stable 副本数（如 2:2 → 1:3 → 0:4）
+#   5. 全部流量切换到新版本后，删除 old stable Deployment
+#   6. 回滚：将 canary 副本数缩为 0，流量全部回到 stable
+#
+# 注意：
+#   - 此为基础版金丝雀，基于 Service 随机分流，粒度为副本数比例
+#   - 如需更精细的流量控制（按 header / cookie / 权重百分比），建议使用
+#     Istio / Linkerd / Nginx Ingress canary 注解等服务网格方案
+#   - HPA 与金丝雀同时使用时需注意：HPA 会自动调整副本数，
+#     建议灰度期间临时关闭 HPA，或使用更高级的发布控制器（Argo Rollouts / Flagger）
+---
+# ============================================================
+# Stable Deployment — 稳定版（线上版本）
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "2.1"
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/part-of: canary
+    canary.tcm-history.ai/role: stable
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "2.1"
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/managed-by: kubectl
+        app.kubernetes.io/part-of: canary
+        canary.tcm-history.ai/role: stable
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: gateway
+          image: ghcr.io/tcm-history-ai/gateway:v2.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: TCM_APP_NAME
+              value: gateway
+            - name: TCM_APP_ENV
+              value: prod
+            - name: TCM_HTTP_PORT
+              value: "8080"
+            - name: TCM_LOG_LEVEL
+              value: warn
+          envFrom:
+            - configMapRef:
+                name: tcm-config
+            - secretRef:
+                name: tcm-secret
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+---
+# ============================================================
+# Canary Deployment — 金丝雀版（新版本）
+# ============================================================
+# 说明：
+#   - 与 stable 使用相同的 selector（app.kubernetes.io/name + instance），
+#     因此会被同一个 Service 选中，流量按副本数比例分配
+#   - 通过 app.kubernetes.io/version: canary 标签区分版本，便于 metrics 筛选
+#   - canary.tcm-history.ai/role: canary 标识角色，便于 kubectl 筛选
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-canary
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: canary
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/part-of: canary
+    canary.tcm-history.ai/role: canary
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: canary
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/managed-by: kubectl
+        app.kubernetes.io/part-of: canary
+        canary.tcm-history.ai/role: canary
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: gateway
+          image: ghcr.io/tcm-history-ai/gateway:canary
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: TCM_APP_NAME
+              value: gateway
+            - name: TCM_APP_ENV
+              value: prod
+            - name: TCM_HTTP_PORT
+              value: "8080"
+            - name: TCM_LOG_LEVEL
+              value: info
+          envFrom:
+            - configMapRef:
+                name: tcm-config
+            - secretRef:
+                name: tcm-secret
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+---
+# ============================================================
+# Service — 共享服务（stable + canary 共用）
+# ============================================================
+# 说明：selector 只匹配 name + instance，不匹配 version，
+# 因此 stable 和 canary 的 Pod 都会被选中，流量按副本数比例分配
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: tcm-history-ai

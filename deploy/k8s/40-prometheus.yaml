@@ -1,0 +1,395 @@
+# Prometheus 监控系统（指标采集与存储）
+# 端口：9090（HTTP UI / API）
+# 镜像：prom/prometheus:v2.53.0
+# 数据保留：15 天，10Gi PVC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "v2.53.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: kubectl
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "v2.53.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: kubectl
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "v2.53.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: kubectl
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: tcm-history-ai
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "v2.53.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: kubectl
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      scrape_timeout: 10s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: tcm-history-ai
+        environment: prod
+
+    scrape_configs:
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      - job_name: "gateway"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: gateway
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "user-service"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: user-service
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "history-service"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: history-service
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "knowledge-service"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: knowledge-service
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "graph-service"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: graph-service
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "ai-service"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: ai-service
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "learning-service"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: learning-service
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: "rabbitmq"
+        static_configs:
+          - targets: ["rabbitmq.tcm-history-ai.svc.cluster.local:15672"]
+        metrics_path: "/metrics"
+        params:
+          family: ["rabbitmq"]
+
+      - job_name: "kubernetes-service-endpoints"
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ["tcm-history-ai"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            action: replace
+            target_label: service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "v2.53.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-web
+      port: 9090
+      targetPort: http-web
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "v2.53.0"
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  serviceName: prometheus
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "v2.53.0"
+        app.kubernetes.io/component: monitoring
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      serviceAccountName: prometheus
+      securityContext:
+        fsGroup: 65534
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.53.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=15d
+            - --web.console.libraries=/etc/prometheus/console_libraries
+            - --web.console.templates=/etc/prometheus/consoles
+            - --web.enable-lifecycle
+          ports:
+            - name: http-web
+              containerPort: 9090
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http-web
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http-web
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: standard
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

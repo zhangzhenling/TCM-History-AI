@@ -1,0 +1,140 @@
+# 网络策略（NetworkPolicy）— 生产环境安全加固
+#
+# 策略清单：
+#   1. default-deny-all           — 默认拒绝所有入站流量（白名单模式）
+#   2. allow-same-namespace       — 允许同一 namespace 内的服务间通信
+#   3. allow-ingress              — 允许 Ingress Controller 访问各服务 HTTP 端口
+#   4. allow-prometheus-scraping  — 允许 Prometheus 抓取 metrics
+#
+# 注意：
+#   - 需要集群支持 NetworkPolicy（如 Calico、Cilium、kube-router 等 CNI 插件）
+#   - 策略作用于 tcm-history-ai namespace
+#   - podSelector: {} 表示选择该 namespace 下所有 Pod
+#   - 策略类型 Ingress 仅管控入站流量，出站流量默认不受限
+---
+# ============================================================
+# 1. 默认拒绝所有入站流量（白名单模式）
+# ============================================================
+# 所有 Pod 默认拒绝入站，必须显式配置 allow 策略才能通信
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: default-deny-all
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# ============================================================
+# 2. 允许同一 namespace 内的服务间通信
+# ============================================================
+# 微服务之间需要互相调用（如 gateway → user-service 等）
+# 允许同一 namespace 内所有 Pod 之间的所有端口通信
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: allow-same-namespace
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+---
+# ============================================================
+# 3. 允许 Ingress Controller 访问各服务 HTTP 端口
+# ============================================================
+# Ingress Controller 通常部署在 ingress-nginx namespace
+# 需要允许其访问本 namespace 内服务的 HTTP 端口
+#
+# 注意：需根据实际 Ingress Controller 的 namespace 和标签调整
+#   - 常见 Ingress Controller namespace: ingress-nginx / kube-system / ingress
+#   - 常见标签: app.kubernetes.io/name=ingress-nginx / app=nginx-ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: allow-ingress
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# ============================================================
+# 4. 允许 Prometheus 抓取 metrics
+# ============================================================
+# 允许 Prometheus 访问本 namespace 内所有 Pod 的 metrics 端口
+# Prometheus 部署在同一 namespace 内，通过 podSelector 匹配
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: allow-prometheus-scraping
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/component: security
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8081
+        - protocol: TCP
+          port: 8082
+        - protocol: TCP
+          port: 8084
+        - protocol: TCP
+          port: 8085
+        - protocol: TCP
+          port: 8086
+        - protocol: TCP
+          port: 8087
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 3100
+        - protocol: TCP
+          port: 9091
+        - protocol: TCP
+          port: 15672

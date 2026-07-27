@@ -213,3 +213,38 @@ config:
   jwtIssuer: tcm-history-ai
   tracingOtlpEndpoint: otel-collector:4317
   tracingEnabled: "false"
+
+# ===== 可观测性栈（Prometheus + Grafana + Loki + Jaeger）=====
+# 生产环境建议启用，开发环境可关闭以节省资源
+observability:
+  enabled: false
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    retention: 15d
+    storage: 10Gi
+  grafana:
+    image: grafana/grafana:11.2.0
+    adminUser: admin
+    adminPassword: admin123
+    storage: 5Gi
+  loki:
+    image: grafana/loki:3.2.0
+    retention: 7d
+    storage: 20Gi
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+
+# ===== 金丝雀发布（Canary Release）=====
+# 以 gateway 服务为例，启用后创建 canary 版本 Deployment
+# 通过调整 stable/canary 副本数比例控制流量比例
+canary:
+  enabled: false
+  gateway:
+    replicas: 1
+    imageTag: canary
+
+# ===== 网络策略（NetworkPolicy）=====
+# 生产环境建议启用，提升安全性（默认拒绝所有入站，白名单模式）
+# 需要集群支持 NetworkPolicy（Calico / Cilium 等 CNI 插件）
+networkPolicy:
+  enabled: false

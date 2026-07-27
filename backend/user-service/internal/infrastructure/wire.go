@@ -33,13 +33,18 @@ var Providers = wire.NewSet(
 	persistence.NewPermissionRepo,
 	persistence.NewProfileRepo,
 	persistence.NewSettingsRepo,
+	persistence.NewMembershipPlanRepo,
+	persistence.NewUserSubscriptionRepo,
+	persistence.NewMembershipOrderRepo,
 
-	// Bind every concrete repo to its domain interface.
 	wire.Bind(new(repository.UserRepository), new(*persistence.UserRepo)),
 	wire.Bind(new(repository.RoleRepository), new(*persistence.RoleRepo)),
 	wire.Bind(new(repository.PermissionRepository), new(*persistence.PermissionRepo)),
 	wire.Bind(new(repository.ProfileRepository), new(*persistence.ProfileRepo)),
 	wire.Bind(new(repository.SettingsRepository), new(*persistence.SettingsRepo)),
+	wire.Bind(new(repository.MembershipPlanRepository), new(*persistence.MembershipPlanRepo)),
+	wire.Bind(new(repository.UserSubscriptionRepository), new(*persistence.UserSubscriptionRepo)),
+	wire.Bind(new(repository.MembershipOrderRepository), new(*persistence.MembershipOrderRepo)),
 
 	ProvidePasswordHasher,
 	ProvideTokenManager,
