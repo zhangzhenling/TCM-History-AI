@@ -27,15 +27,16 @@ func newAgentUseCase(
 	llm service.LLMProvider,
 	toolExec service.ToolExecutor,
 	retriever service.RetrievalClient,
-) (*usecase.AgentUseCase, *mockConvRepo, *mockAgentRunRepo, *mockPromptRepo, *mockToolRepo, *mockEventPublisher) {
+) (*usecase.AgentUseCase, *mockConvRepo, *mockMsgRepo, *mockAgentRunRepo, *mockPromptRepo, *mockToolRepo, *mockEventPublisher) {
 	convRepo := newMockConvRepo()
+	msgRepo := newMockMsgRepo()
 	agentRepo := newMockAgentRunRepo()
 	promptRepo := newMockPromptRepo()
 	toolRepo := newMockToolRepo()
 	pub := newMockEventPublisher()
 	renderer := prompt.New()
-	uc := usecase.NewAgentUseCase(convRepo, agentRepo, promptRepo, toolRepo, llm, toolExec, retriever, renderer, pub, nil, nil)
-	return uc, convRepo, agentRepo, promptRepo, toolRepo, pub
+	uc := usecase.NewAgentUseCase(convRepo, msgRepo, agentRepo, promptRepo, toolRepo, llm, toolExec, retriever, renderer, pub, nil, nil)
+	return uc, convRepo, msgRepo, agentRepo, promptRepo, toolRepo, pub
 }
 
 // TestAgentUseCase_Run_HappyPath_DirectFallback verifies that when the LLM
@@ -50,7 +51,7 @@ func TestAgentUseCase_Run_HappyPath_DirectFallback(t *testing.T) {
 		TokensPrompt:     5,
 		TokensCompletion: 3,
 	}
-	uc, convRepo, agentRepo, _, _, pub := newAgentUseCase(llm, nil, nil)
+	uc, convRepo, _, agentRepo, _, _, pub := newAgentUseCase(llm, nil, nil)
 
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{
 		UserID:   1,
@@ -107,7 +108,7 @@ func TestAgentUseCase_Run_WithValidPlan(t *testing.T) {
 		return &service.LLMChatResponse{Text: "final answer", Model: "test-model", TokensPrompt: 4, TokensCompletion: 2}, nil
 	}
 
-	uc, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{
 		UserID:   1,
 		Question: "q",
@@ -154,7 +155,7 @@ func TestAgentUseCase_Run_PlanCapsSubTasks(t *testing.T) {
 		}
 		return &service.LLMChatResponse{Text: "answer", Model: "test-model"}, nil
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 6)
@@ -164,7 +165,7 @@ func TestAgentUseCase_Run_PlanCapsSubTasks(t *testing.T) {
 // agent-mode conversation.
 func TestAgentUseCase_Run_WithExistingConversation(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, convRepo, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, convRepo, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 
 	existing := &entity.Conversation{
 		UserID:       7,
@@ -188,7 +189,7 @@ func TestAgentUseCase_Run_WithExistingConversation(t *testing.T) {
 // TestAgentUseCase_Run_ConversationNotFound verifies the not-found path.
 func TestAgentUseCase_Run_ConversationNotFound(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	_, err := uc.Run(context.Background(), &dto.AgentRequest{
 		ConversationID: 9999,
 		UserID:          1,
@@ -204,7 +205,7 @@ func TestAgentUseCase_Run_ConversationNotFound(t *testing.T) {
 // TestAgentUseCase_Run_ConversationFindError verifies repo errors propagate.
 func TestAgentUseCase_Run_ConversationFindError(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, convRepo, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, convRepo, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	convRepo.find = func(int64) (*entity.Conversation, error) {
 		return nil, errors.New("db down")
 	}
@@ -220,7 +221,7 @@ func TestAgentUseCase_Run_ConversationFindError(t *testing.T) {
 // TestAgentUseCase_Run_ValidationErrors covers input validation.
 func TestAgentUseCase_Run_ValidationErrors(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	cases := []struct {
 		name string
 		in   *dto.AgentRequest
@@ -257,7 +258,7 @@ func TestAgentUseCase_Run_AnswerError(t *testing.T) {
 		}
 		return nil, errors.New("llm answer failed")
 	}
-	uc, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{
 		UserID:   1,
 		Question: "q",
@@ -280,7 +281,7 @@ func TestAgentUseCase_Run_AnswerError(t *testing.T) {
 // initial AgentRun create propagate.
 func TestAgentUseCase_Run_AgentRepoCreateError(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
 	agentRepo.create = func(*entity.AgentRun) error {
 		return errors.New("create failed")
 	}
@@ -296,7 +297,7 @@ func TestAgentUseCase_Run_AgentRepoCreateError(t *testing.T) {
 // conversation creation propagate.
 func TestAgentUseCase_Run_ConversationCreateError(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, convRepo, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, convRepo, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	convRepo.create = func(*entity.Conversation) error {
 		return errors.New("conv create failed")
 	}
@@ -331,7 +332,7 @@ func TestAgentUseCase_Run_RagChannel(t *testing.T) {
 			},
 		},
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, retriever)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, retriever)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -360,7 +361,7 @@ func TestAgentUseCase_Run_RagChannelError(t *testing.T) {
 	retriever := &mockRetrievalClient{
 		retrieveErr: errors.New("retriever down"),
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, retriever)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, retriever)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -382,7 +383,7 @@ func TestAgentUseCase_Run_RagChannelNoRetriever(t *testing.T) {
 		}
 		return &service.LLMChatResponse{Text: "answer", Model: "test-model"}, nil
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -412,7 +413,7 @@ func TestAgentUseCase_Run_GraphChannel(t *testing.T) {
 			},
 		},
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, retriever)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, retriever)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -439,7 +440,7 @@ func TestAgentUseCase_Run_ToolChannel(t *testing.T) {
 		return &service.LLMChatResponse{Text: "answer", Model: "test-model"}, nil
 	}
 	exec := &mockToolExecutor{result: map[string]any{"year": 200}}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, exec, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, exec, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -462,7 +463,7 @@ func TestAgentUseCase_Run_ToolChannelNoExecutor(t *testing.T) {
 		}
 		return &service.LLMChatResponse{Text: "answer", Model: "test-model"}, nil
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -473,7 +474,7 @@ func TestAgentUseCase_Run_ToolChannelNoExecutor(t *testing.T) {
 // question is truncated for the conversation title.
 func TestAgentUseCase_Run_LongQuestionTitleTruncation(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, convRepo, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, convRepo, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	longQ := string(make([]rune, 100))
 	for i := range longQ {
 		longQ = longQ[:i] + "中" + longQ[i+1:]
@@ -493,7 +494,7 @@ func TestAgentUseCase_Run_LongQuestionTitleTruncation(t *testing.T) {
 // TestAgentUseCase_ListAgentRuns covers pagination and error paths.
 func TestAgentUseCase_ListAgentRuns(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
 	// Seed 3 runs.
 	for i := 0; i < 3; i++ {
 		r := &entity.AgentRun{ConversationID: 1, UserID: 1, Status: entity.AgentRunStatusDone}
@@ -518,7 +519,7 @@ func TestAgentUseCase_ListAgentRuns(t *testing.T) {
 // TestAgentUseCase_GetAgentRun covers found / not-found / error.
 func TestAgentUseCase_GetAgentRun(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, agentRepo, _, _, _ := newAgentUseCase(llm, nil, nil)
 	r := &entity.AgentRun{ConversationID: 1, UserID: 1, Status: entity.AgentRunStatusDone, FinalAnswer: "ans"}
 	r.ID = idgen.Next()
 	require.NoError(t, agentRepo.Create(context.Background(), r))
@@ -561,7 +562,7 @@ func TestAgentUseCase_Run_PlanFillsMissingFields(t *testing.T) {
 		}
 		return &service.LLMChatResponse{Text: "answer", Model: "test-model"}, nil
 	}
-	uc, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, _, _, _ := newAgentUseCase(llm, nil, nil)
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "orig q"})
 	require.NoError(t, err)
 	require.Len(t, resp.Steps, 1)
@@ -574,7 +575,7 @@ func TestAgentUseCase_Run_PlanFillsMissingFields(t *testing.T) {
 // template is rendered into the answer prompt.
 func TestAgentUseCase_Run_WithAgentTemplate(t *testing.T) {
 	llm := newMockLLMProvider()
-	uc, _, _, promptRepo, _, _ := newAgentUseCase(llm, nil, nil)
+	uc, _, _, _, promptRepo, _, _ := newAgentUseCase(llm, nil, nil)
 	tpl := &entity.PromptTemplate{
 		Name:         "agent-default",
 		Scene:        entity.SceneAgent,
@@ -587,4 +588,65 @@ func TestAgentUseCase_Run_WithAgentTemplate(t *testing.T) {
 	resp, err := uc.Run(context.Background(), &dto.AgentRequest{UserID: 1, Question: "q"})
 	require.NoError(t, err)
 	assert.Equal(t, "stub-answer", resp.Answer)
+}
+
+// TestAgentUseCase_Run_MultiTurnMemory verifies that the Agent persists
+// messages after each run and loads them as history on subsequent runs
+// within the same conversation.
+func TestAgentUseCase_Run_MultiTurnMemory(t *testing.T) {
+	llm := newMockLLMProvider()
+	var planCallMessages []service.LLMMessage
+	var answerCallMessages []service.LLMMessage
+	callCount := 0
+	llm.chatFn = func(ctx context.Context, req service.LLMChatRequest) (*service.LLMChatResponse, error) {
+		callCount++
+		if callCount%2 == 1 {
+			// Plan call — capture messages
+			planCallMessages = req.Messages
+			return &service.LLMChatResponse{Text: "not-json", Model: "test-model"}, nil
+		}
+		// Answer call — capture messages
+		answerCallMessages = req.Messages
+		return &service.LLMChatResponse{Text: "answer", Model: "test-model"}, nil
+	}
+
+	uc, _, msgRepo, _, _, _, _ := newAgentUseCase(llm, nil, nil)
+
+	// First run — no history
+	resp1, err := uc.Run(context.Background(), &dto.AgentRequest{
+		UserID:   1,
+		Question: "第一轮问题",
+	})
+	require.NoError(t, err)
+
+	// Verify messages were persisted
+	history, err := msgRepo.FindByConversation(context.Background(), resp1.ConversationID)
+	require.NoError(t, err)
+	require.Len(t, history, 2) // user + assistant
+	assert.Equal(t, entity.MessageRoleUser, history[0].Role)
+	assert.Equal(t, "第一轮问题", history[0].Content)
+	assert.Equal(t, entity.MessageRoleAssistant, history[1].Role)
+	assert.Equal(t, "answer", history[1].Content)
+
+	// Second run — same conversation, should have history
+	resp2, err := uc.Run(context.Background(), &dto.AgentRequest{
+		ConversationID: resp1.ConversationID,
+		UserID:         1,
+		Question:       "第二轮问题",
+	})
+	require.NoError(t, err)
+
+	// Verify Plan call received history (2 prior messages + current question = 3)
+	assert.Len(t, planCallMessages, 3, "plan should receive 2 history + 1 current = 3 messages")
+	assert.Equal(t, "第一轮问题", planCallMessages[0].Content)
+	assert.Equal(t, "answer", planCallMessages[1].Content)
+	assert.Equal(t, "第二轮问题", planCallMessages[2].Content)
+
+	// Verify Answer call also received history
+	assert.Len(t, answerCallMessages, 3, "answer should receive 2 history + 1 current = 3 messages")
+
+	// Verify total messages in conversation: 2 (first run) + 2 (second run) = 4
+	history2, err := msgRepo.FindByConversation(context.Background(), resp2.ConversationID)
+	require.NoError(t, err)
+	assert.Len(t, history2, 4)
 }

@@ -38,6 +38,7 @@ import (
 // 仍然返回可运行的响应，保证本地开发联调可用。
 type AgentUseCase struct {
 	convRepo   repository.ConversationRepository
+	msgRepo    repository.MessageRepository
 	agentRepo  repository.AgentRunRepository
 	promptRepo repository.PromptTemplateRepository
 	toolRepo   repository.ToolRepository
@@ -50,6 +51,11 @@ type AgentUseCase struct {
 	outboxRepo *outbox.Repository
 }
 
+// maxHistoryMessages limits the number of prior messages injected into the
+// Agent's Plan and Answer LLM calls to avoid unbounded token growth in long
+// conversations. We keep the most recent N messages (user+assistant pairs).
+const maxHistoryMessages = 20
+
 // NewAgentUseCase constructs an AgentUseCase.
 //
 // db 与 outboxRepo 用于在最终状态更新与事件入队之间保持原子性
@@ -57,6 +63,7 @@ type AgentUseCase struct {
 // 回退到直接 pub.Publish，保证单元测试可注入更轻量的桩。
 func NewAgentUseCase(
 	convRepo repository.ConversationRepository,
+	msgRepo repository.MessageRepository,
 	agentRepo repository.AgentRunRepository,
 	promptRepo repository.PromptTemplateRepository,
 	toolRepo repository.ToolRepository,
@@ -70,6 +77,7 @@ func NewAgentUseCase(
 ) *AgentUseCase {
 	return &AgentUseCase{
 		convRepo:   convRepo,
+		msgRepo:    msgRepo,
 		agentRepo:  agentRepo,
 		promptRepo: promptRepo,
 		toolRepo:   toolRepo,
@@ -100,6 +108,9 @@ func (uc *AgentUseCase) Run(ctx context.Context, in *dto.AgentRequest) (*dto.Age
 		return nil, err
 	}
 
+	// 1.5 加载对话历史（多轮记忆），用于 Plan 和 Answer 阶段注入上下文
+	history, _ := uc.loadHistory(ctx, conv.ID)
+
 	// 2. 创建 AgentRun（pending）
 	run := &entity.AgentRun{
 		ConversationID: conv.ID,
@@ -115,7 +126,7 @@ func (uc *AgentUseCase) Run(ctx context.Context, in *dto.AgentRequest) (*dto.Age
 	_ = uc.agentRepo.Update(ctx, run)
 
 	// 3. Plan: 调用 LLM 生成结构化子任务计划
-	plan, steps, planErr := uc.plan(ctx, in.Question)
+	plan, steps, planErr := uc.plan(ctx, in.Question, history)
 	if planErr != nil {
 		run.Status = entity.AgentRunStatusFailed
 		run.ErrorMsg = "plan failed: " + planErr.Error()
@@ -151,10 +162,11 @@ func (uc *AgentUseCase) Run(ctx context.Context, in *dto.AgentRequest) (*dto.Age
 
 	// 5. Answer: 调用 LLM 整合证据
 	systemPrompt, _ := uc.buildAnswerPrompt(ctx, in.Question, executed)
+	answerMessages := buildAnswerMessages(history, in.Question)
 	answer, err := uc.llm.Chat(ctx, service.LLMChatRequest{
 		Model:    uc.llm.Model(),
 		System:   systemPrompt,
-		Messages: []service.LLMMessage{{Role: entity.MessageRoleUser, Content: in.Question}},
+		Messages: answerMessages,
 	})
 	if err != nil {
 		run.Status = entity.AgentRunStatusFailed
@@ -166,6 +178,13 @@ func (uc *AgentUseCase) Run(ctx context.Context, in *dto.AgentRequest) (*dto.Age
 	run.TotalTokens = totalTokens + answer.TokensPrompt + answer.TokensCompletion
 	run.TotalLatencyMs = int(time.Since(start).Milliseconds())
 	run.Status = entity.AgentRunStatusDone
+
+	// 5.5 持久化对话消息（多轮记忆）：将用户问题和 Agent 答案写入 ai_messages
+	uc.persistMessages(ctx, conv.ID, in.Question, answer.Text, answer.Model,
+		answer.TokensPrompt, answer.TokensCompletion, int(time.Since(start).Milliseconds()))
+	// 更新 Conversation 消息计数
+	conv.MessageCount += 2
+	_ = uc.convRepo.Update(ctx, conv)
 
 	// 6. 在同一事务内更新终态 + 入队 AgentRunCompleted 事件
 	//    （transactional outbox，doc/02 §6.2）。
@@ -237,12 +256,13 @@ const planSystemPrompt = `你是一名中医发展史研究型 Agent 的规划�
 //
 // 在 LLM 处于 stub 模式时，stub 响应不是合法 JSON，本方法捕获错误后
 // 回退到单步 direct 通道，保证链路可运行。
-func (uc *AgentUseCase) plan(ctx context.Context, question string) (map[string]any, []dto.AgentStep, error) {
+//
+// history 参数注入最近对话历史，使 Plan 阶段能感知上下文（多轮记忆）。
+func (uc *AgentUseCase) plan(ctx context.Context, question string, history []entity.Message) (map[string]any, []dto.AgentStep, error) {
+	planMessages := buildPlanMessages(history, question)
 	resp, err := uc.llm.Chat(ctx, service.LLMChatRequest{
-		System: planSystemPrompt,
-		Messages: []service.LLMMessage{
-			{Role: entity.MessageRoleUser, Content: question},
-		},
+		System:   planSystemPrompt,
+		Messages: planMessages,
 		Temperature: 0.2,
 	})
 	if err != nil {
@@ -487,6 +507,89 @@ func (uc *AgentUseCase) ensureConversation(ctx context.Context, in *dto.AgentReq
 		return nil, err
 	}
 	return c, nil
+}
+
+// loadHistory fetches recent conversation messages for multi-turn memory.
+// Returns at most maxHistoryMessages messages (most recent), skipping system
+// messages. Errors are non-fatal — the Agent proceeds without history.
+func (uc *AgentUseCase) loadHistory(ctx context.Context, convID int64) ([]entity.Message, error) {
+	if uc.msgRepo == nil {
+		return nil, nil
+	}
+	all, err := uc.msgRepo.FindByConversation(ctx, convID)
+	if err != nil {
+		return nil, err
+	}
+	// Filter out system messages; keep only user/assistant turns
+	filtered := make([]entity.Message, 0, len(all))
+	for _, m := range all {
+		if m.Role == entity.MessageRoleUser || m.Role == entity.MessageRoleAssistant {
+			filtered = append(filtered, m)
+		}
+	}
+	// Keep only the most recent N messages
+	if len(filtered) > maxHistoryMessages {
+		filtered = filtered[len(filtered)-maxHistoryMessages:]
+	}
+	return filtered, nil
+}
+
+// buildPlanMessages assembles LLM messages for the Plan stage, prepending
+// conversation history before the current question so the planner can
+// decompose the question with awareness of prior context.
+func buildPlanMessages(history []entity.Message, question string) []service.LLMMessage {
+	msgs := make([]service.LLMMessage, 0, len(history)+1)
+	for i := range history {
+		msgs = append(msgs, service.LLMMessage{
+			Role:    history[i].Role,
+			Content: history[i].Content,
+		})
+	}
+	msgs = append(msgs, service.LLMMessage{Role: entity.MessageRoleUser, Content: question})
+	return msgs
+}
+
+// buildAnswerMessages assembles LLM messages for the Answer stage, prepending
+// conversation history so the LLM can generate a contextually-aware final
+// answer that references prior turns when relevant.
+func buildAnswerMessages(history []entity.Message, question string) []service.LLMMessage {
+	msgs := make([]service.LLMMessage, 0, len(history)+1)
+	for i := range history {
+		msgs = append(msgs, service.LLMMessage{
+			Role:    history[i].Role,
+			Content: history[i].Content,
+		})
+	}
+	msgs = append(msgs, service.LLMMessage{Role: entity.MessageRoleUser, Content: question})
+	return msgs
+}
+
+// persistMessages stores the user question and agent answer as messages in
+// ai_messages, enabling multi-turn memory for subsequent Agent runs.
+func (uc *AgentUseCase) persistMessages(ctx context.Context, convID int64, question, answer, model string,
+	tokensPrompt, tokensCompletion, latencyMs int) {
+	if uc.msgRepo == nil {
+		return
+	}
+	userMsg := &entity.Message{
+		ConversationID: convID,
+		Role:           entity.MessageRoleUser,
+		Content:        question,
+	}
+	userMsg.ID = idgen.Next()
+	_ = uc.msgRepo.Create(ctx, userMsg)
+
+	assistantMsg := &entity.Message{
+		ConversationID:   convID,
+		Role:             entity.MessageRoleAssistant,
+		Content:          answer,
+		TokensPrompt:     tokensPrompt,
+		TokensCompletion: tokensCompletion,
+		LatencyMs:        latencyMs,
+		ModelName:        model,
+	}
+	assistantMsg.ID = idgen.Next()
+	_ = uc.msgRepo.Create(ctx, assistantMsg)
 }
 
 // ListAgentRuns returns paginated agent runs.

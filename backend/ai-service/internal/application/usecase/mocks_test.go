@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -144,6 +145,8 @@ func (m *mockMsgRepo) FindByConversation(_ context.Context, conversationID int64
 			out = append(out, *msg)
 		}
 	}
+	// Sort by ID ascending to match real repository behavior
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
 }
 

@@ -153,7 +153,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 		app.llm, app.renderer, app.publisher,
 	)
 	app.agentUC = usecase.NewAgentUseCase(
-		app.convRepo, app.agentRepo, app.promptRepo, app.toolRepo,
+		app.convRepo, app.msgRepo, app.agentRepo, app.promptRepo, app.toolRepo,
 		app.llm, app.toolExec, app.retriever, app.renderer, app.publisher,
 		db, app.outboxRepo,
 	)
