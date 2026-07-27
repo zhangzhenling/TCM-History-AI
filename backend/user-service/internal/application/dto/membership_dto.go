@@ -74,6 +74,14 @@ type MembershipOrderResponse struct {
 	UpdatedAt     string `json:"updated_at,omitempty"`
 }
 
+type PaymentCallbackRequest struct {
+	OrderNo       string `json:"order_no"`
+	TransactionID string `json:"transaction_id"`
+	PaymentMethod string `json:"payment_method"`
+	Status        string `json:"status"`
+	Signature     string `json:"signature"`
+}
+
 func formatTime(t time.Time) string {
 	return t.Format(time.RFC3339)
 }

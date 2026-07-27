@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/token_storage.dart';
+import '../../../shared/widgets/tcm_scaffold.dart';
 import '../domain/profile_state.dart';
 import 'profile_provider.dart';
 
@@ -22,14 +23,21 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider);
+    final asyncProfile = ref.watch(profileProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
       body: SafeArea(
-        child: profile.isLoggedIn
-            ? _LoggedInView(profile: profile)
-            : _GuestView(),
+        child: asyncProfile.when(
+          data: (profile) => profile.isLoggedIn
+              ? _LoggedInView(profile: profile)
+              : const _GuestView(),
+          loading: () => const LoadingIndicator(),
+          error: (e, _) => ErrorView(
+            message: '加载失败：$e',
+            onRetry: () => ref.invalidate(profileProvider),
+          ),
+        ),
       ),
     );
   }

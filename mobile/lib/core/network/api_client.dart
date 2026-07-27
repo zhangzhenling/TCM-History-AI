@@ -15,6 +15,7 @@ import '../../shared/models/history_event.dart';
 import '../../shared/models/person.dart';
 import '../../shared/models/school.dart';
 import '../../shared/models/search_hit.dart';
+import '../../shared/models/user_profile.dart';
 import '../error/app_exception.dart';
 
 /// History Service 类型化客户端。
@@ -95,6 +96,12 @@ class HistoryApiClient {
     final res = await _dio.get('/history/search', queryParameters: params.toQuery());
     final data = _unwrapRaw(res.data) as Map<String, dynamic>;
     return SearchResponse.fromJson(data);
+  }
+
+  // ---- User Profile ----
+  Future<UserProfile> getUserProfile() async {
+    final res = await _dio.get('/users/me');
+    return _unwrap(res.data, UserProfile.fromJson);
   }
 
   // ---- 包络解包辅助 ----
