@@ -67,6 +67,18 @@ export const learnerRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/search/index.vue'),
         meta: { title: '检索' },
       },
+      {
+        path: 'graph',
+        name: 'Graph',
+        component: () => import('@/views/graph/index.vue'),
+        meta: { title: '知识图谱' },
+      },
+      {
+        path: 'knowledge',
+        name: 'Knowledge',
+        component: () => import('@/views/knowledge/index.vue'),
+        meta: { title: '文献检索' },
+      },
     ],
   },
   {

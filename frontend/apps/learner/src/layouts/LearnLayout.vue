@@ -20,6 +20,8 @@ const navItems = [
   { name: 'BookList', label: '典籍', path: '/app/books' },
   { name: 'SchoolList', label: '学派', path: '/app/schools' },
   { name: 'Search', label: '检索', path: '/app/search' },
+  { name: 'Graph', label: '图谱', path: '/app/graph' },
+  { name: 'Knowledge', label: '文献', path: '/app/knowledge' },
 ];
 
 const activeName = computed(() => route.name as string | undefined);
@@ -74,7 +76,9 @@ function handleUserMenu(info: { key: string | number }) {
 
     <main class="learn-main">
       <RouterView v-slot="{ Component }">
-        <KeepAlive :include="['Home', 'Timeline', 'PersonList', 'BookList', 'SchoolList']">
+        <KeepAlive
+          :include="['Home', 'Timeline', 'PersonList', 'BookList', 'SchoolList', 'Graph', 'Knowledge']"
+        >
           <component :is="Component" />
         </KeepAlive>
       </RouterView>
