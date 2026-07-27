@@ -101,3 +101,26 @@ backend:
     resources:
       requests: { cpu: 500m, memory: 512Mi }
       limits: { cpu: "2", memory: 1Gi }
+
+# 生产环境启用可观测性栈（Prometheus + Grafana + Loki + Jaeger）
+observability:
+  enabled: true
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    retention: 15d
+    storage: 10Gi
+  grafana:
+    image: grafana/grafana:11.2.0
+    adminUser: admin
+    adminPassword: admin123
+    storage: 5Gi
+  loki:
+    image: grafana/loki:3.2.0
+    retention: 7d
+    storage: 20Gi
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+
+# 生产环境启用网络策略（安全加固）
+networkPolicy:
+  enabled: true

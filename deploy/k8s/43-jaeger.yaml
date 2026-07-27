@@ -1,0 +1,125 @@
+# Jaeger 分布式追踪系统（all-in-one 内存存储模式）
+# 端口：
+#   - 6831/udp  : Jaeger thrift compact
+#   - 16686/tcp : UI
+#   - 14268/tcp : HTTP collector
+#   - 4317/tcp  : OTLP gRPC
+#   - 4318/tcp  : OTLP HTTP
+# 镜像：jaegertracing/all-in-one:1.60
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "1.60"
+    app.kubernetes.io/component: tracing
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: jaeger-thrift
+      port: 6831
+      targetPort: jaeger-thrift
+      protocol: UDP
+    - name: http-ui
+      port: 16686
+      targetPort: http-ui
+      protocol: TCP
+    - name: http-collector
+      port: 14268
+      targetPort: http-collector
+      protocol: TCP
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/instance: tcm-history-ai
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: tcm-history-ai
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/instance: tcm-history-ai
+    app.kubernetes.io/version: "1.60"
+    app.kubernetes.io/component: tracing
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+      app.kubernetes.io/instance: tcm-history-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jaeger
+        app.kubernetes.io/instance: tcm-history-ai
+        app.kubernetes.io/version: "1.60"
+        app.kubernetes.io/component: tracing
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.60
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPAN_STORAGE
+              value: memory
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+            - name: MEMORY_MAX_TRACES
+              value: "50000"
+          ports:
+            - name: jaeger-thrift
+              containerPort: 6831
+              protocol: UDP
+            - name: http-ui
+              containerPort: 16686
+              protocol: TCP
+            - name: http-collector
+              containerPort: 14268
+              protocol: TCP
+            - name: otlp-grpc
+              containerPort: 4317
+              protocol: TCP
+            - name: otlp-http
+              containerPort: 4318
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http-ui
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http-ui
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3

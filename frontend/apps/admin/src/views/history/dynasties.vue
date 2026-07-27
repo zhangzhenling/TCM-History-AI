@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// 朝代管理列表：调用 apis.history.listDynasties()，表格展示 + 新增/编辑（Modal 占位）。
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal } from 'ant-design-vue';
+import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Popconfirm, message } from 'ant-design-vue';
+import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
 import { truncate } from '@tcm/shared';
-import type { Dynasty } from '@tcm/api';
+import type { Dynasty, DynastyRequest } from '@tcm/api';
 
 const apis = useApi();
 
@@ -14,6 +14,17 @@ const dynasties = ref<Dynasty[]>([]);
 const total = ref(0);
 const query = reactive({ page: 1, page_size: 10 });
 const modalVisible = ref(false);
+const modalLoading = ref(false);
+const currentId = ref<number | null>(null);
+
+const formRef = ref<FormInstance>();
+const formState = reactive<DynastyRequest>({
+  name: '',
+  start_year: undefined,
+  end_year: undefined,
+  sort_order: undefined,
+  description: '',
+});
 
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
@@ -21,14 +32,14 @@ const columns = [
   { title: '起止年份', dataIndex: 'year_range', key: 'year_range', width: 160 },
   { title: '排序', dataIndex: 'sort_order', key: 'sort_order', width: 80 },
   { title: '描述', dataIndex: 'description', key: 'description' },
-  { title: '操作', dataIndex: 'action', key: 'action', width: 100 },
+  { title: '操作', dataIndex: 'action', key: 'action', width: 160 },
 ];
 
 const dataSource = computed(() =>
   dynasties.value.map((d) => ({
     ...d,
     year_range: `${d.start_year} - ${d.end_year}`,
-    description: truncate(d.description, 40),
+    description: truncate(d.description, 40) || '—',
   })),
 );
 
@@ -51,8 +62,72 @@ function onPageChange(p: number, ps: number) {
   load();
 }
 
-function openModal() {
+function resetForm() {
+  formState.name = '';
+  formState.start_year = undefined;
+  formState.end_year = undefined;
+  formState.sort_order = undefined;
+  formState.description = '';
+  formRef.value?.clearValidate();
+}
+
+function openAddModal() {
+  currentId.value = null;
+  resetForm();
   modalVisible.value = true;
+}
+
+async function openEditModal(record: Dynasty) {
+  currentId.value = record.id;
+  resetForm();
+  try {
+    const detail = await apis.history.getDynasty(record.id);
+    formState.name = detail.name;
+    formState.start_year = detail.start_year;
+    formState.end_year = detail.end_year;
+    formState.sort_order = detail.sort_order;
+    formState.description = detail.description;
+  } catch (e) {
+    formState.name = record.name;
+    formState.start_year = record.start_year;
+    formState.end_year = record.end_year;
+    formState.sort_order = record.sort_order;
+    formState.description = record.description;
+  }
+  modalVisible.value = true;
+}
+
+async function handleOk() {
+  try {
+    await formRef.value?.validate();
+  } catch (e) {
+    return;
+  }
+
+  modalLoading.value = true;
+  try {
+    if (currentId.value) {
+      await apis.history.updateDynasty(currentId.value, formState);
+      message.success('更新成功');
+    } else {
+      await apis.history.createDynasty(formState);
+      message.success('创建成功');
+    }
+    modalVisible.value = false;
+    load();
+  } finally {
+    modalLoading.value = false;
+  }
+}
+
+async function handleDelete(id: number) {
+  try {
+    await apis.history.deleteDynasty(id);
+    message.success('删除成功');
+    load();
+  } catch (e) {
+    // error handled by interceptor
+  }
 }
 </script>
 
@@ -62,7 +137,7 @@ function openModal() {
 
     <div class="table-card">
       <div class="toolbar">
-        <Button type="primary" @click="openModal">新增朝代</Button>
+        <Button type="primary" @click="openAddModal">新增朝代</Button>
       </div>
       <Table
         :data-source="dataSource"
@@ -72,9 +147,12 @@ function openModal() {
         row-key="id"
         size="middle"
       >
-        <template #bodyCell="{ text, column }">
+        <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openModal">编辑</Button>
+            <Button type="link" size="small" @click="openEditModal(record as Dynasty)">编辑</Button>
+            <Popconfirm title="确定删除该朝代吗？" @confirm="handleDelete((record as Dynasty).id)">
+              <Button type="link" size="small" danger>删除</Button>
+            </Popconfirm>
           </template>
           <template v-else>{{ text }}</template>
         </template>
@@ -93,11 +171,28 @@ function openModal() {
 
     <Modal
       :open="modalVisible"
-      title="新增 / 编辑朝代"
+      :title="currentId ? '编辑朝代' : '新增朝代'"
+      :confirm-loading="modalLoading"
       @cancel="modalVisible = false"
-      @ok="modalVisible = false"
+      @ok="handleOk"
     >
-      <p class="modal-placeholder">表单占位：后续接入完整的朝代新增 / 编辑表单。</p>
+      <Form ref="formRef" :model="formState" layout="vertical">
+        <Form.Item label="朝代名称" name="name" :rules="[{ required: true, message: '请输入朝代名称' }]">
+          <Input v-model:value="formState.name" placeholder="请输入朝代名称" />
+        </Form.Item>
+        <Form.Item label="起始年份" name="start_year">
+          <InputNumber v-model:value="formState.start_year" placeholder="请输入起始年份" style="width: 100%" />
+        </Form.Item>
+        <Form.Item label="结束年份" name="end_year">
+          <InputNumber v-model:value="formState.end_year" placeholder="请输入结束年份" style="width: 100%" />
+        </Form.Item>
+        <Form.Item label="排序" name="sort_order">
+          <InputNumber v-model:value="formState.sort_order" placeholder="请输入排序值" style="width: 100%" />
+        </Form.Item>
+        <Form.Item label="描述" name="description">
+          <Input.TextArea v-model:value="formState.description" placeholder="请输入描述" :rows="4" />
+        </Form.Item>
+      </Form>
     </Modal>
   </div>
 </template>
@@ -118,10 +213,5 @@ function openModal() {
   display: flex;
   justify-content: flex-end;
   margin-top: var(--tcm-spacing-lg);
-}
-
-.modal-placeholder {
-  color: rgba(31, 42, 68, 0.55);
-  margin: 0;
 }
 </style>

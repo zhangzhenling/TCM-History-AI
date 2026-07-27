@@ -8,11 +8,13 @@ import type {
   Book,
   BookRequest,
   Disease,
+  DiseaseRequest,
   Dynasty,
   DynastyRequest,
   HistoryEvent,
   EventRequest,
   Medicine,
+  MedicineRequest,
   Person,
   PersonRequest,
   Prescription,
@@ -166,6 +168,18 @@ export class HistoryApi {
   getMedicine(id: number | string): Promise<Medicine> {
     return this.http.get(`/api/v1/history/medicines/${id}`) as unknown as Promise<Medicine>;
   }
+  createMedicine(payload: MedicineRequest): Promise<Medicine> {
+    return this.http.post('/api/v1/history/medicines', payload) as unknown as Promise<Medicine>;
+  }
+  updateMedicine(id: number | string, payload: MedicineRequest): Promise<Medicine> {
+    return this.http.put(
+      `/api/v1/history/medicines/${id}`,
+      payload,
+    ) as unknown as Promise<Medicine>;
+  }
+  deleteMedicine(id: number | string): Promise<void> {
+    return this.http.delete(`/api/v1/history/medicines/${id}`) as unknown as Promise<void>;
+  }
 
   // ---- Diseases ----
   listDiseases(params?: PageParams): Promise<ListResponse<Disease>> {
@@ -175,6 +189,18 @@ export class HistoryApi {
   }
   getDisease(id: number | string): Promise<Disease> {
     return this.http.get(`/api/v1/history/diseases/${id}`) as unknown as Promise<Disease>;
+  }
+  createDisease(payload: DiseaseRequest): Promise<Disease> {
+    return this.http.post('/api/v1/history/diseases', payload) as unknown as Promise<Disease>;
+  }
+  updateDisease(id: number | string, payload: DiseaseRequest): Promise<Disease> {
+    return this.http.put(
+      `/api/v1/history/diseases/${id}`,
+      payload,
+    ) as unknown as Promise<Disease>;
+  }
+  deleteDisease(id: number | string): Promise<void> {
+    return this.http.delete(`/api/v1/history/diseases/${id}`) as unknown as Promise<void>;
   }
 
   // ---- Search ----

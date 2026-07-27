@@ -96,6 +96,11 @@ function handleUserMenu(info: { key: string | number }): void {
           <Menu.Item key="/admin/history/dynasties">朝代</Menu.Item>
           <Menu.Item key="/admin/history/persons">人物</Menu.Item>
           <Menu.Item key="/admin/history/books">著作</Menu.Item>
+          <Menu.Item key="/admin/history/schools">学派</Menu.Item>
+          <Menu.Item key="/admin/history/events">事件</Menu.Item>
+          <Menu.Item key="/admin/history/prescriptions">方剂</Menu.Item>
+          <Menu.Item key="/admin/history/medicines">药物</Menu.Item>
+          <Menu.Item key="/admin/history/diseases">疾病</Menu.Item>
         </Menu.SubMenu>
         <Menu.SubMenu key="knowledge">
           <template #title>
