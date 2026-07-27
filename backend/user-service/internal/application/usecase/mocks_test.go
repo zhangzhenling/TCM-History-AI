@@ -12,6 +12,7 @@ import (
 
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/idgen"
+	"tcm-history-ai/backend/pkg/pagination"
 	"tcm-history-ai/backend/user-service/internal/domain/entity"
 	"tcm-history-ai/backend/user-service/internal/domain/event"
 	"tcm-history-ai/backend/user-service/internal/domain/service"
@@ -140,6 +141,16 @@ func (m *mockUserRepo) Delete(_ context.Context, id int64) error {
 	return nil
 }
 
+func (m *mockUserRepo) List(_ context.Context, p pagination.Params, status string) ([]entity.User, int64, error) {
+	out := make([]entity.User, 0, len(m.items))
+	for _, u := range m.items {
+		if status == "" || u.Status == status {
+			out = append(out, *cloneUser(u))
+		}
+	}
+	return out, int64(len(out)), nil
+}
+
 // cloneUser returns a deep copy of u so callers cannot mutate the stored row.
 func cloneUser(u *entity.User) *entity.User {
 	if u == nil {
@@ -219,6 +230,63 @@ func (m *mockRoleRepo) AssignRole(_ context.Context, userID, roleID int64) error
 		return m.assignRole(userID, roleID)
 	}
 	m.assignments[userID] = append(m.assignments[userID], roleID)
+	return nil
+}
+
+func (m *mockRoleRepo) FindByID(_ context.Context, id int64) (*entity.Role, error) {
+	for _, r := range m.roles {
+		if r.ID == id {
+			c := *r
+			return &c, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockRoleRepo) Create(_ context.Context, r *entity.Role) error {
+	m.roles[r.Code] = r
+	return nil
+}
+
+func (m *mockRoleRepo) Update(_ context.Context, r *entity.Role) error {
+	m.roles[r.Code] = r
+	return nil
+}
+
+func (m *mockRoleRepo) Delete(_ context.Context, id int64) error {
+	for code, r := range m.roles {
+		if r.ID == id {
+			delete(m.roles, code)
+			return nil
+		}
+	}
+	return errno.New(errno.NotFound, "role not found")
+}
+
+func (m *mockRoleRepo) SetUserRoles(_ context.Context, userID int64, roleIDs []int64) error {
+	m.assignments[userID] = roleIDs
+	roles := make([]entity.Role, 0, len(roleIDs))
+	for _, rid := range roleIDs {
+		for _, r := range m.roles {
+			if r.ID == rid {
+				roles = append(roles, *r)
+				break
+			}
+		}
+	}
+	m.userRoles[userID] = roles
+	return nil
+}
+
+func (m *mockRoleRepo) AssignPermission(_ context.Context, roleID, permissionID int64) error {
+	return nil
+}
+
+func (m *mockRoleRepo) SetRolePermissions(_ context.Context, roleID int64, permissionIDs []int64) error {
+	return nil
+}
+
+func (m *mockRoleRepo) RevokePermission(_ context.Context, roleID, permissionID int64) error {
 	return nil
 }
 
