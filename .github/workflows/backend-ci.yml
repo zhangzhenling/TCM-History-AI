@@ -103,3 +103,71 @@ jobs:
           name: backend-bin
           path: backend/bin/
           if-no-files-found: warn
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      GOTOOLCHAIN: auto
+      # 覆盖 testdata/config.test.yaml 中的默认值，使其指向 service container
+      TCM_DB_HOST: localhost
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: postgres
+      TCM_DB_PASSWORD: postgres
+      TCM_DB_DBNAME: tcm_history_test
+      TCM_RABBITMQ_HOST: localhost
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: guest
+      TCM_RABBITMQ_PASSWORD: guest
+    # 真实集成测试较慢，仅在 main/develop 分支或 PR 时触发；
+    # 通过 paths 过滤避免文档改动也触发。
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tcm_history_test
+        # 健康检查：等待 PostgreSQL 真正可接受连接
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tcm_history_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+        ports:
+          - 5432:5432
+      rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+        ports:
+          - 5672:5672
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Download dependencies
+        run: go mod download
+      # 1. 编译验证（不需要真实依赖）：必须通过
+      - name: Compile-check integration tests
+        run: go build -tags=integration ./test/integration/...
+      - name: Vet integration tests
+        run: go vet -tags=integration ./test/integration/...
+      # 2. 编译验证（不实际跑用例）：必须通过
+      - name: Compile-run integration tests (no exec)
+        run: go test -tags=integration -run='^$' ./test/integration/...
+      # 3. 真实运行集成测试：service containers 已就绪
+      - name: Run integration tests
+        run: go test -tags=integration -v -timeout=5m ./test/integration/...

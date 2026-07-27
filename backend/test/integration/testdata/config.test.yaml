@@ -1,0 +1,56 @@
+# config.test.yaml — 集成测试配置
+# ============================================================================
+# 仅在 `go test -tags=integration ./test/integration/...` 下使用。
+# PostgreSQL / RabbitMQ 由 CI 的 service container 提供，本地默认指向
+# localhost:5432 / localhost:5672；可通过环境变量覆盖（TCM_DB_HOST 等）。
+# 外部依赖 (Milvus / Neo4j / Embedding / Rerank) 一律走 stub，无需真实实例。
+# ============================================================================
+
+db:
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: tcm_history_test
+  sslmode: disable
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime_seconds: 600
+  log_level: warn
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  user: guest
+  password: guest
+  vhost: "/"
+  exchange: "tcm.events.test"
+
+jwt:
+  secret: "integration-test-secret-do-not-use-in-prod"
+  access_token_ttl: 2h
+  refresh_token_ttl: 168h
+
+# 外部依赖一律走 stub，保证测试可离线运行
+milvus:
+  host: localhost
+  port: 19530
+  collection: tcm_chunks_test
+  dim: 1024
+  enabled: false
+
+neo4j:
+  host: localhost
+  port: 7474
+  user: neo4j
+  password: neo4j
+  enabled: false
+
+embedding:
+  provider: stub
+  model: stub-integration
+  dim: 1024
+
+rerank:
+  provider: stub
