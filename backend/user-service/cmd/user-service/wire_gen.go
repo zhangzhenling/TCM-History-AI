@@ -38,6 +38,8 @@ type App struct {
 	userSubscriptionRepo *persistence.UserSubscriptionRepo
 	membershipOrderRepo *persistence.MembershipOrderRepo
 	apiKeyRepo       *persistence.ApiKeyRepo
+	tenantRepo       *persistence.TenantRepo
+	tenantMemberRepo *persistence.TenantMemberRepo
 
 	authUC         *usecase.AuthUseCase
 	profileUC      *usecase.ProfileUseCase
@@ -48,6 +50,7 @@ type App struct {
 	subscriptionUC *usecase.SubscriptionUseCase
 	orderUC        *usecase.OrderUseCase
 	apiKeyUC       *usecase.ApiKeyUseCase
+	tenantUC       *usecase.TenantUseCase
 
 	db        *gorm.DB
 	redis     *redis.Client
@@ -64,6 +67,7 @@ func (a *App) ControllerDeps() *controller.Deps {
 		Role:       controller.NewRoleController(a.roleUC),
 		Membership: controller.NewMembershipController(a.membershipPlanUC, a.subscriptionUC, a.orderUC),
 		ApiKey:     controller.NewApiKeyController(a.apiKeyUC),
+		Tenant:     controller.NewTenantController(a.tenantUC),
 	}
 }
 
@@ -95,6 +99,8 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.userSubscriptionRepo = persistence.NewUserSubscriptionRepo(db)
 	app.membershipOrderRepo = persistence.NewMembershipOrderRepo(db)
 	app.apiKeyRepo = persistence.NewApiKeyRepo(db)
+	app.tenantRepo = persistence.NewTenantRepo(db)
+	app.tenantMemberRepo = persistence.NewTenantMemberRepo(db)
 
 	// Redis client for the refresh token store. Connection is lazy: a missing
 	// broker surfaces as a logged warning on the first refresh, not as a
@@ -143,6 +149,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.subscriptionUC = usecase.NewSubscriptionUseCase(app.membershipPlanRepo, app.userSubscriptionRepo, app.membershipOrderRepo, app.apiKeyRepo)
 	app.orderUC = usecase.NewOrderUseCase(app.membershipOrderRepo, app.membershipPlanRepo)
 	app.apiKeyUC = usecase.NewApiKeyUseCase(app.apiKeyRepo)
+	app.tenantUC = usecase.NewTenantUseCase(app.tenantRepo, app.tenantMemberRepo)
 
 	// Compile-time interface checks: ensure concrete adapters satisfy the
 	// domain ports. These are no-ops at runtime.

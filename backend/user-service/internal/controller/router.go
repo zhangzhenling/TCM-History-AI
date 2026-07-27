@@ -18,6 +18,7 @@ type Deps struct {
 	Role       *RoleController
 	Membership *MembershipController
 	ApiKey     *ApiKeyController
+	Tenant     *TenantController
 }
 
 // RegisterRoutes wires every User Service route onto the Hertz server.
@@ -86,4 +87,22 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	apiKeys.PUT("/:id", deps.ApiKey.Update)
 	apiKeys.DELETE("/:id", deps.ApiKey.Delete)
 	apiKeys.POST("/:id/regenerate", deps.ApiKey.Regenerate)
+
+	// Tenant (school multi-tenant) endpoints. CRUD is admin-only and lives
+	// under /admin/tenants so the gateway RBAC middleware enforces the admin
+	// role. The user-tenants lookup is also admin-only for now; tenant
+	// members can query their own membership via /users/me/tenants once the
+	// frontend needs it.
+	tenants := admin.Group("/tenants")
+	tenants.POST("", deps.Tenant.CreateTenant)
+	tenants.GET("", deps.Tenant.ListTenants)
+	tenants.GET("/:id", deps.Tenant.GetTenant)
+	tenants.PUT("/:id", deps.Tenant.UpdateTenant)
+	tenants.DELETE("/:id", deps.Tenant.DeleteTenant)
+
+	tenants.POST("/:id/members", deps.Tenant.AddMember)
+	tenants.GET("/:id/members", deps.Tenant.ListMembers)
+	tenants.DELETE("/:id/members/:user_id", deps.Tenant.RemoveMember)
+
+	admin.GET("/tenants-for-user/:user_id", deps.Tenant.ListUserTenants)
 }
