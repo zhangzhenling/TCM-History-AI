@@ -1,6 +1,7 @@
 # User Service 微服务（用户、鉴权、权限）
 # 端口：8081（HTTP）
-# 镜像构建：docker build -f backend/user-service/Dockerfile -t ghcr.io/tcm-history-ai/user-service:latest backend/
+# 镜像构建：docker build -f backend/user-service/Dockerfile -t ghcr.io/tcm-history-ai/user-service:v2.1.0 backend/
+# !!! 生产固定镜像 tag，禁止使用 :latest；建议改用 sha256 digest 进一步保证不可变
 apiVersion: v1
 kind: Service
 metadata:
@@ -62,7 +63,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: user-service
-          image: ghcr.io/tcm-history-ai/user-service:latest
+          image: ghcr.io/tcm-history-ai/user-service:v2.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

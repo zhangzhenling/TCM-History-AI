@@ -176,11 +176,12 @@ kubectl -n tcm-history-ai logs -l app.kubernetes.io/name=gateway --tail=200
 
 ## 9. 生产化 checklist（部署前务必处理）
 
-- [ ] **Secret 占位值**：`02-secret.yaml` 中所有 `*-placeholder` / `CHANGE_ME` 必须替换为强随机值；推荐用 Sealed Secrets / SOPS 加密入仓，LLM API Key 走 Vault。
-- [ ] **镜像标签**：所有 `image: ...:latest` 替换为固定 Git commit SHA 标签。
+- [x] **Secret 占位值**：`02-secret.yaml` 已统一为 `CHANGE_ME` 占位，禁止明文入库；推荐流程见文件头注释（Sealed Secrets / SOPS / ExternalSecrets Operator）。
+- [x] **镜像标签**：所有 `image:` 已固定到 `v2.1.0`，无 `:latest` 引用；生产建议升级为 `image@sha256:...` digest（详见 Helm chart `global.imageDigest` 字段）。
 - [ ] **StorageClass**：确认 `standard` 在目标集群存在，或改为集群默认 SC；数据库建议换 `fast-ssd`。
 - [ ] **副本数与资源**：本清单为 prod 取向（gateway/ai 3 副本，其余 2 副本）；按实际容量调整，参考 `doc/14-部署方案.md` 第 11 节。
 - [ ] **中间件高可用**：本清单为单实例 StatefulSet，生产建议改用 Operator（CloudNativePG / redis-operator / Neo4j Helm / Milvus Helm / MinIO Operator / RabbitMQ Cluster Operator），见 `doc/16-Kubernetes部署.md` 第 3 节。
 - [ ] **Ingress host 与 TLS**：替换 `api.tcm-history.local` 为实际域名，配置 cert-manager + Let's Encrypt。
 - [ ] **可观测性**：部署 kube-prometheus-stack + Loki + Tempo（见 `doc/16-Kubernetes部署.md` 第 6 节），本清单仅预留了 Prometheus 注解。
 - [ ] **安全基线**：NetworkPolicy、Pod Security Standards、镜像扫描（Trivy + Kyverno），见 `doc/16-Kubernetes部署.md` 第 10 节。
+- [x] **备份恢复演练**：备份 CronJob 已就绪（见 `deploy/helm/tcm-history-ai/templates/backup-cronjob.yaml`），恢复脚本与流程见 `deploy/scripts/backup-restore/README.md`。

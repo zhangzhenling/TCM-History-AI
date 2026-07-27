@@ -6,7 +6,6 @@
 .pub-cache/
 .pub/
 build/
-.flutter-plugins
 
 # 代码生成产物（后续启用 build_runner 后生成）
 *.g.dart
@@ -19,16 +18,29 @@ build/
 *.ipr
 *.iws
 
-# 平台
+# Android 构建产物与签名
+android/app/debug
+android/app/profile
+android/app/release
 android/.gradle/
 android/local.properties
 android/key.properties
+.gradle/
+*.keystore
+*.jks
+
+# iOS 构建产物
 ios/Pods/
+ios/.symlinks/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 ios/ServiceDefinitions.json
 ios/Runner/GeneratedPluginRegistrant.*
+**/Pods/
+*.xcworkspace
+DerivedData/
 
 # 系统
 .DS_Store

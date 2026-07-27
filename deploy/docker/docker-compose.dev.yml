@@ -104,7 +104,7 @@ services:
       start_period: 15s
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-01-01T00-00-00Z
     container_name: tcm-minio
     restart: unless-stopped
     networks: [tcm-net]
@@ -153,7 +153,7 @@ services:
       start_period: 60s
 
   meilisearch:
-    image: getmeili/meilisearch:latest
+    image: getmeili/meilisearch:v1.6
     container_name: tcm-meilisearch
     restart: unless-stopped
     networks: [tcm-net]

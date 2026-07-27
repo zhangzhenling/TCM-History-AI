@@ -1,6 +1,7 @@
 # History Service 微服务（医史人物、方剂、文献检索）
 # 端口：8082（HTTP）
-# 镜像构建：docker build -f backend/history-service/Dockerfile -t ghcr.io/tcm-history-ai/history-service:latest backend/
+# 镜像构建：docker build -f backend/history-service/Dockerfile -t ghcr.io/tcm-history-ai/history-service:v2.1.0 backend/
+# !!! 生产固定镜像 tag，禁止使用 :latest；建议改用 sha256 digest 进一步保证不可变
 apiVersion: v1
 kind: Service
 metadata:
@@ -62,7 +63,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: history-service
-          image: ghcr.io/tcm-history-ai/history-service:latest
+          image: ghcr.io/tcm-history-ai/history-service:v2.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

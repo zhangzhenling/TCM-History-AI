@@ -58,7 +58,12 @@ spec:
         {{- toYaml $root.Values.global.imagePullSecrets | nindent 8 }}
       containers:
         - name: gateway
+          # Canary 镜像：优先用 imageDigest（如金丝雀镜像也走 digest），否则用 canary.gateway.imageTag
+          {{- if $root.Values.global.imageDigest }}
+          image: {{ printf "%s/%s@%s" $root.Values.global.imageRegistry "gateway" $root.Values.global.imageDigest }}
+          {{- else }}
           image: {{ printf "%s/%s:%s" $root.Values.global.imageRegistry "gateway" $root.Values.canary.gateway.imageTag }}
+          {{- end }}
           imagePullPolicy: Always
           ports:
             - name: http

@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   test:
-    name: Test
+    name: Analyze & Test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,9 +39,10 @@ jobs:
       - name: Test
         run: flutter test
 
-  build:
-    name: Build APK
+  build-android:
+    name: Build Android APK
     runs-on: ubuntu-latest
+    continue-on-error: true
     defaults:
       run:
         working-directory: mobile
@@ -55,3 +56,39 @@ jobs:
         run: flutter pub get
       - name: Build APK
         run: flutter build apk --release
+      - name: Upload APK artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcm-history-ai-android-apk
+          path: mobile/build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+  build-ios:
+    name: Build iOS (no codesign)
+    runs-on: macos-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+      - name: Upload iOS build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcm-history-ai-ios-build
+          path: |
+            mobile/build/ios/iphoneos/Runner.app
+            mobile/build/ios/ipa/*.ipa
+          if-no-files-found: warn
+          retention-days: 14

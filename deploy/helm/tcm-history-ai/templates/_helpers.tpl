@@ -65,11 +65,22 @@ app.kubernetes.io/instance: {{ $root.Release.Name }}
 {{- end -}}
 
 {{/*
-镜像全名：registry/service:appVersion
+镜像全名：registry/service:appVersion 或 registry/service@digest
 用法：{{ include "tcm.image" (list $ "gateway") }}
+
+行为：
+  - 若 global.imageDigest 非空：输出 <registry>/<svc>@<digest>（生产推荐，digest 不可变）
+  - 否则：输出 <registry>/<svc>:<appVersion>（默认，tag 可变但版本号固定）
+
+生产建议：CI 在镜像构建后通过 --set global.imageDigest=sha256:... 注入 digest，
+覆盖 tag 可变性，保证可追溯与可回滚。
 */}}
 {{- define "tcm.image" -}}
 {{- $root := index . 0 -}}
 {{- $svc := index . 1 -}}
+{{- if $root.Values.global.imageDigest -}}
+{{- printf "%s/%s@%s" $root.Values.global.imageRegistry $svc $root.Values.global.imageDigest -}}
+{{- else -}}
 {{- printf "%s/%s:%s" $root.Values.global.imageRegistry $svc $root.Values.global.appVersion -}}
+{{- end -}}
 {{- end -}}
