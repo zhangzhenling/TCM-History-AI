@@ -13,6 +13,10 @@ global:
   appVersion: "2.1"
   logLevel: info
   appEnv: dev
+  # 镜像 digest 固定（生产建议固定为 sha256，覆盖 tag 可变性）
+  # 提供后所有 Deployment/StatefulSet 镜像引用改为 <registry>/<svc>@<digest>，
+  # 优先级高于 global.appVersion；为空时回落到 <registry>/<svc>:<appVersion>
+  imageDigest: ""
 
 # ===== Ingress =====
 ingress:
@@ -175,17 +179,91 @@ backend:
       limits: { cpu: 500m, memory: 512Mi }
 
 # ===== 凭据（占位，生产必须替换；可用 --set 或外部 secret 覆盖）=====
+# !!! 警告：以下均为 CHANGE_ME 占位值，禁止直接用于生产 !!!
+# 生产推荐流程（任选其一）：
+#   1. helm upgrade --set secrets.dbPassword=<strong-password> ...（短期）
+#   2. 启用 externalSecrets.enabled=true，由 ExternalSecrets Operator 从 Vault/AWS SM 拉取（推荐）
+# 详见 doc/14-部署方案.md 第 9.3 节、doc/16-Kubernetes部署.md 第 4.2 节
 secrets:
-  dbPassword: "postgres-password-placeholder"
-  redisPassword: "redis-password-placeholder"
-  neo4jPassword: "neo4j-password-placeholder"
-  minioAccessKey: "minio-accesskey-placeholder"
-  minioSecretKey: "minio-secretkey-placeholder"
-  meiliApiKey: "meili-masterkey-placeholder"
-  rabbitmqPassword: "rabbitmq-password-placeholder"
-  jwtSecret: "CHANGE_ME_TO_A_LONG_RANDOM_STRING"
-  llmApiKey: "CHANGE_ME_LLM_API_KEY"
-  embeddingApiKey: "CHANGE_ME_EMBEDDING_API_KEY"
+  dbPassword: "CHANGE_ME"
+  redisPassword: "CHANGE_ME"
+  neo4jPassword: "CHANGE_ME"
+  minioAccessKey: "CHANGE_ME"
+  minioSecretKey: "CHANGE_ME"
+  meiliApiKey: "CHANGE_ME"
+  rabbitmqPassword: "CHANGE_ME"
+  jwtSecret: "CHANGE_ME"
+  llmApiKey: "CHANGE_ME"
+  embeddingApiKey: "CHANGE_ME"
+
+# ===== ExternalSecrets Operator 集成（生产推荐）=====
+# 启用后由 ExternalSecrets Operator 从外部 secret store（Vault / AWS Secrets Manager /
+# GCP Secret Manager / Azure Key Vault）自动同步凭据到 K8s Secret，避免明文入库。
+# 前置：集群已安装 external-secrets-operator（https://external-secrets.io）
+# 启用后 templates/secret.yaml 不再渲染 stringData，改由 ExternalSecret 同步生成
+externalSecrets:
+  enabled: false
+  # SecretStore 类型：vault / aws / gcp / azure
+  backend: vault
+  # SecretStore 名称（参数化，便于多环境复用）
+  secretStoreName: "tcm-vault-store"
+  # Vault 配置（backend=vault 时生效）
+  vault:
+    server: "https://vault.tcm-history.ai"
+    path: "secret"
+    kvVersion: "2"
+    auth:
+      # kubernetes 服务账号认证（推荐），token 由 SA 自动挂载
+      method: kubernetes
+      mount: "kubernetes"
+      role: "tcm-history-ai"
+  # AWS Secrets Manager 配置（backend=aws 时生效）
+  aws:
+    region: "us-east-1"
+    role: ""
+  # 外部 secret 的 key 映射：K8s Secret key → 外部 provider path
+  # 例如 Vault: secret/data/tcm-history-ai/db → TCM_DB_PASSWORD
+  data:
+    - secretKey: TCM_DB_PASSWORD
+      remoteRef:
+        key: "tcm-history-ai/db"
+        property: "password"
+    - secretKey: TCM_REDIS_PASSWORD
+      remoteRef:
+        key: "tcm-history-ai/redis"
+        property: "password"
+    - secretKey: TCM_NEO4J_PASSWORD
+      remoteRef:
+        key: "tcm-history-ai/neo4j"
+        property: "password"
+    - secretKey: TCM_MINIO_ACCESS_KEY
+      remoteRef:
+        key: "tcm-history-ai/minio"
+        property: "accessKey"
+    - secretKey: TCM_MINIO_SECRET_KEY
+      remoteRef:
+        key: "tcm-history-ai/minio"
+        property: "secretKey"
+    - secretKey: TCM_MEILI_API_KEY
+      remoteRef:
+        key: "tcm-history-ai/meilisearch"
+        property: "masterKey"
+    - secretKey: TCM_RABBITMQ_PASSWORD
+      remoteRef:
+        key: "tcm-history-ai/rabbitmq"
+        property: "password"
+    - secretKey: TCM_JWT_SECRET
+      remoteRef:
+        key: "tcm-history-ai/jwt"
+        property: "secret"
+    - secretKey: TCM_LLM_API_KEY
+      remoteRef:
+        key: "tcm-history-ai/llm"
+        property: "apiKey"
+    - secretKey: TCM_EMBEDDING_API_KEY
+      remoteRef:
+        key: "tcm-history-ai/embedding"
+        property: "apiKey"
 
 # ===== 非敏感全局配置（注入 ConfigMap，TCM_ 前缀）=====
 config:
@@ -225,7 +303,8 @@ observability:
   grafana:
     image: grafana/grafana:11.2.0
     adminUser: admin
-    adminPassword: admin123
+    # !!! 警告：占位值，生产必须通过 --set observability.grafana.adminPassword=<strong-password> 覆盖 !!!
+    adminPassword: "CHANGE_ME"
     storage: 5Gi
   loki:
     image: grafana/loki:3.2.0

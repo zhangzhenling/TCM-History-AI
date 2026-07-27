@@ -1,4 +1,15 @@
 {{- if .Values.backup.enabled }}
+{{- /*
+备份 CronJob 与恢复脚本配套使用：
+  - 备份：本模板创建的 CronJob 每日定时执行 backup-postgres.sh / backup-neo4j.sh，
+    产物写入 <release>-backup-pvc（路径见 backup-cronjob.yaml 内 BACKUP_DIR）
+  - 恢复：见 deploy/scripts/backup-restore/restore-postgres.sh / restore-neo4j.sh
+    完整恢复流程文档：deploy/scripts/backup-restore/README.md
+
+备份命名规范（恢复脚本依赖，请勿随意修改）：
+  - PostgreSQL: /backup/postgres/backup_YYYYMMDD_HHMMSS.sql.gz
+  - Neo4j:      /backup/neo4j/YYYYMMDD_HHMMSS/   （目录，含 <db_name> 子目录）
+*/ -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

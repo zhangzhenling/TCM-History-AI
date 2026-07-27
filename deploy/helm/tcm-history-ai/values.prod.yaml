@@ -6,6 +6,10 @@ global:
   storageClass: fast-ssd        # 生产换更高性能 SC
   logLevel: warn
   appEnv: prod
+  # 生产环境固定镜像 tag 到不可变版本号，避免 latest 可变 tag
+  # 升级时建议改 imageDigest 为 sha256（由 CI 在镜像构建后注入），保证可追溯与可回滚
+  # 例：imageDigest: "sha256:abc123def456..."
+  imageDigest: ""
 
 # Ingress 启用 TLS
 ingress:
@@ -119,7 +123,8 @@ observability:
   grafana:
     image: grafana/grafana:11.2.0
     adminUser: admin
-    adminPassword: admin123
+    # !!! 警告：占位值，生产必须通过 --set observability.grafana.adminPassword=<strong-password> 覆盖 !!!
+    adminPassword: "CHANGE_ME"
     storage: 5Gi
   loki:
     image: grafana/loki:3.2.0
@@ -141,3 +146,40 @@ backup:
     schedule: "0 2 * * *"
   neo4j:
     schedule: "0 3 * * *"
+
+# ===== 凭据（生产强制占位，必须通过 --set 或 ExternalSecret 注入）=====
+# !!! 警告：禁止在 values.prod.yaml 中明文写入真实密码 !!!
+# 推荐流程：
+#   1. 启用 externalSecrets.enabled=true，由 ExternalSecrets Operator 从 Vault/AWS SM 拉取
+#   2. 短期可 helm upgrade --set secrets.dbPassword=<strong-password> ... 临时注入
+secrets:
+  dbPassword: "CHANGE_ME"            # PostgreSQL 密码，必须为强随机串（≥ 32 字节）
+  redisPassword: "CHANGE_ME"         # Redis 密码
+  neo4jPassword: "CHANGE_ME"         # Neo4j 密码
+  minioAccessKey: "CHANGE_ME"        # MinIO Access Key
+  minioSecretKey: "CHANGE_ME"        # MinIO Secret Key
+  meiliApiKey: "CHANGE_ME"           # Meilisearch Master Key（≥ 16 字节）
+  rabbitmqPassword: "CHANGE_ME"      # RabbitMQ 密码
+  jwtSecret: "CHANGE_ME"             # JWT 签名密钥（≥ 32 字节随机串）
+  llmApiKey: "CHANGE_ME"             # LLM API Key（建议走 Vault 动态获取）
+  embeddingApiKey: "CHANGE_ME"       # Embedding API Key
+
+# ===== ExternalSecrets Operator（生产推荐启用）=====
+# 启用后凭据从 Vault/AWS Secrets Manager 动态拉取，不入 GitOps 仓库
+# 前置：集群已安装 external-secrets-operator（https://external-secrets.io）
+# 启用后 templates/secret.yaml 不再渲染 stringData，改由 ExternalSecret 同步生成
+externalSecrets:
+  enabled: false                     # 生产建议改 true，并配置 backend / vault.server 等
+  backend: vault                     # vault / aws / gcp / azure
+  secretStoreName: "tcm-vault-store-prod"
+  vault:
+    server: "https://vault.tcm-history.ai"
+    path: "secret"
+    kvVersion: "2"
+    auth:
+      method: kubernetes
+      mount: "kubernetes"
+      role: "tcm-history-ai-prod"
+  aws:
+    region: "us-east-1"
+    role: "tcm-history-ai-prod-role"
