@@ -77,6 +77,8 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	membership.POST("/cancel-auto-renew", deps.Membership.CancelAutoRenew)
 	membership.GET("/orders", deps.Membership.ListOrders)
 
+	membership.POST("/payment/callback", deps.Membership.PaymentCallback)
+
 	apiKeys := v1.Group("/api-keys")
 	apiKeys.GET("", deps.ApiKey.List)
 	apiKeys.POST("", deps.ApiKey.Create)

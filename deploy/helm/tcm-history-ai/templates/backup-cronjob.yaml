@@ -1,0 +1,224 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec"]
+    verbs: ["create", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "tcm.fullName" . }}-backup
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tcm.fullName" . }}-backup
+    namespace: {{ include "tcm.namespace" . }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup-postgres
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.postgres.schedule | quote }}
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: {{ include "tcm.fullName" . }}-backup
+          restartPolicy: OnFailure
+          volumes:
+            - name: backup-scripts
+              configMap:
+                name: {{ include "tcm.fullName" . }}-backup-scripts
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: {{ include "tcm.fullName" . }}-backup-pvc
+          containers:
+            - name: backup-postgres
+              image: postgres:16-alpine
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: ["/scripts/backup-postgres.sh"]
+              env:
+                - name: POSTGRES_HOST
+                  value: postgres
+                - name: POSTGRES_PORT
+                  value: "5432"
+                - name: POSTGRES_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: {{ include "tcm.fullName" . }}-config
+                      key: TCM_DB_USER
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "tcm.fullName" . }}-secret
+                      key: TCM_DB_PASSWORD
+                - name: POSTGRES_DB
+                  valueFrom:
+                    configMapKeyRef:
+                      name: {{ include "tcm.fullName" . }}-config
+                      key: TCM_DB_DBNAME
+                - name: BACKUP_DIR
+                  value: /backup/postgres
+                - name: RETENTION_DAYS
+                  value: {{ .Values.backup.retentionDays | quote }}
+              volumeMounts:
+                - name: backup-scripts
+                  mountPath: /scripts
+                - name: backup-storage
+                  mountPath: /backup
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup-neo4j
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.neo4j.schedule | quote }}
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: {{ include "tcm.fullName" . }}-backup
+          restartPolicy: OnFailure
+          volumes:
+            - name: backup-scripts
+              configMap:
+                name: {{ include "tcm.fullName" . }}-backup-scripts
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: {{ include "tcm.fullName" . }}-backup-pvc
+          containers:
+            - name: backup-neo4j
+              image: neo4j:5-community
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: ["/scripts/backup-neo4j.sh"]
+              env:
+                - name: NEO4J_HOST
+                  value: neo4j
+                - name: NEO4J_PORT
+                  value: "7474"
+                - name: NEO4J_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: {{ include "tcm.fullName" . }}-config
+                      key: TCM_NEO4J_USER
+                - name: NEO4J_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "tcm.fullName" . }}-secret
+                      key: TCM_NEO4J_PASSWORD
+                - name: BACKUP_DIR
+                  value: /backup/neo4j
+                - name: RETENTION_DAYS
+                  value: {{ .Values.backup.retentionDays | quote }}
+              volumeMounts:
+                - name: backup-scripts
+                  mountPath: /scripts
+                - name: backup-storage
+                  mountPath: /backup
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup-scripts
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+data:
+  backup-postgres.sh: |
+    #!/bin/sh
+    set -e
+
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql.gz"
+
+    echo "Starting PostgreSQL backup at ${TIMESTAMP}"
+    pg_dump -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "${BACKUP_FILE}"
+
+    if [ $? -eq 0 ]; then
+      echo "PostgreSQL backup completed successfully: ${BACKUP_FILE}"
+    else
+      echo "PostgreSQL backup failed"
+      exit 1
+    fi
+
+    echo "Cleaning up backups older than ${RETENTION_DAYS} days"
+    find "${BACKUP_DIR}" -name "backup_*.sql.gz" -type f -mtime +${RETENTION_DAYS} -delete
+
+  backup-neo4j.sh: |
+    #!/bin/sh
+    set -e
+
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_DIR_FULL="${BACKUP_DIR}/${TIMESTAMP}"
+
+    echo "Starting Neo4j backup at ${TIMESTAMP}"
+    neo4j-admin database backup --to-path="${BACKUP_DIR_FULL}" --overwrite-destination
+
+    if [ $? -eq 0 ]; then
+      echo "Neo4j backup completed successfully: ${BACKUP_DIR_FULL}"
+    else
+      echo "Neo4j backup failed"
+      exit 1
+    fi
+
+    echo "Cleaning up backups older than ${RETENTION_DAYS} days"
+    find "${BACKUP_DIR}" -maxdepth 1 -type d -mtime +${RETENTION_DAYS} -exec rm -rf {} +
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tcm.fullName" . }}-backup-pvc
+  namespace: {{ include "tcm.namespace" . }}
+  labels:
+    {{- include "tcm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  storageClassName: {{ .Values.global.storageClass }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.backup.storage }}
+{{- end }}

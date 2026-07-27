@@ -248,3 +248,14 @@ canary:
 # 需要集群支持 NetworkPolicy（Calico / Cilium 等 CNI 插件）
 networkPolicy:
   enabled: false
+
+# ===== 备份配置（CronJob）=====
+# 生产环境建议启用，定期备份 PostgreSQL 和 Neo4j 数据
+backup:
+  enabled: false
+  retentionDays: 7
+  storage: 100Gi
+  postgres:
+    schedule: "0 2 * * *"
+  neo4j:
+    schedule: "0 3 * * *"

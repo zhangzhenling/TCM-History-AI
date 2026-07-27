@@ -14,20 +14,23 @@ import (
 )
 
 type SubscriptionUseCase struct {
-	planRepo  repository.MembershipPlanRepository
-	subRepo   repository.UserSubscriptionRepository
-	orderRepo repository.MembershipOrderRepository
+	planRepo   repository.MembershipPlanRepository
+	subRepo    repository.UserSubscriptionRepository
+	orderRepo  repository.MembershipOrderRepository
+	apiKeyRepo repository.ApiKeyRepository
 }
 
 func NewSubscriptionUseCase(
 	planRepo repository.MembershipPlanRepository,
 	subRepo repository.UserSubscriptionRepository,
 	orderRepo repository.MembershipOrderRepository,
+	apiKeyRepo repository.ApiKeyRepository,
 ) *SubscriptionUseCase {
 	return &SubscriptionUseCase{
-		planRepo:  planRepo,
-		subRepo:   subRepo,
-		orderRepo: orderRepo,
+		planRepo:   planRepo,
+		subRepo:    subRepo,
+		orderRepo:  orderRepo,
+		apiKeyRepo: apiKeyRepo,
 	}
 }
 
@@ -159,6 +162,77 @@ func (uc *SubscriptionUseCase) CancelAutoRenew(ctx context.Context, userID int64
 	}
 	sub.AutoRenew = false
 	return uc.subRepo.Update(ctx, sub)
+}
+
+func (uc *SubscriptionUseCase) HandlePaymentCallback(ctx context.Context, req *dto.PaymentCallbackRequest) (*dto.MembershipOrderResponse, error) {
+	if req == nil || req.OrderNo == "" {
+		return nil, errno.New(errno.InvalidParams, "order_no is required")
+	}
+
+	order, err := uc.orderRepo.FindByOrderNo(ctx, req.OrderNo)
+	if err != nil {
+		return nil, err
+	}
+	if order == nil {
+		return nil, errno.New(errno.NotFound, "order not found: "+req.OrderNo)
+	}
+
+	if order.Status == entity.OrderStatusPaid {
+		plan, _ := uc.planRepo.FindByID(ctx, order.PlanID)
+		return toMembershipOrderResponse(order, plan), nil
+	}
+
+	if req.Status != "paid" {
+		return toMembershipOrderResponse(order, nil), nil
+	}
+
+	now := time.Now()
+	err = uc.orderRepo.UpdateStatus(ctx, order.ID, entity.OrderStatusPaid, &now, req.PaymentMethod, req.TransactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = uc.activateOrExtendSubscription(ctx, order.UserID, order.PlanID)
+	if err != nil {
+		return nil, err
+	}
+
+	plan, err := uc.planRepo.FindByID(ctx, order.PlanID)
+	if err != nil {
+		return nil, err
+	}
+
+	if plan != nil {
+		err = uc.syncApiKeyQuota(ctx, order.UserID, plan)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	order, err = uc.orderRepo.FindByID(ctx, order.ID)
+	if err != nil {
+		return nil, err
+	}
+	return toMembershipOrderResponse(order, plan), nil
+}
+
+func (uc *SubscriptionUseCase) syncApiKeyQuota(ctx context.Context, userID int64, plan *entity.MembershipPlan) error {
+	apiKeys, err := uc.apiKeyRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	for i := range apiKeys {
+		key := &apiKeys[i]
+		key.QuotaDaily = int64(plan.MaxDailyAIRequests)
+		key.QuotaMonthly = plan.MaxTokenPerMonth
+		key.RateLimitPerMinute = plan.MaxDailyAIRequests / 60
+		if err := uc.apiKeyRepo.Update(ctx, key); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func generateOrderNo(userID int64) string {

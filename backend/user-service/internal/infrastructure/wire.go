@@ -36,6 +36,7 @@ var Providers = wire.NewSet(
 	persistence.NewMembershipPlanRepo,
 	persistence.NewUserSubscriptionRepo,
 	persistence.NewMembershipOrderRepo,
+	persistence.NewApiKeyRepo,
 
 	wire.Bind(new(repository.UserRepository), new(*persistence.UserRepo)),
 	wire.Bind(new(repository.RoleRepository), new(*persistence.RoleRepo)),
@@ -45,6 +46,7 @@ var Providers = wire.NewSet(
 	wire.Bind(new(repository.MembershipPlanRepository), new(*persistence.MembershipPlanRepo)),
 	wire.Bind(new(repository.UserSubscriptionRepository), new(*persistence.UserSubscriptionRepo)),
 	wire.Bind(new(repository.MembershipOrderRepository), new(*persistence.MembershipOrderRepo)),
+	wire.Bind(new(repository.ApiKeyRepository), new(*persistence.ApiKeyRepo)),
 
 	ProvidePasswordHasher,
 	ProvideTokenManager,

@@ -79,6 +79,15 @@ func (h *MembershipController) ListOrders(ctx context.Context, c *app.RequestCon
 	okOrFail(ctx, c, resp, err)
 }
 
+func (h *MembershipController) PaymentCallback(ctx context.Context, c *app.RequestContext) {
+	var req dto.PaymentCallbackRequest
+	if !bindAndValidate(ctx, c, &req) {
+		return
+	}
+	resp, err := h.subscriptionUC.HandlePaymentCallback(ctx, &req)
+	okOrFail(ctx, c, resp, err)
+}
+
 func (h *MembershipController) AdminListPlans(ctx context.Context, c *app.RequestContext) {
 	resp, err := h.planUC.ListPlans(ctx, true)
 	okOrFail(ctx, c, resp, err)

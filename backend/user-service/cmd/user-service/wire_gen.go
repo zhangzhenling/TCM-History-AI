@@ -140,7 +140,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.adminUC = usecase.NewAdminUseCase(app.userRepo, app.roleRepo, app.permRepo)
 	app.roleUC = usecase.NewRoleUseCase(app.roleRepo, app.permRepo)
 	app.membershipPlanUC = usecase.NewMembershipPlanUseCase(app.membershipPlanRepo)
-	app.subscriptionUC = usecase.NewSubscriptionUseCase(app.membershipPlanRepo, app.userSubscriptionRepo, app.membershipOrderRepo)
+	app.subscriptionUC = usecase.NewSubscriptionUseCase(app.membershipPlanRepo, app.userSubscriptionRepo, app.membershipOrderRepo, app.apiKeyRepo)
 	app.orderUC = usecase.NewOrderUseCase(app.membershipOrderRepo, app.membershipPlanRepo)
 	app.apiKeyUC = usecase.NewApiKeyUseCase(app.apiKeyRepo)
 
