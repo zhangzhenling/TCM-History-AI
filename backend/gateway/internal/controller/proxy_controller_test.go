@@ -85,6 +85,12 @@ func TestPathResolver(t *testing.T) {
 	}{
 		{"/api/v1/auth/login", "user:8001"},
 		{"/api/v1/users/me", "user:8001"},
+		{"/api/v1/admin/users", "user:8001"},
+		{"/api/v1/admin/roles", "user:8001"},
+		{"/api/v1/admin/tenants", "user:8001"},
+		{"/api/v1/membership/plans", "user:8001"},
+		{"/api/v1/membership/subscription", "user:8001"},
+		{"/api/v1/api-keys", "user:8001"},
 		{"/api/v1/history/persons", "history:8002"},
 		{"/api/v1/knowledge/documents", "knowledge:8003"},
 		{"/api/v1/graph/nodes", "graph:8004"},

@@ -54,7 +54,10 @@ func NewPathResolver(d conf.DownstreamConfig) *PathResolver {
 func (r *PathResolver) Resolve(path string) string {
 	switch {
 	case strings.HasPrefix(path, "/api/v1/auth"),
-		strings.HasPrefix(path, "/api/v1/users"):
+		strings.HasPrefix(path, "/api/v1/users"),
+		strings.HasPrefix(path, "/api/v1/admin"),
+		strings.HasPrefix(path, "/api/v1/membership"),
+		strings.HasPrefix(path, "/api/v1/api-keys"):
 		return r.downstream.UserService
 	case strings.HasPrefix(path, "/api/v1/history"):
 		return r.downstream.HistoryService
