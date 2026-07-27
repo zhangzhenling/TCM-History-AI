@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon foreground: simple "TCM" monogram (white on transparent). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer safe-zone frame is the 72x72 area centered in 108x108. -->
+    <group
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="21.6"
+        android:translateY="21.6">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M18,18 L54,18 L54,24 L40,24 L40,54 L32,54 L32,24 L18,24 z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M54,18 L72,18 C80,18 84,22 84,30 L84,42 C84,50 80,54 72,54 L54,54 z M62,24 L62,48 L72,48 C75,48 76,46 76,42 L76,30 C76,26 75,24 72,24 z" />
+    </group>
+</vector>
