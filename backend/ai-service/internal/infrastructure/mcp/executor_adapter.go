@@ -38,10 +38,8 @@ func (a *ExecutorAdapter) Execute(ctx context.Context, toolName string, params m
 		degraded = d
 	}
 	// If the inner executor returns a stub marker, treat as degraded.
-	if _, ok := result["result"].(string); ok {
-		if s, ok := result["result"].(string); ok && len(s) > 6 && s[:6] == "[stub-" {
-			degraded = true
-		}
+	if s, ok := result["result"].(string); ok && len(s) > 6 && s[:6] == "[stub-" {
+		degraded = true
 	}
 	return result, degraded, nil
 }
