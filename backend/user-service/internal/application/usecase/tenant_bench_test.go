@@ -60,4 +60,3 @@ func BenchmarkTenantUseCase_CreateTenant(b *testing.B) {
 		_, _ = h.uc.CreateTenant(ctx, in)
 	}
 }
-
