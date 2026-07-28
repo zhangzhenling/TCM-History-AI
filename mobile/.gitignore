@@ -42,6 +42,11 @@ ios/Runner/GeneratedPluginRegistrant.*
 *.xcworkspace
 DerivedData/
 
+# iOS 签名配置（敏感信息，不提交）
+ios/Flutter/Signing.xcconfig
+ios/**/*.mobileprovision
+ios/**/*.p12
+
 # 系统
 .DS_Store
 Thumbs.db

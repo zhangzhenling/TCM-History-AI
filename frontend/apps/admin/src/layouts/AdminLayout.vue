@@ -8,6 +8,7 @@ import { Layout, Menu, Breadcrumb, Dropdown, Avatar } from 'ant-design-vue';
 import {
   DashboardOutlined,
   TeamOutlined,
+  BankOutlined,
   HistoryOutlined,
   DatabaseOutlined,
   RobotOutlined,
@@ -87,6 +88,10 @@ function handleUserMenu(info: { key: string | number }): void {
         <Menu.Item key="/admin/users">
           <TeamOutlined />
           <span>用户管理</span>
+        </Menu.Item>
+        <Menu.Item key="/admin/tenants">
+          <BankOutlined />
+          <span>学校/机构</span>
         </Menu.Item>
         <Menu.SubMenu key="history">
           <template #title>

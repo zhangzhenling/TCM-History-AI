@@ -57,11 +57,13 @@ func RBACMiddleware(cfg RBACConfig) app.HandlerFunc {
 		rolesStr, ok := UserRolesFrom(ctx)
 		if !ok || rolesStr == "" {
 			response.FailWith(ctx, c, errno.Forbidden, "no roles assigned")
+			c.Abort()
 			return
 		}
 		userRoles := splitRoles(rolesStr)
 		if !hasAnyRole(userRoles, required) {
 			response.FailWith(ctx, c, errno.Forbidden, "insufficient role")
+			c.Abort()
 			return
 		}
 		c.Next(ctx)

@@ -28,6 +28,12 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: { title: '用户管理', keepAlive: true },
       },
       {
+        path: 'tenants',
+        name: 'AdminTenants',
+        component: () => import('@/views/tenants/list.vue'),
+        meta: { title: '学校/机构管理', keepAlive: true },
+      },
+      {
         path: 'history/dynasties',
         name: 'AdminDynasties',
         component: () => import('@/views/history/dynasties.vue'),

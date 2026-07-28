@@ -23,6 +23,7 @@ func (c *Chain) RateLimit() app.HandlerFunc {
 		entry, blockErr := api.Entry(rateLimitResource, api.WithTrafficType(base.Inbound))
 		if blockErr != nil {
 			response.FailWith(ctx, rc, errno.RateLimited, "rate limit exceeded")
+			rc.Abort()
 			return
 		}
 		defer entry.Exit()

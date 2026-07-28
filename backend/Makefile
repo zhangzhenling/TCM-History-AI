@@ -28,6 +28,9 @@ build-gateway: ## 仅编译 gateway
 test: ## 运行后端单测
 	$(GO) test -race -coverprofile=coverage.txt ./...
 
+e2e: ## 运行后端 E2E 测试（带 e2e build tag）
+	$(GO) test -tags=e2e -race -timeout=120s ./...
+
 lint: ## 后端静态检查
 	golangci-lint run ./...
 
