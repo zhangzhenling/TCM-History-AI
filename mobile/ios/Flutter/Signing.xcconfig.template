@@ -1,0 +1,20 @@
+// iOS 签名与环境配置模板
+// 使用方法：
+// 1. 复制为 Signing.xcconfig
+// 2. 填入真实的 DEVELOPMENT_TEAM 和 PROVISIONING_PROFILE_SPECIFIER
+// 3. Signing.xcconfig 已加入 .gitignore，不会提交到仓库
+
+// 开发团队 ID（在 Apple Developer 后台获取）
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// 描述文件名称（可选，Automatic 签名时留空）
+PROVISIONING_PROFILE_SPECIFIER =
+
+// 代码签名方式：Automatic / Manual
+CODE_SIGN_STYLE = Automatic
+
+// 生产环境 Bundle ID
+PRODUCT_BUNDLE_IDENTIFIER = com.tcmhistory.tcmHistoryAi
+
+// API 基础地址（可被 --dart-define 覆盖）
+API_BASE_URL = https://api.tcmhistory.com/api/v1

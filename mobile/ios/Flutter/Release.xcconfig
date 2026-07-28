@@ -1,2 +1,10 @@
-#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+// 发布环境配置
 #include "Generated.xcconfig"
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include? "Signing.xcconfig"
+
+// 生产环境 Bundle ID
+PRODUCT_BUNDLE_IDENTIFIER = com.tcmhistory.tcmHistoryAi
+
+// 应用显示名称
+BUNDLE_DISPLAY_NAME = 中医史AI
