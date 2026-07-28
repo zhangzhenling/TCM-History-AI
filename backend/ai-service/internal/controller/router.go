@@ -17,6 +17,7 @@ type Deps struct {
 	Prompt *PromptController
 	Tool   *ToolController
 	Token  *TokenController
+	MCP    *MCPController
 }
 
 // RegisterRoutes wires every AI Service route onto the Hertz server.
@@ -62,6 +63,12 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	v1.GET("/token/quota", deps.Token.GetQuota)
 	v1.GET("/token/usage", deps.Token.GetUsage)
 	v1.GET("/token/records", deps.Token.GetRecords)
+
+	// MCP protocol endpoints (SSE + JSON-RPC)
+	if deps.MCP != nil {
+		h.GET("/mcp/sse", deps.MCP.SSE)
+		h.POST("/mcp/message", deps.MCP.Message)
+	}
 
 	// Suppress unused-import warning for consts.
 	_ = consts.StatusOK

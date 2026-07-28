@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"tcm-history-ai/backend/ai-service/internal/domain/service"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/eventbus"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/llm"
+	"tcm-history-ai/backend/ai-service/internal/infrastructure/mcp"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/persistence"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/prompt"
 	"tcm-history-ai/backend/ai-service/internal/infrastructure/retrieval"
@@ -54,6 +56,9 @@ type App struct {
 	publisher  event.EventPublisher
 	outboxRepo *outbox.Repository
 	Relay      *outbox.Relay
+
+	mcpRegistry *mcp.Registry
+	mcpServer   *mcp.Server
 }
 
 // ControllerDeps returns the bundle of controllers required by the router.
@@ -64,6 +69,7 @@ func (a *App) ControllerDeps() *controller.Deps {
 		Prompt: controller.NewPromptController(a.promptUC),
 		Tool:   controller.NewToolController(a.toolUC),
 		Token:  controller.NewTokenController(a.tokenUC),
+		MCP:    controller.NewMCPController(a.mcpServer),
 	}
 }
 
@@ -160,6 +166,14 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.promptUC = usecase.NewPromptUseCase(app.promptRepo, app.renderer)
 	app.toolUC = usecase.NewToolUseCase(app.toolRepo, app.toolExec)
 	app.tokenUC = usecase.NewTokenUseCase(app.tokenUsageRepo, app.tokenQuotaRepo)
+
+	// MCP Server.
+	app.mcpRegistry = mcp.NewRegistry(app.toolRepo)
+	// Load custom tools from DB; built-ins are registered next.
+	_ = app.mcpRegistry.Load(context.Background())
+	mcpExec := mcp.NewExecutorAdapter(app.toolExec)
+	app.mcpServer = mcp.NewServer(app.mcpRegistry, mcpExec)
+	app.mcpServer.RegisterBuiltinTools()
 
 	cleanups = append(cleanups, func() {
 		sqlDB, _ := db.DB()
