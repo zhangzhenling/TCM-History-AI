@@ -46,7 +46,7 @@ func (h *TenantController) ListTenants(ctx context.Context, c *app.RequestContex
 
 // GetTenant GET /api/v1/admin/tenants/:id
 func (h *TenantController) GetTenant(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -56,7 +56,7 @@ func (h *TenantController) GetTenant(ctx context.Context, c *app.RequestContext)
 
 // UpdateTenant PUT /api/v1/admin/tenants/:id
 func (h *TenantController) UpdateTenant(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -70,7 +70,7 @@ func (h *TenantController) UpdateTenant(ctx context.Context, c *app.RequestConte
 
 // DeleteTenant DELETE /api/v1/admin/tenants/:id
 func (h *TenantController) DeleteTenant(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -83,7 +83,7 @@ func (h *TenantController) DeleteTenant(ctx context.Context, c *app.RequestConte
 
 // AddMember POST /api/v1/admin/tenants/:id/members
 func (h *TenantController) AddMember(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -97,7 +97,7 @@ func (h *TenantController) AddMember(ctx context.Context, c *app.RequestContext)
 
 // ListMembers GET /api/v1/admin/tenants/:id/members
 func (h *TenantController) ListMembers(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -107,11 +107,11 @@ func (h *TenantController) ListMembers(ctx context.Context, c *app.RequestContex
 
 // RemoveMember DELETE /api/v1/admin/tenants/:id/members/:user_id
 func (h *TenantController) RemoveMember(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
-	userID, ok := pathMemberUserID(c)
+	userID, ok := pathMemberUserID(ctx, c)
 	if !ok {
 		return
 	}
@@ -128,7 +128,7 @@ func (h *TenantController) RemoveMember(ctx context.Context, c *app.RequestConte
 // to?"). It is mounted outside the per-tenant sub-resource because it is
 // keyed by user, not tenant.
 func (h *TenantController) ListUserTenants(ctx context.Context, c *app.RequestContext) {
-	userID, ok := pathMemberUserID(c)
+	userID, ok := pathMemberUserID(ctx, c)
 	if !ok {
 		return
 	}
@@ -138,11 +138,11 @@ func (h *TenantController) ListUserTenants(ctx context.Context, c *app.RequestCo
 
 // pathMemberUserID extracts and validates the :user_id path parameter.
 // Mirrors pathID but reads a different route param name.
-func pathMemberUserID(c *app.RequestContext) (int64, bool) {
+func pathMemberUserID(ctx context.Context, c *app.RequestContext) (int64, bool) {
 	raw := c.Param("user_id")
 	id, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || id <= 0 {
-		response.FailWith(context.Background(), c, errno.InvalidParams, "invalid user_id: "+raw)
+		response.FailWith(ctx, c, errno.InvalidParams, "invalid user_id: "+raw)
 		return 0, false
 	}
 	return id, true

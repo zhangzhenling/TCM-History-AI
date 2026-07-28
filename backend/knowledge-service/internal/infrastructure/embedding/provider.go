@@ -3,7 +3,7 @@
 // 实现策略：
 //   - StubProvider: 返回固定模式的向量，用于本地开发联调与单元测试
 //   - OpenAIProvider: 调用 OpenAI text-embedding-3 HTTP API（net/http 直连）
-//   - local（bge-large-zh gRPC）: 暂回退到 stub，待 gRPC 客户端接入
+//   - BGEProvider: 调用 bge-large-zh-v1.5 中文 embedding 模型 HTTP API（vLLM 兼容协议）
 package embedding
 
 import (
@@ -16,26 +16,26 @@ import (
 
 // Config captures the embedding provider coordinates.
 type Config struct {
-	Provider string // "stub" | "local" | "openai"
-	Endpoint string // OpenAI 兼容端点（空则用 https://api.openai.com/v1）
+	Provider string // "stub" | "openai" | "bge" | "local"
+	Endpoint string // OpenAI/BGE 兼容端点
 	APIKey   string
-	Model    string // text-embedding-3-small | text-embedding-3-large | bge-large-zh-v1.5
+	Model    string // text-embedding-3-small | bge-large-zh-v1.5
 	Dim      int
 	Timeout  int // 单次调用超时秒
 }
 
 // New constructs an EmbeddingProvider based on cfg.Provider.
-// provider="local" 暂回退到 stub（待接入 bge gRPC 客户端）；
+// provider="bge" 接入 bge-large-zh-v1.5 中文 embedding 模型；
+// provider="local" 是 bge 的别名（向后兼容）；
 // 未识别的 provider 一律回退到 stub，保证可运行。
 func New(cfg Config) (service.EmbeddingProvider, error) {
 	switch cfg.Provider {
 	case "", "stub":
 		return &StubProvider{model: cfg.Model, dim: cfg.Dim}, nil
-	case "local":
-		// TODO(embedding-sdk): 接入 bge-large-zh gRPC 客户端
-		return &StubProvider{model: cfg.Model, dim: cfg.Dim}, nil
 	case "openai":
 		return NewOpenAIProvider(cfg.Endpoint, cfg.APIKey, cfg.Model, cfg.Dim, cfg.Timeout), nil
+	case "bge", "local":
+		return NewBGEProvider(cfg.Endpoint, cfg.APIKey, cfg.Model, cfg.Dim, cfg.Timeout), nil
 	default:
 		return nil, errno.New(errno.InvalidParams, "unknown embedding provider: "+cfg.Provider)
 	}

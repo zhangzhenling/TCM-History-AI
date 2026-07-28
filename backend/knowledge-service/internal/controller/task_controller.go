@@ -28,7 +28,7 @@ func (h *TaskController) List(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/knowledge/tasks/:id
 func (h *TaskController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -38,7 +38,7 @@ func (h *TaskController) Get(ctx context.Context, c *app.RequestContext) {
 
 // ListByDocument GET /api/v1/knowledge/documents/:id/tasks
 func (h *TaskController) ListByDocument(ctx context.Context, c *app.RequestContext) {
-	docID, ok := pathID(c)
+	docID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

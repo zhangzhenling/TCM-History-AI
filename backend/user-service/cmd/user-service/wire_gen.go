@@ -149,7 +149,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 	app.subscriptionUC = usecase.NewSubscriptionUseCase(app.membershipPlanRepo, app.userSubscriptionRepo, app.membershipOrderRepo, app.apiKeyRepo)
 	app.orderUC = usecase.NewOrderUseCase(app.membershipOrderRepo, app.membershipPlanRepo)
 	app.apiKeyUC = usecase.NewApiKeyUseCase(app.apiKeyRepo)
-	app.tenantUC = usecase.NewTenantUseCase(app.tenantRepo, app.tenantMemberRepo)
+	app.tenantUC = usecase.NewTenantUseCase(db, app.tenantRepo, app.tenantMemberRepo)
 
 	// Compile-time interface checks: ensure concrete adapters satisfy the
 	// domain ports. These are no-ops at runtime.

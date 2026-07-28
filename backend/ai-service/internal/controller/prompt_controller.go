@@ -39,7 +39,7 @@ func (h *PromptController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/ai/prompts/:id
 func (h *PromptController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -49,7 +49,7 @@ func (h *PromptController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/ai/prompts/:id
 func (h *PromptController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -63,7 +63,7 @@ func (h *PromptController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/ai/prompts/:id
 func (h *PromptController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -74,7 +74,7 @@ func (h *PromptController) Delete(ctx context.Context, c *app.RequestContext) {
 // Activate PATCH /api/v1/ai/prompts/:id/activate
 // 将指定模板置为同 scene 下唯一激活态。
 func (h *PromptController) Activate(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

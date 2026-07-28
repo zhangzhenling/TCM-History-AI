@@ -27,7 +27,7 @@ func (h *RoleController) List(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/admin/roles/:id
 func (h *RoleController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -47,7 +47,7 @@ func (h *RoleController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/admin/roles/:id
 func (h *RoleController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *RoleController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/admin/roles/:id
 func (h *RoleController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -74,7 +74,7 @@ func (h *RoleController) Delete(ctx context.Context, c *app.RequestContext) {
 
 // AssignPermissions PUT /api/v1/admin/roles/:id/permissions
 func (h *RoleController) AssignPermissions(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

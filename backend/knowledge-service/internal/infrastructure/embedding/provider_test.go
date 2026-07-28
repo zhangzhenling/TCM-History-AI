@@ -26,9 +26,9 @@ func newStub(t *testing.T, model string, dim int) *embedding.StubProvider {
 	return sp
 }
 
-// TestNew_StubProvider exercises the "", "stub", and "local" branches which all
-// return a StubProvider with the configured model/dim. provider="openai" now
-// returns a real *OpenAIProvider (见 TestNew_OpenAIProvider)。
+// TestNew_StubProvider exercises the "" and "stub" branches which return a
+// StubProvider with the configured model/dim. provider="local" / "bge" now
+// return *BGEProvider (见 TestNew_BGEProvider)。
 func TestNew_StubProvider(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -36,7 +36,6 @@ func TestNew_StubProvider(t *testing.T) {
 	}{
 		{"empty defaults to stub", ""},
 		{"explicit stub", "stub"},
-		{"local falls back to stub", "local"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -47,6 +46,28 @@ func TestNew_StubProvider(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.NotNil(t, p)
+			assert.Equal(t, "bge-large-zh-v1.5", p.Model())
+			assert.Equal(t, 1024, p.Dim())
+		})
+	}
+}
+
+// TestNew_BGEProvider verifies that provider="bge" (or "local" alias)
+// returns a real *BGEProvider with the configured model/dim/endpoint.
+func TestNew_BGEProvider(t *testing.T) {
+	for _, prov := range []string{"bge", "local"} {
+		t.Run(prov, func(t *testing.T) {
+			p, err := embedding.New(embedding.Config{
+				Provider: prov,
+				Endpoint: "http://bge.example.com/v1",
+				Model:    "bge-large-zh-v1.5",
+				Dim:      1024,
+				Timeout:  60,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, p)
+			_, ok := p.(*embedding.BGEProvider)
+			assert.True(t, ok, "expected *BGEProvider, got %T", p)
 			assert.Equal(t, "bge-large-zh-v1.5", p.Model())
 			assert.Equal(t, 1024, p.Dim())
 		})
@@ -178,4 +199,31 @@ func TestNew_AssignsPort(t *testing.T) {
 	p, err := embedding.New(embedding.Config{Provider: "stub", Model: "m", Dim: 4})
 	require.NoError(t, err)
 	var _ service.EmbeddingProvider = p
+}
+
+// TestBGEProvider_Defaults verifies that NewBGEProvider fills in sensible
+// defaults when called with zero-value / empty-string arguments.
+func TestBGEProvider_Defaults(t *testing.T) {
+	p := embedding.NewBGEProvider("", "", "", 0, 0)
+	assert.Equal(t, "bge-large-zh-v1.5", p.Model())
+	assert.Equal(t, 1024, p.Dim())
+	assert.Contains(t, p.String(), "http://localhost:8000/v1")
+	assert.Contains(t, p.String(), "bge-large-zh-v1.5")
+}
+
+// TestBGEProvider_EmptyInputReturnsNil exercises the len(texts)==0 fast path.
+func TestBGEProvider_EmptyInputReturnsNil(t *testing.T) {
+	p := embedding.NewBGEProvider("http://localhost:8000/v1", "", "bge-large-zh-v1.5", 1024, 30)
+	out, err := p.Embed(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Nil(t, out)
+}
+
+// TestBGEProvider_String verifies the debug string includes base URL and model.
+func TestBGEProvider_String(t *testing.T) {
+	p := embedding.NewBGEProvider("http://bge.example.com/v1", "", "bge-large-zh-v1.5", 1024, 30)
+	str := p.String()
+	assert.Contains(t, str, "http://bge.example.com/v1")
+	assert.Contains(t, str, "bge-large-zh-v1.5")
+	assert.Contains(t, str, "dim=1024")
 }

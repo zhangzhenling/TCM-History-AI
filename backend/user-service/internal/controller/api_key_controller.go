@@ -47,7 +47,7 @@ func (h *ApiKeyController) Get(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -60,7 +60,7 @@ func (h *ApiKeyController) Update(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -77,7 +77,7 @@ func (h *ApiKeyController) Delete(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -93,7 +93,7 @@ func (h *ApiKeyController) Regenerate(ctx context.Context, c *app.RequestContext
 	if !ok {
 		return
 	}
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

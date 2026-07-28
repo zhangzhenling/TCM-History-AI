@@ -37,7 +37,7 @@ func (h *DiseaseController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/history/diseases/:id
 func (h *DiseaseController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -47,7 +47,7 @@ func (h *DiseaseController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/history/diseases/:id
 func (h *DiseaseController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *DiseaseController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/history/diseases/:id
 func (h *DiseaseController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

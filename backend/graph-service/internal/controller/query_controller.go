@@ -21,7 +21,7 @@ func NewQueryController(uc *usecase.QueryUseCase) *QueryController {
 
 // GetPersonWorks GET /api/v1/graph/persons/:uid/works
 func (h *QueryController) GetPersonWorks(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}
@@ -31,7 +31,7 @@ func (h *QueryController) GetPersonWorks(ctx context.Context, c *app.RequestCont
 
 // GetSchoolLineage GET /api/v1/graph/schools/:name/lineage?max_depth=
 func (h *QueryController) GetSchoolLineage(ctx context.Context, c *app.RequestContext) {
-	name, ok := pathName(c)
+	name, ok := pathName(ctx, c)
 	if !ok {
 		return
 	}
@@ -51,7 +51,7 @@ func (h *QueryController) FindShortestPath(ctx context.Context, c *app.RequestCo
 
 // GetDynastyFigures GET /api/v1/graph/dynasties/:name/figures
 func (h *QueryController) GetDynastyFigures(ctx context.Context, c *app.RequestContext) {
-	name, ok := pathName(c)
+	name, ok := pathName(ctx, c)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *QueryController) GetDynastyFigures(ctx context.Context, c *app.RequestC
 
 // GetPrescriptionDetail GET /api/v1/graph/prescriptions/:uid/detail
 func (h *QueryController) GetPrescriptionDetail(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}

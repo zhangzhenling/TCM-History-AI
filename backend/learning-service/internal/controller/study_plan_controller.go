@@ -51,7 +51,7 @@ func (h *StudyPlanController) Create(ctx context.Context, c *app.RequestContext)
 
 // Get GET /api/v1/learning/study-plans/:id
 func (h *StudyPlanController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *StudyPlanController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/learning/study-plans/:id
 func (h *StudyPlanController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -89,7 +89,7 @@ func (h *StudyPlanController) Generate(ctx context.Context, c *app.RequestContex
 
 // Delete DELETE /api/v1/learning/study-plans/:id
 func (h *StudyPlanController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

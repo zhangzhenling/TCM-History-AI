@@ -42,7 +42,7 @@ func (h *EdgeController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/graph/edges/:uid
 func (h *EdgeController) Get(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}
@@ -52,7 +52,7 @@ func (h *EdgeController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/graph/edges/:uid
 func (h *EdgeController) Update(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}
@@ -66,7 +66,7 @@ func (h *EdgeController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/graph/edges/:uid
 func (h *EdgeController) Delete(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}

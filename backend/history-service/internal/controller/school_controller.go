@@ -37,7 +37,7 @@ func (h *SchoolController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/history/schools/:id
 func (h *SchoolController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -47,7 +47,7 @@ func (h *SchoolController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/history/schools/:id
 func (h *SchoolController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *SchoolController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/history/schools/:id
 func (h *SchoolController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

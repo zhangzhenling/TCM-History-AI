@@ -33,7 +33,7 @@ func (h *ExamAttemptController) Start(ctx context.Context, c *app.RequestContext
 
 // Get GET /api/v1/learning/attempts/:id
 func (h *ExamAttemptController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -57,7 +57,7 @@ func (h *ExamAttemptController) List(ctx context.Context, c *app.RequestContext)
 // Save POST /api/v1/learning/attempts/:id/save
 // Auto-save current answers without submitting the exam.
 func (h *ExamAttemptController) Save(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -71,7 +71,7 @@ func (h *ExamAttemptController) Save(ctx context.Context, c *app.RequestContext)
 
 // Submit POST /api/v1/learning/attempts/:id/submit
 func (h *ExamAttemptController) Submit(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

@@ -104,7 +104,7 @@ func TestPathID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			rc := newRC()
 			rc.Params = param.Params{{Key: "id", Value: tc.raw}}
-			id, ok := pathID(rc)
+			id, ok := pathID(context.Background(), rc)
 			assert.Equal(t, tc.ok, ok)
 			assert.Equal(t, tc.wantID, id)
 			if !tc.ok {

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/pagination"
@@ -62,6 +63,23 @@ func (r *TenantRepo) FindByID(ctx context.Context, id int64) (*entity.Tenant, er
 			return nil, nil
 		}
 		return nil, errno.Wrap(errno.InternalError, "find tenant by id", err)
+	}
+	return &t, nil
+}
+
+// FindByIDForUpdate fetches a tenant by id and locks the row with SELECT FOR UPDATE.
+// 用于并发场景下（如 AddMember 的配额检查）防止竞态条件。
+// 必须在事务中调用才能生效。
+func (r *TenantRepo) FindByIDForUpdate(ctx context.Context, id int64) (*entity.Tenant, error) {
+	var t entity.Tenant
+	err := txFrom(ctx, r.db).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&t, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errno.Wrap(errno.InternalError, "find tenant for update", err)
 	}
 	return &t, nil
 }

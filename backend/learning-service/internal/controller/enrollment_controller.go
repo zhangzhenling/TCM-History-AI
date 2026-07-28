@@ -33,7 +33,7 @@ func (h *EnrollmentController) Create(ctx context.Context, c *app.RequestContext
 
 // Delete DELETE /api/v1/learning/enrollments/:id
 func (h *EnrollmentController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -55,7 +55,7 @@ func (h *EnrollmentController) List(ctx context.Context, c *app.RequestContext) 
 
 // UpdateProgress PUT /api/v1/learning/enrollments/:id/progress
 func (h *EnrollmentController) UpdateProgress(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

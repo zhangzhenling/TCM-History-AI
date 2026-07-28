@@ -32,7 +32,7 @@ func (h *RetrievalController) Retrieve(ctx context.Context, c *app.RequestContex
 
 // Feedback POST /api/v1/knowledge/queries/:id/feedback
 func (h *RetrievalController) Feedback(ctx context.Context, c *app.RequestContext) {
-	queryLogID, ok := pathID(c)
+	queryLogID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

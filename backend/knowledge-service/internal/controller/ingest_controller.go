@@ -23,7 +23,7 @@ func NewIngestController(uc *usecase.IngestUseCase) *IngestController {
 // 触发 RAG 写入侧流水线：切片 → Embedding → Milvus 入库。
 // 请求体可选携带 markdown_text 字段；为空时从 MinIO markdown bucket 拉取。
 func (h *IngestController) Ingest(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

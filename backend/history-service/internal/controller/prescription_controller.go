@@ -37,7 +37,7 @@ func (h *PrescriptionController) Create(ctx context.Context, c *app.RequestConte
 
 // Get GET /api/v1/history/prescriptions/:id
 func (h *PrescriptionController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -47,7 +47,7 @@ func (h *PrescriptionController) Get(ctx context.Context, c *app.RequestContext)
 
 // Update PUT /api/v1/history/prescriptions/:id
 func (h *PrescriptionController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *PrescriptionController) Update(ctx context.Context, c *app.RequestConte
 
 // Delete DELETE /api/v1/history/prescriptions/:id
 func (h *PrescriptionController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

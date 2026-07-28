@@ -63,7 +63,7 @@ func (h *WrongQuestionController) RecentIDs(ctx context.Context, c *app.RequestC
 
 // MarkMastered PUT /api/v1/learning/wrong-questions/:id/master
 func (h *WrongQuestionController) MarkMastered(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

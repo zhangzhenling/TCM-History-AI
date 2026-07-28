@@ -43,7 +43,7 @@ func (h *ChatController) ListConversations(ctx context.Context, c *app.RequestCo
 
 // GetConversation GET /api/v1/ai/conversations/:id
 func (h *ChatController) GetConversation(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -53,7 +53,7 @@ func (h *ChatController) GetConversation(ctx context.Context, c *app.RequestCont
 
 // ListMessages GET /api/v1/ai/conversations/:id/messages
 func (h *ChatController) ListMessages(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -64,7 +64,7 @@ func (h *ChatController) ListMessages(ctx context.Context, c *app.RequestContext
 
 // DeleteConversation DELETE /api/v1/ai/conversations/:id
 func (h *ChatController) DeleteConversation(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

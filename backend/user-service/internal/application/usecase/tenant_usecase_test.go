@@ -90,6 +90,10 @@ func (m *mockTenantRepo) FindByID(_ context.Context, id int64) (*entity.Tenant, 
 	return nil, nil
 }
 
+func (m *mockTenantRepo) FindByIDForUpdate(ctx context.Context, id int64) (*entity.Tenant, error) {
+	return m.FindByID(ctx, id)
+}
+
 func (m *mockTenantRepo) FindByCode(_ context.Context, code string) (*entity.Tenant, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -238,7 +242,7 @@ type tenantHarness struct {
 func newTenantHarness() *tenantHarness {
 	tenantRepo := newMockTenantRepo()
 	memberRepo := newMockTenantMemberRepo()
-	uc := usecase.NewTenantUseCase(tenantRepo, memberRepo)
+	uc := usecase.NewTenantUseCase(nil, tenantRepo, memberRepo)
 	return &tenantHarness{uc: uc, tenantRepo: tenantRepo, memberRepo: memberRepo}
 }
 

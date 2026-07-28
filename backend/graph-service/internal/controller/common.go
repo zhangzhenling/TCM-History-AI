@@ -35,20 +35,20 @@ func bindAndValidate(ctx context.Context, c *app.RequestContext, out interface{}
 // pathUID extracts and validates a string :uid path parameter. Unlike the
 // bigint :id used by other services, Graph Service addresses nodes and
 // relationships by their UUID v7 business key.
-func pathUID(c *app.RequestContext) (string, bool) {
+func pathUID(ctx context.Context, c *app.RequestContext) (string, bool) {
 	raw := c.Param("uid")
 	if raw == "" {
-		response.FailWith(context.Background(), c, errno.InvalidParams, "missing uid")
+		response.FailWith(ctx, c, errno.InvalidParams, "missing uid")
 		return "", false
 	}
 	return raw, true
 }
 
 // pathName extracts a string :name path parameter.
-func pathName(c *app.RequestContext) (string, bool) {
+func pathName(ctx context.Context, c *app.RequestContext) (string, bool) {
 	raw := c.Param("name")
 	if raw == "" {
-		response.FailWith(context.Background(), c, errno.InvalidParams, "missing name")
+		response.FailWith(ctx, c, errno.InvalidParams, "missing name")
 		return "", false
 	}
 	return raw, true

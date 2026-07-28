@@ -41,7 +41,7 @@ func (h *NodeController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/graph/nodes/:uid
 func (h *NodeController) Get(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}
@@ -51,7 +51,7 @@ func (h *NodeController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/graph/nodes/:uid
 func (h *NodeController) Update(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}
@@ -65,7 +65,7 @@ func (h *NodeController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/graph/nodes/:uid
 func (h *NodeController) Delete(ctx context.Context, c *app.RequestContext) {
-	uid, ok := pathUID(c)
+	uid, ok := pathUID(ctx, c)
 	if !ok {
 		return
 	}

@@ -44,7 +44,7 @@ func (h *CourseController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/learning/courses/:id
 func (h *CourseController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -54,7 +54,7 @@ func (h *CourseController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/learning/courses/:id
 func (h *CourseController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -68,7 +68,7 @@ func (h *CourseController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/learning/courses/:id
 func (h *CourseController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -78,7 +78,7 @@ func (h *CourseController) Delete(ctx context.Context, c *app.RequestContext) {
 
 // Publish POST /api/v1/learning/courses/:id/publish
 func (h *CourseController) Publish(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -88,7 +88,7 @@ func (h *CourseController) Publish(ctx context.Context, c *app.RequestContext) {
 
 // Unpublish POST /api/v1/learning/courses/:id/unpublish
 func (h *CourseController) Unpublish(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -98,7 +98,7 @@ func (h *CourseController) Unpublish(ctx context.Context, c *app.RequestContext)
 
 // ListLessons GET /api/v1/learning/courses/:id/lessons
 func (h *CourseController) ListLessons(ctx context.Context, c *app.RequestContext) {
-	courseID, ok := pathID(c)
+	courseID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -109,7 +109,7 @@ func (h *CourseController) ListLessons(ctx context.Context, c *app.RequestContex
 
 // CreateLesson POST /api/v1/learning/courses/:id/lessons
 func (h *CourseController) CreateLesson(ctx context.Context, c *app.RequestContext) {
-	courseID, ok := pathID(c)
+	courseID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -123,7 +123,7 @@ func (h *CourseController) CreateLesson(ctx context.Context, c *app.RequestConte
 
 // GetLesson GET /api/v1/learning/lessons/:id
 func (h *CourseController) GetLesson(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -133,7 +133,7 @@ func (h *CourseController) GetLesson(ctx context.Context, c *app.RequestContext)
 
 // UpdateLesson PUT /api/v1/learning/lessons/:id
 func (h *CourseController) UpdateLesson(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -147,7 +147,7 @@ func (h *CourseController) UpdateLesson(ctx context.Context, c *app.RequestConte
 
 // DeleteLesson DELETE /api/v1/learning/lessons/:id
 func (h *CourseController) DeleteLesson(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

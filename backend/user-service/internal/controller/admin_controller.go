@@ -36,7 +36,7 @@ func (h *AdminController) ListUsers(ctx context.Context, c *app.RequestContext) 
 
 // GetUser GET /api/v1/admin/users/:id
 func (h *AdminController) GetUser(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -46,7 +46,7 @@ func (h *AdminController) GetUser(ctx context.Context, c *app.RequestContext) {
 
 // UpdateStatus PATCH /api/v1/admin/users/:id/status
 func (h *AdminController) UpdateStatus(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -63,7 +63,7 @@ func (h *AdminController) UpdateStatus(ctx context.Context, c *app.RequestContex
 
 // AssignRoles PUT /api/v1/admin/users/:id/roles
 func (h *AdminController) AssignRoles(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

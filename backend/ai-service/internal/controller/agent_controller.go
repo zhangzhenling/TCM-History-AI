@@ -41,7 +41,7 @@ func (h *AgentController) ListAgentRuns(ctx context.Context, c *app.RequestConte
 
 // GetAgentRun GET /api/v1/ai/agent-runs/:id
 func (h *AgentController) GetAgentRun(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

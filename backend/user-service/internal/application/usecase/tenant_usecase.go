@@ -5,24 +5,29 @@ import (
 	"strconv"
 	"time"
 
+	"gorm.io/gorm"
+
 	"tcm-history-ai/backend/pkg/errno"
 	"tcm-history-ai/backend/pkg/idgen"
 	"tcm-history-ai/backend/pkg/pagination"
 	"tcm-history-ai/backend/user-service/internal/application/dto"
 	"tcm-history-ai/backend/user-service/internal/domain/entity"
 	"tcm-history-ai/backend/user-service/internal/domain/repository"
+	"tcm-history-ai/backend/user-service/internal/infrastructure/persistence"
 )
 
 // TenantUseCase provides admin-driven operations for the school multi-tenant
 // edition: tenant CRUD and tenant member management.
 type TenantUseCase struct {
+	db         *gorm.DB
 	tenantRepo repository.TenantRepository
 	memberRepo repository.TenantMemberRepository
 }
 
 // NewTenantUseCase constructs a TenantUseCase.
-func NewTenantUseCase(tenantRepo repository.TenantRepository, memberRepo repository.TenantMemberRepository) *TenantUseCase {
+func NewTenantUseCase(db *gorm.DB, tenantRepo repository.TenantRepository, memberRepo repository.TenantMemberRepository) *TenantUseCase {
 	return &TenantUseCase{
+		db:         db,
 		tenantRepo: tenantRepo,
 		memberRepo: memberRepo,
 	}
@@ -192,6 +197,10 @@ func (uc *TenantUseCase) DeleteTenant(ctx context.Context, id int64) error {
 
 // AddMember adds a user to a tenant with the given role, enforcing the
 // max_users quota and rejecting duplicates.
+// When db is available, uses SELECT FOR UPDATE within a transaction to prevent
+// race conditions when concurrent add-member requests could briefly exceed max_users.
+// When db is nil (e.g. unit tests with in-memory mocks), falls back to
+// non-transactional FindByIDForUpdate on the repo interface.
 func (uc *TenantUseCase) AddMember(ctx context.Context, tenantID int64, in *dto.AddMemberRequest) (*dto.MemberResponse, error) {
 	if in == nil {
 		return nil, errno.New(errno.InvalidParams, "request body is required")
@@ -207,7 +216,31 @@ func (uc *TenantUseCase) AddMember(ctx context.Context, tenantID int64, in *dto.
 		return nil, errno.New(errno.InvalidParams, "invalid role: "+role)
 	}
 
-	tenant, err := uc.tenantRepo.FindByID(ctx, tenantID)
+	if uc.db != nil {
+		return uc.addMemberTx(ctx, tenantID, in, role)
+	}
+	return uc.addMemberDirect(ctx, tenantID, in, role)
+}
+
+// addMemberTx performs AddMember within a DB transaction with row-level locking.
+func (uc *TenantUseCase) addMemberTx(ctx context.Context, tenantID int64, in *dto.AddMemberRequest, role string) (*dto.MemberResponse, error) {
+	var resp *dto.MemberResponse
+	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := persistence.WithTx(ctx, tx)
+		var err error
+		resp, err = uc.addMemberDirect(txCtx, tenantID, in, role)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// addMemberDirect is the shared business logic used by both the transactional
+// and direct (test/mock) paths. The caller decides whether to wrap in a tx.
+func (uc *TenantUseCase) addMemberDirect(ctx context.Context, tenantID int64, in *dto.AddMemberRequest, role string) (*dto.MemberResponse, error) {
+	tenant, err := uc.tenantRepo.FindByIDForUpdate(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -218,18 +251,12 @@ func (uc *TenantUseCase) AddMember(ctx context.Context, tenantID int64, in *dto.
 		return nil, errno.New(errno.InvalidParams, "tenant is not active")
 	}
 
-	// Reject duplicates (covers both active and soft-deleted rows; the repo's
-	// unique index is partial on deleted_at IS NULL, but a re-add should
-	// surface as a clearer error than a DB constraint violation).
 	if _, exists, err := uc.memberRepo.IsMember(ctx, tenantID, in.UserID); err != nil {
 		return nil, err
 	} else if exists {
 		return nil, errno.New(errno.AlreadyExists, "user already a member of this tenant")
 	}
 
-	// Enforce max_users quota when set (>0). A 0 value disables the quota
-	// check; this is convenient for early pilots where limits are not yet
-	// enforced.
 	if tenant.MaxUsers > 0 {
 		count, err := uc.memberRepo.CountMembers(ctx, tenantID)
 		if err != nil {

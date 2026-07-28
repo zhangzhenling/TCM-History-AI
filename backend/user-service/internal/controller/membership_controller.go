@@ -94,7 +94,7 @@ func (h *MembershipController) AdminListPlans(ctx context.Context, c *app.Reques
 }
 
 func (h *MembershipController) AdminGetPlan(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -112,7 +112,7 @@ func (h *MembershipController) AdminCreatePlan(ctx context.Context, c *app.Reque
 }
 
 func (h *MembershipController) AdminUpdatePlan(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -125,7 +125,7 @@ func (h *MembershipController) AdminUpdatePlan(ctx context.Context, c *app.Reque
 }
 
 func (h *MembershipController) AdminDeletePlan(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

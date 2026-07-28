@@ -39,7 +39,7 @@ func (h *ToolController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/ai/tools/:id
 func (h *ToolController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -53,7 +53,7 @@ func (h *ToolController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/ai/tools/:id
 func (h *ToolController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -63,7 +63,7 @@ func (h *ToolController) Delete(ctx context.Context, c *app.RequestContext) {
 
 // Execute POST /api/v1/ai/tools/:id/execute
 func (h *ToolController) Execute(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

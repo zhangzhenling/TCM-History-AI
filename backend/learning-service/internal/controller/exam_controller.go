@@ -52,7 +52,7 @@ func (h *ExamController) Create(ctx context.Context, c *app.RequestContext) {
 
 // Get GET /api/v1/learning/exams/:id
 func (h *ExamController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -62,7 +62,7 @@ func (h *ExamController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Update PUT /api/v1/learning/exams/:id
 func (h *ExamController) Update(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *ExamController) Update(ctx context.Context, c *app.RequestContext) {
 
 // Delete DELETE /api/v1/learning/exams/:id
 func (h *ExamController) Delete(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -86,7 +86,7 @@ func (h *ExamController) Delete(ctx context.Context, c *app.RequestContext) {
 
 // Publish POST /api/v1/learning/exams/:id/publish
 func (h *ExamController) Publish(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -96,7 +96,7 @@ func (h *ExamController) Publish(ctx context.Context, c *app.RequestContext) {
 
 // ListQuestions GET /api/v1/learning/exams/:id/questions
 func (h *ExamController) ListQuestions(ctx context.Context, c *app.RequestContext) {
-	examID, ok := pathID(c)
+	examID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -106,7 +106,7 @@ func (h *ExamController) ListQuestions(ctx context.Context, c *app.RequestContex
 
 // CreateQuestion POST /api/v1/learning/exams/:id/questions
 func (h *ExamController) CreateQuestion(ctx context.Context, c *app.RequestContext) {
-	examID, ok := pathID(c)
+	examID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -120,7 +120,7 @@ func (h *ExamController) CreateQuestion(ctx context.Context, c *app.RequestConte
 
 // GetQuestion GET /api/v1/learning/questions/:id
 func (h *ExamController) GetQuestion(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -130,7 +130,7 @@ func (h *ExamController) GetQuestion(ctx context.Context, c *app.RequestContext)
 
 // UpdateQuestion PUT /api/v1/learning/questions/:id
 func (h *ExamController) UpdateQuestion(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -144,7 +144,7 @@ func (h *ExamController) UpdateQuestion(ctx context.Context, c *app.RequestConte
 
 // DeleteQuestion DELETE /api/v1/learning/questions/:id
 func (h *ExamController) DeleteQuestion(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}

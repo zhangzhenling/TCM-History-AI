@@ -33,11 +33,11 @@ func bindAndValidate(ctx context.Context, c *app.RequestContext, out interface{}
 }
 
 // pathID extracts and validates a bigint :id path parameter.
-func pathID(c *app.RequestContext) (int64, bool) {
+func pathID(ctx context.Context, c *app.RequestContext) (int64, bool) {
 	raw := c.Param("id")
 	id, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || id <= 0 {
-		response.FailWith(context.Background(), c, errno.InvalidParams, "invalid id: "+raw)
+		response.FailWith(ctx, c, errno.InvalidParams, "invalid id: "+raw)
 		return 0, false
 	}
 	return id, true

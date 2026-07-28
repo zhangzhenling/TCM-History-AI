@@ -21,7 +21,7 @@ func NewChunkController(uc *usecase.ChunkUseCase) *ChunkController {
 
 // ListByDocument GET /api/v1/knowledge/documents/:id/chunks
 func (h *ChunkController) ListByDocument(ctx context.Context, c *app.RequestContext) {
-	docID, ok := pathID(c)
+	docID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -32,7 +32,7 @@ func (h *ChunkController) ListByDocument(ctx context.Context, c *app.RequestCont
 
 // Get GET /api/v1/knowledge/chunks/:id
 func (h *ChunkController) Get(ctx context.Context, c *app.RequestContext) {
-	id, ok := pathID(c)
+	id, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
@@ -42,7 +42,7 @@ func (h *ChunkController) Get(ctx context.Context, c *app.RequestContext) {
 
 // Create POST /api/v1/knowledge/documents/:id/chunks
 func (h *ChunkController) Create(ctx context.Context, c *app.RequestContext) {
-	docID, ok := pathID(c)
+	docID, ok := pathID(ctx, c)
 	if !ok {
 		return
 	}
