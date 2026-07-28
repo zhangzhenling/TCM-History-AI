@@ -44,6 +44,7 @@ type Neo4jConfig struct {
 	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
 	Enabled  bool   `mapstructure:"enabled"`
+	Timeout  int    `mapstructure:"timeout_seconds"`
 }
 
 // RabbitMQConfig captures the RabbitMQ broker coordinates.

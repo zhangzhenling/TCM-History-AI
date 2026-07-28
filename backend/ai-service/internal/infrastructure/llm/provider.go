@@ -1,13 +1,13 @@
 // Package llm provides adapters for the LLMProvider port.
 //
-// 当前实现：StubProvider —— 不调用任何外部模型，返回固定桩响应。
-// 用于本地开发联调与单元测试，保证架构链路可运行；与 knowledge-service
-// 的 embedding.StubProvider / milvus stub 模式一致。
-// 待联网环境接入（标记为 TODO(llm-sdk)）：
-//   - OpenAIProvider: GPT-4o / GPT-4o-mini
-//   - AnthropicProvider: Claude 3.5 Sonnet
-//   - QwenProvider: 通义千问 Turbo/Max
-//   - DeepSeekProvider: DeepSeek-V3 / DeepSeek-R1
+// 当前实现：
+//   - StubProvider：不调用任何外部模型，返回固定桩响应；用于本地开发联调与单元测试。
+//   - OpenAIProvider：调用 OpenAI Chat Completions API，同时覆盖 DeepSeek / 通义千问
+//     DashScope 兼容模式 / Kimi / 智谱 GLM 等 OpenAI 兼容协议。
+//   - AnthropicProvider：调用 Claude Messages API。
+//
+// 与 knowledge-service 的 embedding.StubProvider / milvus stub 模式一致，
+// enabled=false 时自动回退到 stub，保证离线开发与单元测试可运行。
 package llm
 
 import (
@@ -113,8 +113,6 @@ func (s *StubProvider) Model() string {
 // Chat runs a chat completion. The stub merges the latest user message into a
 // fixed ack response so that downstream code can exercise the full chat / agent
 // pipeline without depending on a real LLM.
-//
-// TODO(llm-sdk): 替换为真实 SDK 调用，按 cfg.Provider 路由到 OpenAI/Anthropic 等。
 func (s *StubProvider) Chat(ctx context.Context, req service.LLMChatRequest) (*service.LLMChatResponse, error) {
 	if ctx == nil {
 		ctx = context.Background()

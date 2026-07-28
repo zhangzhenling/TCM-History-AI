@@ -98,6 +98,7 @@ func InitializeApp(cfg *conf.Config) (*App, func(), error) {
 		User:     cfg.Neo4j.User,
 		Password: cfg.Neo4j.Password,
 		Enabled:  cfg.Neo4j.Enabled,
+		Timeout:  cfg.Neo4j.Timeout,
 	})
 	app.neo4j = neo4jClient
 	app.graphStore = neo4jClient

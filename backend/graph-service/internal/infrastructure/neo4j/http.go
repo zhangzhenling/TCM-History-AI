@@ -23,24 +23,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"tcm-history-ai/backend/graph-service/internal/domain/entity"
 	"tcm-history-ai/backend/graph-service/internal/domain/service"
 	"tcm-history-ai/backend/pkg/errno"
 )
-
-// httpClient 是 Client 持有的 HTTP 客户端（在 New 中初始化）。
-// 放在 http.go 而非 client.go 是为了让 HTTP 相关字段集中一处。
-// 实际上 Client 结构体在 client.go 已定义，这里仅追加一个内部字段访问器。
-
-// httpClient returns the HTTP client, lazily initialising if needed.
-// 由于 Client 结构体未直接持有 *http.Client，这里用一个包级辅助函数。
-// 改为在 New 中初始化。见 client.go 的 Client struct —— 需要补充 httpCli 字段。
-
-// 为避免修改 client.go 的 struct 定义，这里用包级 http.Client 单例。
-// 不可重入部分仅限超时配置，线程安全由 net/http 包保证。
-var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // baseURL returns the HTTP API root, e.g. http://localhost:7474.
 // Neo4j HTTP 事务 API 默认端口是 7474（非 Bolt 7687）。
@@ -124,7 +111,7 @@ func (c *Client) runCypher(ctx context.Context, stmt string, params map[string]a
 	httpReq.Header.Set("Authorization", c.authHeader())
 	httpReq.Header.Set("Accept", "application/json")
 
-	resp, err := defaultHTTPClient.Do(httpReq)
+	resp, err := c.httpCli.Do(httpReq)
 	if err != nil {
 		return nil, errno.Wrap(errno.DependencyUnavailable, "neo4j: call api", err)
 	}
@@ -173,7 +160,7 @@ func (c *Client) runMultiCypher(ctx context.Context, stmts []cypherStatement) er
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", c.authHeader())
-	resp, err := defaultHTTPClient.Do(httpReq)
+	resp, err := c.httpCli.Do(httpReq)
 	if err != nil {
 		return errno.Wrap(errno.DependencyUnavailable, "neo4j: call api", err)
 	}

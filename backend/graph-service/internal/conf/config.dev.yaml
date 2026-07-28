@@ -28,6 +28,7 @@ neo4j:
   user: neo4j
   password: neo4j_pass
   enabled: false
+  timeout_seconds: 30
 
 rabbitmq:
   host: localhost

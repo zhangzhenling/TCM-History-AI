@@ -16,7 +16,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	"tcm-history-ai/backend/graph-service/internal/domain/entity"
 	"tcm-history-ai/backend/graph-service/internal/domain/service"
@@ -30,12 +32,14 @@ type Config struct {
 	User     string
 	Password string
 	Enabled  bool
+	Timeout  int // HTTP call timeout in seconds, defaults to 30
 }
 
 // Client implements service.GraphStore. enabled=true 时走 HTTP 事务 API，
 // enabled=false 时退化为内存 stub（与既有离线开发模式一致）。
 type Client struct {
 	cfg     Config
+	httpCli *http.Client // per-instance HTTP client, replaces package-level singleton
 	// stub 字段：仅用于 enabled=false 的离线开发与单元测试。
 	mu    sync.Mutex
 	nodes map[string]entity.GraphNodeView // uid -> view
@@ -44,10 +48,15 @@ type Client struct {
 
 // New constructs a Client. 连接延迟到首次调用时建立。
 func New(cfg Config) *Client {
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = 30
+	}
 	return &Client{
-		cfg:   cfg,
-		nodes: make(map[string]entity.GraphNodeView),
-		edges: make(map[string]entity.GraphEdgeView),
+		cfg:     cfg,
+		httpCli: &http.Client{Timeout: time.Duration(timeout) * time.Second},
+		nodes:   make(map[string]entity.GraphNodeView),
+		edges:   make(map[string]entity.GraphEdgeView),
 	}
 }
 

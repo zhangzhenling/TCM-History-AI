@@ -33,7 +33,8 @@ type LLMChatResponse struct {
 
 // LLMProvider is the port for invoking an LLM. Implementations:
 //   - infrastructure/llm.StubProvider（enabled=false 时返回桩响应）
-//   - TODO(llm-sdk): 接入 OpenAI / Anthropic / 通义 / DeepSeek 真实客户端
+//   - infrastructure/llm.OpenAIProvider（OpenAI / DeepSeek / 通义 / Kimi / GLM 兼容协议）
+//   - infrastructure/llm.AnthropicProvider（Claude Messages API）
 type LLMProvider interface {
 	// Chat runs a chat completion. Implementations may honor or ignore the
 	// optional model override; the returned Model records the actual provider.
