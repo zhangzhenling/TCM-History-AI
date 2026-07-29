@@ -57,9 +57,9 @@ WHERE c.id IN (7001, 7002, 7003);
 -- ----------------------------------------------------------------------------
 INSERT INTO learning_exams (id, title, course_id, lesson_id, description, question_count, pass_score, duration_minutes, is_published, created_at, updated_at)
 SELECT * FROM (VALUES
-  (7201, '中医发展史入门 测验', 7001, NULL, '考察先秦至金元时期中医发展脉络与代表人物。', 5, 60, 30, TRUE,  now(), now()),
-  (7202, '伤寒论精读 期中考试', 7002, NULL, '考察六经辨证总论与太阳、阳明、少阳病篇要点。', 5, 70, 40, TRUE,  now(), now()),
-  (7203, '温病学派专题 测验',   7003, NULL, '考察温病学派形成与卫气营血、三焦辨证理论。',   5, 70, 40, FALSE, now(), now())
+  (7201, '中医发展史入门 测验', 7001, NULL::BIGINT, '考察先秦至金元时期中医发展脉络与代表人物。', 5, 60, 30, TRUE,  now(), now()),
+  (7202, '伤寒论精读 期中考试', 7002, NULL::BIGINT, '考察六经辨证总论与太阳、阳明、少阳病篇要点。', 5, 70, 40, TRUE,  now(), now()),
+  (7203, '温病学派专题 测验',   7003, NULL::BIGINT, '考察温病学派形成与卫气营血、三焦辨证理论。',   5, 70, 40, FALSE, now(), now())
 ) AS t(id, title, course_id, lesson_id, description, question_count, pass_score, duration_minutes, is_published, created_at, updated_at)
 WHERE NOT EXISTS (SELECT 1 FROM learning_exams WHERE id = t.id);
 
