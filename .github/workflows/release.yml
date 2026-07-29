@@ -266,10 +266,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Download all artifacts
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          path: release
+          name: frontend
+          path: release/frontend
+      - name: Download mobile artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile
+          path: release/mobile
+      - name: Download backend linux/amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-linux-amd64
+          path: release/backend-linux-amd64
+      - name: Download backend linux/arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-linux-arm64
+          path: release/backend-linux-arm64
       - name: Flatten artifact layout
         run: |
           mkdir -p assets
