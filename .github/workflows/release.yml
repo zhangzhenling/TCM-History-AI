@@ -1,0 +1,350 @@
+name: Release
+
+# 统一的平台级发布流程：推送 `v*` 标签（如 v1.0.0）触发
+# - 后端 7 服务二进制（linux amd64 + arm64）+ 校验和
+# - 前端 admin + learner 生产构建压缩包
+# - 移动端 Android APK / AAB
+# - 7 个服务 Docker 镜像推送 GHCR（多架构）
+# - 自动创建 GitHub Release 并附带全部产物
+#
+# 与 mobile-ci.yml 中 `mobile-v*` 标签触发的「纯移动端发布」并存：
+# - `v*`         → 全平台统一发布（本工作流）
+# - `mobile-v*`  → 仅移动端补丁发布（mobile-ci.yml）
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布标签（例如 v1.0.0，无需前缀也可）'
+        required: true
+
+permissions:
+  contents: write   # 创建 Release / 上传资源
+  packages: write   # 推送 GHCR 镜像
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ------------------------------------------------------------------
+  # 准备：解析版本号，供下游 job 复用
+  # ------------------------------------------------------------------
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      image_repo: ${{ steps.image.outputs.repo }}
+    steps:
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+            # 兼容用户输入不带 v 前缀的情况
+            [[ "$TAG" != v* ]] && TAG="v$TAG"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "解析到版本：$VERSION （标签：$TAG）"
+      - name: Compute lowercased image repo
+        id: image
+        run: |
+          # GHCR 镜像名必须小写
+          REPO="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "repo=$REPO" >> $GITHUB_OUTPUT
+
+  # ------------------------------------------------------------------
+  # 后端：7 个服务二进制，按 GOOS/GOARCH 矩阵构建
+  # ------------------------------------------------------------------
+  backend:
+    name: Backend (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: auto
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Build all services
+        working-directory: backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          for svc in gateway user-service history-service knowledge-service graph-service ai-service learning-service; do
+            if [ ! -d "./$svc/cmd/$svc" ]; then
+              echo "==> skip $svc (cmd dir not found)"
+              continue
+            fi
+            echo "==> building $svc (${{ matrix.goos }}/${{ matrix.goarch }})"
+            go build -trimpath -ldflags="-s -w" \
+              -o "dist/${svc}" \
+              "./$svc/cmd/$svc" || exit 1
+          done
+      - name: Package & checksum
+        id: pkg
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          ARCHIVE="tcm-backend-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz"
+          tar -C backend/dist -czf "$ARCHIVE" .
+          sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          echo "archive=$ARCHIVE" >> $GITHUB_OUTPUT
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            tcm-backend-*.tar.gz
+            tcm-backend-*.tar.gz.sha256
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 前端：admin + learner 生产构建
+  # ------------------------------------------------------------------
+  frontend:
+    name: Frontend
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build learner
+        working-directory: frontend
+        run: pnpm build
+      - name: Build admin
+        working-directory: frontend
+        run: pnpm build:admin
+      - name: Package & checksum
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          cd frontend
+          tar -czf "tcm-frontend-learner-${VERSION}.tar.gz" -C apps/learner/dist .
+          tar -czf "tcm-frontend-admin-${VERSION}.tar.gz" -C apps/admin/dist .
+          sha256sum \
+            "tcm-frontend-learner-${VERSION}.tar.gz" \
+            "tcm-frontend-admin-${VERSION}.tar.gz" \
+            > "tcm-frontend-${VERSION}.sha256"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: |
+            frontend/tcm-frontend-*.tar.gz
+            frontend/tcm-frontend-*.sha256
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 移动端：Android APK / AAB（与 mobile-ci.yml 中的构建保持一致）
+  # ------------------------------------------------------------------
+  mobile:
+    name: Mobile (Android)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Build APK
+        working-directory: mobile
+        run: flutter build apk --release --flavor dev
+      - name: Build AAB
+        working-directory: mobile
+        run: flutter build appbundle --release --flavor dev
+      - name: Stage & checksum
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          STAGE="$(mktemp -d)"
+          cp mobile/build/app/outputs/flutter-apk/app-dev-release.apk "$STAGE/tcm-mobile-${VERSION}.apk"
+          cp mobile/build/app/outputs/bundle/devRelease/app-dev-release.aab "$STAGE/tcm-mobile-${VERSION}.aab"
+          ( cd "$STAGE" && sha256sum tcm-mobile-${VERSION}.apk tcm-mobile-${VERSION}.aab > tcm-mobile-${VERSION}.sha256 )
+          echo "STAGE=$STAGE" >> $GITHUB_ENV
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile
+          path: |
+            ${{ env.STAGE }}/tcm-mobile-*.apk
+            ${{ env.STAGE }}/tcm-mobile-*.aab
+            ${{ env.STAGE }}/tcm-mobile-*.sha256
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # Docker：7 个服务镜像，多架构推送到 GHCR
+  # ------------------------------------------------------------------
+  docker:
+    name: Docker ${{ matrix.service }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [gateway, user-service, history-service, knowledge-service, graph-service, ai-service, learning-service]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ needs.prepare.outputs.image_repo }}/${{ matrix.service }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=TCM-History-AI ${{ matrix.service }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ------------------------------------------------------------------
+  # 发布：聚合全部产物，创建 GitHub Release
+  # ------------------------------------------------------------------
+  release:
+    name: GitHub Release
+    needs: [prepare, backend, frontend, mobile, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+      - name: Flatten artifact layout
+        run: |
+          mkdir -p assets
+          find release -type f \( -name '*.tar.gz' -o -name '*.apk' -o -name '*.aab' -o -name '*.sha256' \) -exec cp {} assets/ \;
+          echo "=== assets ==="
+          ls -la assets/
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" | head -80)
+          else
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)")
+          fi
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TCM-History-AI v${{ needs.prepare.outputs.version }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            # TCM-History-AI v${{ needs.prepare.outputs.version }}
+
+            ## 构建产物
+
+            ### 后端服务
+            - `tcm-backend-${{ needs.prepare.outputs.version }}-linux-amd64.tar.gz` — 7 个后端服务二进制（Linux x86_64）
+            - `tcm-backend-${{ needs.prepare.outputs.version }}-linux-arm64.tar.gz` — 7 个后端服务二进制（Linux ARM64）
+
+            ### 前端
+            - `tcm-frontend-learner-${{ needs.prepare.outputs.version }}.tar.gz` — 学习端生产构建
+            - `tcm-frontend-admin-${{ needs.prepare.outputs.version }}.tar.gz` — 管理后台生产构建
+
+            ### 移动端
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}.apk` — Android APK
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}.aab` — Android App Bundle
+
+            ### Docker 镜像（GHCR，多架构）
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/gateway:${{ needs.prepare.outputs.version }}`
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/user-service:${{ needs.prepare.outputs.version }}`
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/history-service:${{ needs.prepare.outputs.version }}`
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/knowledge-service:${{ needs.prepare.outputs.version }}`
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/graph-service:${{ needs.prepare.outputs.version }}`
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/ai-service:${{ needs.prepare.outputs.version }}`
+            - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/learning-service:${{ needs.prepare.outputs.version }}`
+
+            拉取示例：
+            ```bash
+            docker pull ghcr.io/${{ needs.prepare.outputs.image_repo }}/gateway:${{ needs.prepare.outputs.version }}
+            ```
+
+            ## 变更日志
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## 校验
+
+            每个压缩包均附带 `.sha256` 校验文件，下载后请校验完整性：
+            ```bash
+            sha256sum -c tcm-backend-*.sha256
+            ```
+
+            ## 部署
+
+            - Docker 部署：参考 [doc/15-Docker部署.md](doc/15-Docker部署.md)
+            - Kubernetes 部署：参考 [doc/16-Kubernetes部署.md](doc/16-Kubernetes部署.md)
+            - Linux 原生部署：参考 [doc/22-Linux部署.md](doc/22-Linux部署.md)
+            - Windows 部署：参考 [doc/23-Windows部署.md](doc/23-Windows部署.md)
+          files: assets/*
+          draft: false
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+          generate_release_notes: false

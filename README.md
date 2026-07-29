@@ -153,6 +153,46 @@ Gateway
 
 ---
 
+## 发布流程
+
+平台级发布通过 Git 标签触发 GitHub Actions 自动化（[`.github/workflows/release.yml`](./.github/workflows/release.yml)）。
+
+### 触发方式
+
+推送形如 `v*` 的标签即可触发全平台发布：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+也可在 GitHub Actions 页面通过 `workflow_dispatch` 手动指定标签触发。
+
+### 产物清单
+
+| 产物 | 说明 |
+| ---- | ---- |
+| `tcm-backend-<ver>-linux-{amd64,arm64}.tar.gz` | 7 个后端服务二进制 + `.sha256` 校验 |
+| `tcm-frontend-{learner,admin}-<ver>.tar.gz` | 前端生产构建 + `.sha256` 校验 |
+| `tcm-mobile-<ver>.{apk,aab}` | Android 安装包 + `.sha256` 校验 |
+| `ghcr.io/<owner>/<repo>/<service>:<ver>` | 7 个服务多架构 Docker 镜像（GHCR） |
+
+### 标签约定
+
+- `v<semver>`（如 `v1.0.0`、`v1.1.0-rc.1`）：全平台统一发布，由 `release.yml` 处理
+- `mobile-v<semver>`：仅移动端补丁发布，由 `mobile-ci.yml` 处理
+
+### 版本号规则
+
+遵循 [Semantic Versioning](https://semver.org/lang/zh/) `MAJOR.MINOR.PATCH`：
+
+- `MAJOR`：不兼容的 API 变更
+- `MINOR`：向后兼容的功能新增
+- `PATCH`：向后兼容的缺陷修复
+- 预发布版附加 `-rc.1` / `-beta.1` 等后缀，自动标记为 GitHub prerelease
+
+---
+
 ## 版本历史
 
 | 版本 | 日期 | 变更说明 |
@@ -162,3 +202,4 @@ Gateway
 | V2.1 | 2026-07-25 | 升级为可执行项目蓝图，补充 Mermaid 架构图、ER 图、OpenAPI 定义、开发规范与任务拆分 |
 | V2.2 | 2026-07-27 | P0–P4 阶段全部完成，P5 前端双端联调基本完成，P6 移动端 API 联调完成，P7 生产化部署基本完成（含生产化 checklist 演练：Secret 外部化 / 镜像 tag 固定 / 备份恢复演练），P8 商业化后端基本完成 |
 | V2.3 | 2026-07-28 | 完整实现 MCP 协议支持（JSON-RPC 2.0 + SSE + 多模型适配），补全中医历史数据种子（新增药物与方剂-药物关联），关键服务性能基准测试（MCP / Embedding / 租户服务），新增 Linux 与 Windows 详细原生部署文档 |
+| V2.4 | 2026-07-29 | 新增 GitHub 自动打包发布流程（`release.yml`）：`v*` 标签触发，构建后端多架构二进制 + 前端双端 + 移动端 APK/AAB + 7 服务 Docker 镜像推送 GHCR，自动创建 GitHub Release；发布首个版本 v1.0.0 |
