@@ -16,6 +16,7 @@ import 'package:tcm_history_ai/features/auth/presentation/auth_provider.dart';
 /// 伪 AuthRepository：可控制 login/register 抛异常或成功。
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository(this.tokenStorage);
+  @override
   final TokenStorage tokenStorage;
 
   @override
