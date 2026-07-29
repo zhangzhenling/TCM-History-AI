@@ -6,6 +6,9 @@
 -keep class io.flutter.**  { *; }
 -keep class io.flutter.plugins.**  { *; }
 
+# Google Play Core（Flutter 引用但本应用未实际使用，R8 缺失类告警）
+-dontwarn com.google.android.play.core.**
+
 # SharedPreferences
 -keep class androidx.lifecycle.** { *; }
 
