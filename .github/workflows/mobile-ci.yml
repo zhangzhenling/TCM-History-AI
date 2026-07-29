@@ -89,9 +89,15 @@ jobs:
           retention-days: 30
 
   build-ios:
-    name: Build iOS (no codesign)
-    runs-on: macos-latest
+    name: Build iOS
+    runs-on: macos-14
     needs: analyze-test
+    env:
+      HAVE_SIGN_SECRETS: ${{ secrets.IOS_P12_BASE64 != ''
+        && secrets.IOS_P12_PASSWORD != ''
+        && secrets.IOS_DEVELOPMENT_TEAM != ''
+        && secrets.IOS_CODE_SIGN_IDENTITY != ''
+        && secrets.IOS_MOBILEPROVISION_BASE64 != '' }}
     defaults:
       run:
         working-directory: mobile
@@ -101,18 +107,96 @@ jobs:
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
-          cache-key: ${{ env.FLUTTER_CACHE_KEY }}
+          cache-key: ${{ env.FLUTTER_CACHE_KEY }}-macos
       - name: Install dependencies
         run: flutter pub get
-      - name: Build iOS (no codesign)
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods --no-document
+          pod --version
+      - name: Pod install
+        working-directory: mobile/ios
+        run: pod install --repo-update
+
+      # ====== 签名准备：导入证书与描述文件 ======
+      - name: Import code signing materials
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
+          keychain: temp-sign-ci
+          keychain-password: ci-temp-$RUNNER_TRACKING_ID
+      - name: Install provisioning profile
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        run: |
+          PROF_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROF_DIR"
+          PROF_FILE="$PROF_DIR/$(uuidgen).mobileprovision"
+          echo -n "${{ secrets.IOS_MOBILEPROVISION_BASE64 }}" | base64 -d -o "$PROF_FILE"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<<"$(security cms -D -i "$PROF_FILE")")
+          mv "$PROF_FILE" "$PROF_DIR/${UUID}.mobileprovision"
+          echo "PROVISIONING_PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
+      - name: Generate ExportOptions.plist
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        run: |
+          EXPORT_METHOD="${{ secrets.IOS_EXPORT_METHOD || 'ad-hoc' }}"
+          cat > /tmp/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>${EXPORT_METHOD}</string>
+            <key>teamID</key><string>${{ secrets.IOS_DEVELOPMENT_TEAM }}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>${{ secrets.IOS_CODE_SIGN_IDENTITY }}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.tcmhistory.tcmHistoryAi</key>
+              <string>${PROVISIONING_PROFILE_UUID}</string>
+            </dict>
+            <key>stripSwiftSymbols</key><true/>
+            <key>uploadBitcode</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+      - name: Write signing xcconfig
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        working-directory: mobile/ios/Flutter
+        run: |
+          cat > Signing.xcconfig <<CONF
+          DEVELOPMENT_TEAM = ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          PROVISIONING_PROFILE_SPECIFIER = ${PROVISIONING_PROFILE_UUID}
+          PRODUCT_BUNDLE_IDENTIFIER = com.tcmhistory.tcmHistoryAi
+          CODE_SIGN_STYLE = Manual
+          CODE_SIGN_IDENTITY = ${{ secrets.IOS_CODE_SIGN_IDENTITY }}
+          CONF
+
+      # ====== 分支 A：有证书 → 签名 IPA ======
+      - name: Build signed IPA
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        run: flutter build ipa --release --export-options-plist /tmp/ExportOptions.plist
+      - name: Upload IPA artifact
+        if: always() && env.HAVE_SIGN_SECRETS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcm-history-ai-ios-ipa
+          path: mobile/build/ios/ipa/*.ipa
+          if-no-files-found: warn
+          retention-days: 30
+
+      # ====== 分支 B：无证书 → 回退 no-codesign ======
+      - name: Build iOS (no codesign fallback)
+        if: env.HAVE_SIGN_SECRETS != 'true'
         run: flutter build ios --release --no-codesign
-      - name: Upload iOS build artifact
-        if: always()
+      - name: Upload Runner.app artifact (fallback)
+        if: always() && env.HAVE_SIGN_SECRETS != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tcm-history-ai-ios-build
-          path: |
-            mobile/build/ios/iphoneos/Runner.app
+          path: mobile/build/ios/iphoneos/Runner.app
           if-no-files-found: warn
           retention-days: 30
 
@@ -123,6 +207,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/mobile-v')
     permissions:
       contents: write
+    env:
+      HAVE_SIGN_SECRETS: ${{ secrets.IOS_P12_BASE64 != ''
+        && secrets.IOS_P12_PASSWORD != ''
+        && secrets.IOS_DEVELOPMENT_TEAM != ''
+        && secrets.IOS_CODE_SIGN_IDENTITY != ''
+        && secrets.IOS_MOBILEPROVISION_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Download Android APK
@@ -135,11 +225,20 @@ jobs:
         with:
           name: tcm-history-ai-android-aab
           path: release/android
-      - name: Download iOS build
+      - name: Download iOS IPA (signed path)
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: tcm-history-ai-ios-ipa
+          path: release/ios
+      - name: Download iOS Runner.app (fallback path)
+        if: env.HAVE_SIGN_SECRETS != 'true'
         uses: actions/download-artifact@v4
         with:
           name: tcm-history-ai-ios-build
           path: release/ios
+      - name: List release dir (debug)
+        run: find release -maxdepth 3 -type f | sort
       - name: Get version from tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#mobile-v}" >> $GITHUB_OUTPUT
@@ -152,30 +251,37 @@ jobs:
             release/android/app-dev-release.apk
             release/android/app-dev-release.aab
             release/ios/Runner.app
+            release/ios/*.ipa
           body: |
             # TCM-History-AI 移动端 v${{ steps.version.outputs.version }}
-            
+
             ## 变更说明
-            
+
             <!-- 在此填写本次版本的变更说明 -->
-            
+
             ## 构建信息
-            
+
             - 版本: ${{ steps.version.outputs.version }}
             - 构建号: ${{ github.run_number }}
             - Commit: ${{ github.sha }}
-            
+
             ## 下载
-            
+
             - Android APK: `app-dev-release.apk`
             - Android App Bundle: `app-dev-release.aab`
-            - iOS: `Runner.app` (无签名，需自行签名后安装)
-            
+            - iOS: `${{ env.HAVE_SIGN_SECRETS == 'true' && 'tcm-history-ai-ios-ipa.ipa（已签名，可直接安装）' || 'Runner.app（无签名，需自行签名后安装）' }}`
+
             ## 安装说明
-            
+
             ### Android
             下载 APK 后直接安装即可。
-            
+
             ### iOS
-            1. 解压 Runner.app 后，使用 Xcode 或 Apple Configurator 安装到设备。
-            2. 或使用自有签名证书重新签名后安装。
+            **如下载到已签名 IPA：**
+            - 使用 Apple Configurator 2 拖入设备；或 `ideviceinstaller -i App.ipa` 安装。
+            - Ad-Hoc 描述文件需要先把设备 UDID 加入 Apple Developer 后台。
+
+            **如下载到 Runner.app：**
+            1. 解压后使用自有开发者证书重签：`codesign -f -s "Apple Development: Your Name (TEAMID)" Runner.app`
+            2. Xcode → Window → Devices and Simulators → 选中设备 → "+" 选择重签后的 Runner.app。
+            3. 或直接用 Xcode 打开 `mobile/ios/Runner.xcworkspace` 按 ⌘R 一键运行。

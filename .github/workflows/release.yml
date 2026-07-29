@@ -209,12 +209,34 @@ jobs:
           retention-days: 7
 
   # ------------------------------------------------------------------
-  # 移动端：iOS IPA（无签名 Runner.app 打包，本地重签后安装）
+  # 移动端：iOS IPA（优先签名导出可直接安装的 IPA；无证书时回退 no-codesign）
+  #
+  # 【前提】如要导出签名 IPA，需在仓库 Settings → Secrets and variables → Actions
+  #         添加以下 Repository secrets（缺一不可）：
+  #   IOS_P12_BASE64                 — .p12 证书文件的 base64 编码
+  #                                     (base64 -i Certificates.p12 | pbcopy)
+  #   IOS_P12_PASSWORD              — .p12 的导出密码
+  #   IOS_DEVELOPMENT_TEAM          — 团队 ID，如 ABC123XYZ
+  #   IOS_CODE_SIGN_IDENTITY        — 证书标识名，如
+  #                                     "iPhone Distribution: XXX Ltd (ABC123XYZ)"
+  #                                     或 "Apple Development: My Name (ABC123XYZ)"
+  #   IOS_MOBILEPROVISION_BASE64    — 匹配 Bundle ID 的 .mobileprovision 描述文件
+  #                                     的 base64 编码
+  #   IOS_EXPORT_METHOD             — app-store | ad-hoc | development | enterprise
+  #                                     （默认：ad-hoc）
+  #
+  # 【未配置 secrets】自动回退为 --no-codesign，输出 Runner.app.zip 本地重签用
   # ------------------------------------------------------------------
   mobile-ios:
     name: Mobile (iOS)
     needs: prepare
     runs-on: macos-14
+    env:
+      HAVE_SIGN_SECRETS: ${{ secrets.IOS_P12_BASE64 != ''
+        && secrets.IOS_P12_PASSWORD != ''
+        && secrets.IOS_DEVELOPMENT_TEAM != ''
+        && secrets.IOS_CODE_SIGN_IDENTITY != ''
+        && secrets.IOS_MOBILEPROVISION_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -232,28 +254,117 @@ jobs:
       - name: Pod install
         working-directory: mobile/ios
         run: pod install --repo-update
-      - name: Build iOS (no codesign)
+
+      # ====== 签名准备：导入证书与描述文件 ======
+      - name: Import code signing materials
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
+          keychain: temp-sign-ci
+          keychain-password: ci-temp-$RUNNER_TRACKING_ID
+      - name: Install provisioning profile
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        run: |
+          PROF_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROF_DIR"
+          PROF_FILE="$PROF_DIR/$(uuidgen).mobileprovision"
+          echo -n "${{ secrets.IOS_MOBILEPROVISION_BASE64 }}" | base64 -d -o "$PROF_FILE"
+          # 从描述文件中提取 UUID，便于后续在 ExportOptions 中引用
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<<"$(security cms -D -i "$PROF_FILE")")
+          mv "$PROF_FILE" "$PROF_DIR/${UUID}.mobileprovision"
+          echo "PROVISIONING_PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
+          echo "导入描述文件 UUID: $UUID"
+      - name: Generate ExportOptions.plist
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        run: |
+          EXPORT_METHOD="${{ secrets.IOS_EXPORT_METHOD || 'ad-hoc' }}"
+          cat > /tmp/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>${EXPORT_METHOD}</string>
+            <key>teamID</key><string>${{ secrets.IOS_DEVELOPMENT_TEAM }}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>${{ secrets.IOS_CODE_SIGN_IDENTITY }}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.tcmhistory.tcmHistoryAi</key>
+              <string>${PROVISIONING_PROFILE_UUID}</string>
+            </dict>
+            <key>stripSwiftSymbols</key><true/>
+            <key>uploadBitcode</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          cat /tmp/ExportOptions.plist
+      - name: Write signing xcconfig
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        working-directory: mobile/ios/Flutter
+        run: |
+          # 写入实际使用的 Signing.xcconfig，覆盖模板占位
+          cat > Signing.xcconfig <<CONF
+          DEVELOPMENT_TEAM = ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          PROVISIONING_PROFILE_SPECIFIER = ${PROVISIONING_PROFILE_UUID}
+          PRODUCT_BUNDLE_IDENTIFIER = com.tcmhistory.tcmHistoryAi
+          CODE_SIGN_STYLE = Manual
+          CODE_SIGN_IDENTITY = ${{ secrets.IOS_CODE_SIGN_IDENTITY }}
+          CONF
+
+      # ====== 分支 A：有证书 → flutter build ipa ======
+      - name: Build signed IPA
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        working-directory: mobile
+        run: |
+          flutter build ipa --release \
+            --export-options-plist /tmp/ExportOptions.plist
+      - name: Stage signed IPA & dSYM
+        if: env.HAVE_SIGN_SECRETS == 'true'
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          STAGE="$(mktemp -d)"
+          # flutter build ipa 默认输出在 build/ios/ipa/Runner.ipa
+          cp mobile/build/ios/ipa/*.ipa "$STAGE/tcm-mobile-${VERSION}.ipa" 2>/dev/null || \
+            cp mobile/build/ios/ipa/Runner.ipa "$STAGE/tcm-mobile-${VERSION}.ipa"
+          # dSYM 通常在 build/ios/archive/Runner.xcarchive/dSYMs/
+          ARCHIVE_DSYM_DIR="mobile/build/ios/archive/Runner.xcarchive/dSYMs"
+          if [ -d "$ARCHIVE_DSYM_DIR" ]; then
+            ( cd "$ARCHIVE_DSYM_DIR" && zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-dSYM.zip" . )
+          fi
+          ( cd "$STAGE" && sha256sum *.ipa *.zip > tcm-mobile-${VERSION}-ios.sha256 2>/dev/null || \
+                       sha256sum *.ipa           > tcm-mobile-${VERSION}-ios.sha256 )
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+
+      # ====== 分支 B：无证书 → 回退 no-codesign Runner.app.zip ======
+      - name: Build iOS (no codesign fallback)
+        if: env.HAVE_SIGN_SECRETS != 'true'
         working-directory: mobile
         run: flutter build ios --release --no-codesign
-      - name: Package Runner.app & dSYM
+      - name: Package Runner.app & dSYM (fallback)
+        if: env.HAVE_SIGN_SECRETS != 'true'
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           STAGE="$(mktemp -d)"
           cd mobile/build/ios/iphoneos
-          # Runner.app 目录打包为 zip 便于 artifact 下载保留权限
           zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-Runner.app.zip" Runner.app
-          # 若生成了 dSYM 一并附带（符号化崩溃日志用）
           if [ -d "../Build/Intermediates.noindex/ArchiveIntermediates/Runner/BuildProductsPath/Release-iphoneos/Runner.app.dSYM" ]; then
             ( cd "../Build/Intermediates.noindex/ArchiveIntermediates/Runner/BuildProductsPath/Release-iphoneos" && \
               zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-dSYM.zip" Runner.app.dSYM )
           fi
           ( cd "$STAGE" && sha256sum *.zip > tcm-mobile-${VERSION}-ios.sha256 )
-          echo "STAGE=$STAGE" >> $GITHUB_ENV
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+
+      # ====== 上传产物（两条分支共用） ======
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mobile-ios
           path: |
+            ${{ env.STAGE }}/tcm-mobile-*.ipa
             ${{ env.STAGE }}/tcm-mobile-*-ios-*.zip
             ${{ env.STAGE }}/tcm-mobile-*-ios.sha256
           retention-days: 7
@@ -383,19 +494,28 @@ jobs:
             ### 移动端
             - `tcm-mobile-${{ needs.prepare.outputs.version }}.apk` — Android APK
             - `tcm-mobile-${{ needs.prepare.outputs.version }}.aab` — Android App Bundle
-            - `tcm-mobile-${{ needs.prepare.outputs.version }}-ios-Runner.app.zip` — iOS Runner.app（无签名，需本地重签后安装）
-            - `tcm-mobile-${{ needs.prepare.outputs.version }}-ios-dSYM.zip` — iOS dSYM 符号表（可选，用于符号化崩溃）
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}.ipa` — iOS App（签名后可直接安装）
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}-ios-Runner.app.zip` — iOS Runner.app（**仅当未配置签名证书时发布**，需本地重签）
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}-ios-dSYM.zip` — iOS dSYM 符号表（可选，用于符号化崩溃日志）
 
-            > iOS 安装提示：
+            > 💡 两种 iOS 产物根据是否配置签名 Secrets 自动二选一发布，不会同时出现。
+            >
+            > **【推荐】有签名 IPA → 直接安装：**
             > ```bash
-            > # 1. 下载解压 Runner.app.zip
-            > unzip tcm-mobile-*-ios-Runner.app.zip
-            > # 2. 使用自有 Apple Developer 证书重签（以免费个人证书为例）
-            > codesign -f -s "Apple Development: Your Name (TEAMID)" Runner.app
-            > # 3. 通过 Xcode / Apple Configurator / ideviceinstaller 装到真机
-            > ideviceinstaller -i Runner.app
-            > # 4. 或直接用 Xcode 打开 mobile/ios/Runner.xcworkspace ⌘R 一键运行
+            > # 使用 ideviceinstaller（brew install ideviceinstaller）
+            > ideviceinstaller -i tcm-mobile-*.ipa
+            > # 或使用 Apple Configurator 2 拖入 iPhone
             > ```
+            > **无签名 Runner.app.zip → 本地重签后安装：**
+            > ```bash
+            > unzip tcm-mobile-*-ios-Runner.app.zip
+            > codesign -f -s "Apple Development: Your Name (TEAMID)" Runner.app
+            > ideviceinstaller -i Runner.app   # 或 Xcode → Devices and Simulators → "+"
+            > ```
+            > **最快方式：** Xcode 打开 `mobile/ios/Runner.xcworkspace` 连手机按 ⌘R。
+            >
+            > **开启签名 IPA（一次性配置）**：在仓库 Settings → Secrets and variables → Actions
+            > 添加 6 个 Repository secrets，详情见 release.yml Mobile (iOS) job 注释。
 
             ### Docker 镜像（GHCR，多架构）
             - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/gateway:${{ needs.prepare.outputs.version }}`
