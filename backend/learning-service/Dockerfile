@@ -4,7 +4,10 @@
 #   docker build -f learning-service/Dockerfile -t tcm-history-ai/learning-service:latest .
 
 # ---- builder stage ----
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
+
+# go.mod 要求 go 1.25.0；GOTOOLCHAIN=auto 允许在镜像内自动获取所需 toolchain。
+ENV GOTOOLCHAIN=auto
 
 WORKDIR /src
 
