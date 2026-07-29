@@ -51,7 +51,7 @@ class ErrorInterceptor extends Interceptor {
         err.type == DioExceptionType.connectionError) {
       mapped = const NetworkException('网络异常，请检查网络连接');
     } else {
-      mapped = NetworkException(err.message);
+      mapped = NetworkException(err.message ?? '请求失败');
     }
 
     handler.next(

@@ -44,6 +44,8 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _GuestView extends StatelessWidget {
+  const _GuestView({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(
