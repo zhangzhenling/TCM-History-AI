@@ -209,6 +209,56 @@ jobs:
           retention-days: 7
 
   # ------------------------------------------------------------------
+  # 移动端：iOS IPA（无签名 Runner.app 打包，本地重签后安装）
+  # ------------------------------------------------------------------
+  mobile-ios:
+    name: Mobile (iOS)
+    needs: prepare
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-key: flutter-stable-macos
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods --no-document
+          pod --version
+      - name: Pod install
+        working-directory: mobile/ios
+        run: pod install --repo-update
+      - name: Build iOS (no codesign)
+        working-directory: mobile
+        run: flutter build ios --release --no-codesign
+      - name: Package Runner.app & dSYM
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          STAGE="$(mktemp -d)"
+          cd mobile/build/ios/iphoneos
+          # Runner.app 目录打包为 zip 便于 artifact 下载保留权限
+          zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-Runner.app.zip" Runner.app
+          # 若生成了 dSYM 一并附带（符号化崩溃日志用）
+          if [ -d "../Build/Intermediates.noindex/ArchiveIntermediates/Runner/BuildProductsPath/Release-iphoneos/Runner.app.dSYM" ]; then
+            ( cd "../Build/Intermediates.noindex/ArchiveIntermediates/Runner/BuildProductsPath/Release-iphoneos" && \
+              zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-dSYM.zip" Runner.app.dSYM )
+          fi
+          ( cd "$STAGE" && sha256sum *.zip > tcm-mobile-${VERSION}-ios.sha256 )
+          echo "STAGE=$STAGE" >> $GITHUB_ENV
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ios
+          path: |
+            ${{ env.STAGE }}/tcm-mobile-*-ios-*.zip
+            ${{ env.STAGE }}/tcm-mobile-*-ios.sha256
+          retention-days: 7
+
+  # ------------------------------------------------------------------
   # Docker：7 个服务镜像，多架构推送到 GHCR
   # ------------------------------------------------------------------
   docker:
@@ -260,7 +310,7 @@ jobs:
   # ------------------------------------------------------------------
   release:
     name: GitHub Release
-    needs: [prepare, backend, frontend, mobile, docker]
+    needs: [prepare, backend, frontend, mobile, mobile-ios, docker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -276,6 +326,11 @@ jobs:
         with:
           name: mobile
           path: release/mobile
+      - name: Download mobile-ios artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-ios
+          path: release/mobile-ios
       - name: Download backend linux/amd64 artifact
         uses: actions/download-artifact@v4
         with:
@@ -289,7 +344,7 @@ jobs:
       - name: Flatten artifact layout
         run: |
           mkdir -p assets
-          find release -type f \( -name '*.tar.gz' -o -name '*.apk' -o -name '*.aab' -o -name '*.sha256' \) -exec cp {} assets/ \;
+          find release -type f \( -name '*.tar.gz' -o -name '*.apk' -o -name '*.aab' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} assets/ \;
           echo "=== assets ==="
           ls -la assets/
       - name: Generate changelog
@@ -328,6 +383,19 @@ jobs:
             ### 移动端
             - `tcm-mobile-${{ needs.prepare.outputs.version }}.apk` — Android APK
             - `tcm-mobile-${{ needs.prepare.outputs.version }}.aab` — Android App Bundle
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}-ios-Runner.app.zip` — iOS Runner.app（无签名，需本地重签后安装）
+            - `tcm-mobile-${{ needs.prepare.outputs.version }}-ios-dSYM.zip` — iOS dSYM 符号表（可选，用于符号化崩溃）
+
+            > iOS 安装提示：
+            > ```bash
+            > # 1. 下载解压 Runner.app.zip
+            > unzip tcm-mobile-*-ios-Runner.app.zip
+            > # 2. 使用自有 Apple Developer 证书重签（以免费个人证书为例）
+            > codesign -f -s "Apple Development: Your Name (TEAMID)" Runner.app
+            > # 3. 通过 Xcode / Apple Configurator / ideviceinstaller 装到真机
+            > ideviceinstaller -i Runner.app
+            > # 4. 或直接用 Xcode 打开 mobile/ios/Runner.xcworkspace ⌘R 一键运行
+            > ```
 
             ### Docker 镜像（GHCR，多架构）
             - `ghcr.io/${{ needs.prepare.outputs.image_repo }}/gateway:${{ needs.prepare.outputs.version }}`
