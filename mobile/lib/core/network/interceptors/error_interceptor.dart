@@ -11,7 +11,7 @@ import '../../error/app_exception.dart';
 
 class ErrorInterceptor extends Interceptor {
   @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
     final body = response.data;
     // 仅处理 JSON Map 类型的统一包络；非 envelope 响应（如文件流）原样放行。
     if (body is Map<String, dynamic>) {

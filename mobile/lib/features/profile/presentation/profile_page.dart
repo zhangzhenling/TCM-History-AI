@@ -44,7 +44,7 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _GuestView extends StatelessWidget {
-  const _GuestView({super.key});
+  const _GuestView();
 
   @override
   Widget build(BuildContext context) {

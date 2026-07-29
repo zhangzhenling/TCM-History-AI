@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tcm_history_ai/core/error/app_exception.dart';
+import 'package:tcm_history_ai/core/network/api_client.dart';
 import 'package:tcm_history_ai/core/network/token_storage.dart';
 import 'package:tcm_history_ai/features/auth/data/auth_repository.dart';
 import 'package:tcm_history_ai/features/auth/domain/auth_state.dart';
@@ -16,6 +17,9 @@ import 'package:tcm_history_ai/features/auth/presentation/auth_provider.dart';
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository(this.tokenStorage);
   final TokenStorage tokenStorage;
+
+  @override
+  AuthApiClient get api => throw UnimplementedError('测试中不使用 api');
 
   bool shouldThrow = false;
   int loginCallCount = 0;

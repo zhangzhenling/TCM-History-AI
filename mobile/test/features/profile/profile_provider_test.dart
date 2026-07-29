@@ -25,8 +25,8 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  test('未登录时应返回 guest 态', () {
-    final profile = container.read(profileProvider);
+  test('未登录时应返回 guest 态', () async {
+    final profile = await container.read(profileProvider.future);
     expect(profile.isLoggedIn, isFalse);
     expect(profile, isA<ProfileState>());
   });
@@ -37,7 +37,7 @@ void main() {
       refreshToken: 'refresh',
     );
     container.invalidate(profileProvider);
-    final profile = container.read(profileProvider);
+    final profile = await container.read(profileProvider.future);
     expect(profile.isLoggedIn, isTrue);
     expect(profile.username, 'learner');
   });
@@ -48,10 +48,10 @@ void main() {
       refreshToken: 'refresh',
     );
     container.invalidate(profileProvider);
-    expect(container.read(profileProvider).isLoggedIn, isTrue);
+    expect((await container.read(profileProvider.future)).isLoggedIn, isTrue);
 
     await tokenStorage.clear();
     container.invalidate(profileProvider);
-    expect(container.read(profileProvider).isLoggedIn, isFalse);
+    expect((await container.read(profileProvider.future)).isLoggedIn, isFalse);
   });
 }

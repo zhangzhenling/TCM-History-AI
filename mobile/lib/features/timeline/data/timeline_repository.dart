@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../shared/models/dynasty.dart';
 import '../../../shared/models/history_event.dart';
 import '../domain/timeline_state.dart';
 

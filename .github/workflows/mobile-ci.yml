@@ -110,13 +110,6 @@ jobs:
           cache-key: ${{ env.FLUTTER_CACHE_KEY }}-macos
       - name: Install dependencies
         run: flutter pub get
-      - name: Install CocoaPods
-        run: |
-          gem install cocoapods --no-document
-          pod --version
-      - name: Pod install
-        working-directory: mobile/ios
-        run: pod install --repo-update
 
       # ====== 签名准备：导入证书与描述文件 ======
       - name: Import code signing materials
