@@ -31,11 +31,6 @@ dependencies:
   # 本地存储：token 持久化
   shared_preferences: ^2.3.1
 
-  # 国际化
-  # 注意：flutter_localizations（flutter SDK 3.19.x）将 intl 锁定到 0.18.1，
-  # 这里必须使用 ^0.18.1 以满足版本求解。升级 flutter SDK 后再相应调整。
-  intl: ^0.18.1
-
   # UI 辅助
   cached_network_image: ^3.4.1
 

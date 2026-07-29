@@ -21,7 +21,7 @@ concurrency:
 
 env:
   FLUTTER_CHANNEL: stable
-  FLUTTER_CACHE_KEY: flutter-3.19.0
+  FLUTTER_CACHE_KEY: flutter-stable
 
 jobs:
   analyze-test:
@@ -34,7 +34,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
           cache-key: ${{ env.FLUTTER_CACHE_KEY }}
@@ -63,7 +62,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
           cache-key: ${{ env.FLUTTER_CACHE_KEY }}
@@ -101,7 +99,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
           cache-key: ${{ env.FLUTTER_CACHE_KEY }}
