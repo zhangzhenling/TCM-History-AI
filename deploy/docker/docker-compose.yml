@@ -1,0 +1,483 @@
+# TCM-History-AI 生产部署（全部使用已发布的 GHCR 镜像）
+#
+# 用法：
+#   cp .env.example .env   # 按需修改密码/端口/镜像版本
+#   docker compose up -d   # 拉起全部基础设施 + 7 个后端服务
+#
+# 与 docker-compose.dev.yml 的区别：
+#   - dev 版仅启动中间件，应用服务通过 go run / deploy-linux.sh 本地运行
+#   - 本文件直接拉取 ghcr.io/zhangzhenling/tcm-history-ai/<service> 已发布镜像
+#
+# 镜像版本通过 IMAGE_TAG 环境变量控制（默认 1.1.0，即首个正式发布版）。
+
+name: tcm-history-ai
+
+networks:
+  tcm-net:
+    name: tcm-net
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  neo4j_logs:
+  etcd_data:
+  minio_data:
+  milvus_data:
+  meili_data:
+  rabbitmq_data:
+
+services:
+  # ================================================================
+  # 基础设施（与 docker-compose.dev.yml 保持一致）
+  # ================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: tcm-postgres
+    restart: unless-stopped
+    networks: [tcm-net]
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tcm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-tcm_history}
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tcm-redis
+    restart: unless-stopped
+    networks: [tcm-net]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-redis_pass}", "--appendonly", "yes"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-redis_pass}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: tcm-neo4j
+    restart: unless-stopped
+    networks: [tcm-net]
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/neo4j_pass}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      TZ: Asia/Shanghai
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p neo4j_pass 'RETURN 1' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  etcd:
+    image: bitnami/etcd:3.5
+    container_name: tcm-etcd
+    restart: unless-stopped
+    networks: [tcm-net]
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_NAME: etcd
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+    volumes:
+      - etcd_data:/bitnami/etcd
+    healthcheck:
+      test: ["CMD-SHELL", "etcdctl endpoint health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+    container_name: tcm-minio
+    restart: unless-stopped
+    networks: [tcm-net]
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio_pass}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  milvus:
+    image: milvusdb/milvus:v2.4.0
+    container_name: tcm-milvus
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+      - "${MILVUS_MANAGEMENT_PORT:-9091}:9091"
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minio_pass}
+      MINIO_USE_SSL: "false"
+    volumes:
+      - milvus_data:/var/lib/milvus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9091/healthz || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: tcm-meilisearch
+    restart: unless-stopped
+    networks: [tcm-net]
+    ports:
+      - "${MEILI_PORT:-7700}:7700"
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-meili_master_key_dev}
+      MEILI_ENV: development
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:7700/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: tcm-rabbitmq
+    restart: unless-stopped
+    networks: [tcm-net]
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ================================================================
+  # 应用服务（拉取 GHCR 已发布镜像）
+  # 镜像地址：ghcr.io/zhangzhenling/tcm-history-ai/<service>:${IMAGE_TAG}
+  # 环境变量使用 TCM_ 前缀（Viper AutomaticEnv），覆盖镜像内置 config.yaml
+  # ================================================================
+  gateway:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/gateway:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-gateway
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      user-service: {condition: service_healthy}
+      history-service: {condition: service_healthy}
+      knowledge-service: {condition: service_healthy}
+      graph-service: {condition: service_healthy}
+      ai-service: {condition: service_healthy}
+      learning-service: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8080"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      TCM_JWT_SECRET: ${JWT_SECRET:-dev-only-gateway-secret-please-override-via-JWT_SECRET}
+      # 下游微服务地址（服务名:容器端口）
+      TCM_DOWNSTREAM_USER_SERVICE: "user-service:8081"
+      TCM_DOWNSTREAM_HISTORY_SERVICE: "history-service:8082"
+      TCM_DOWNSTREAM_KNOWLEDGE_SERVICE: "knowledge-service:8084"
+      TCM_DOWNSTREAM_GRAPH_SERVICE: "graph-service:8085"
+      TCM_DOWNSTREAM_AI_SERVICE: "ai-service:8086"
+      TCM_DOWNSTREAM_LEARNING_SERVICE: "learning-service:8087"
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  user-service:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/user-service:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-user-service
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8081"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      TCM_JWT_SECRET: ${JWT_SECRET:-dev-only-user-service-secret-please-override-via-JWT_SECRET}
+      # PostgreSQL
+      TCM_DB_HOST: postgres
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: ${POSTGRES_USER:-tcm}
+      TCM_DB_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      TCM_DB_DBNAME: ${POSTGRES_DB:-tcm_history}
+      TCM_DB_SSLMODE: disable
+      # Redis
+      TCM_REDIS_HOST: redis
+      TCM_REDIS_PORT: "6379"
+      TCM_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_pass}
+      # RabbitMQ
+      TCM_RABBITMQ_HOST: rabbitmq
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      TCM_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      TCM_RABBITMQ_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  history-service:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/history-service:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-history-service
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      postgres: {condition: service_healthy}
+      meilisearch: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8082"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      # PostgreSQL
+      TCM_DB_HOST: postgres
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: ${POSTGRES_USER:-tcm}
+      TCM_DB_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      TCM_DB_DBNAME: ${POSTGRES_DB:-tcm_history}
+      TCM_DB_SSLMODE: disable
+      # Meilisearch
+      TCM_MEILI_HOST: meilisearch
+      TCM_MEILI_PORT: "7700"
+      TCM_MEILI_API_KEY: ${MEILI_MASTER_KEY:-meili_master_key_dev}
+      # MinIO
+      TCM_MINIO_ENDPOINT: minio:9000
+      TCM_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      TCM_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio_pass}
+      TCM_MINIO_USE_SSL: "false"
+      # RabbitMQ
+      TCM_RABBITMQ_HOST: rabbitmq
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      TCM_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      TCM_RABBITMQ_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  knowledge-service:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/knowledge-service:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-knowledge-service
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      postgres: {condition: service_healthy}
+      milvus: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8084"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      # PostgreSQL
+      TCM_DB_HOST: postgres
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: ${POSTGRES_USER:-tcm}
+      TCM_DB_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      TCM_DB_DBNAME: tcm_knowledge
+      TCM_DB_SSLMODE: disable
+      # Milvus
+      TCM_MILVUS_HOST: milvus
+      TCM_MILVUS_PORT: "19530"
+      # Meilisearch
+      TCM_MEILI_HOST: meilisearch
+      TCM_MEILI_PORT: "7700"
+      TCM_MEILI_API_KEY: ${MEILI_MASTER_KEY:-meili_master_key_dev}
+      # MinIO
+      TCM_MINIO_ENDPOINT: minio:9000
+      TCM_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      TCM_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio_pass}
+      TCM_MINIO_USE_SSL: "false"
+      # RabbitMQ
+      TCM_RABBITMQ_HOST: rabbitmq
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      TCM_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      TCM_RABBITMQ_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8084/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  graph-service:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/graph-service:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-graph-service
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      postgres: {condition: service_healthy}
+      neo4j: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8085"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      # PostgreSQL
+      TCM_DB_HOST: postgres
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: ${POSTGRES_USER:-tcm}
+      TCM_DB_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      TCM_DB_DBNAME: tcm_graph
+      TCM_DB_SSLMODE: disable
+      # Neo4j
+      TCM_NEO4J_HOST: neo4j
+      TCM_NEO4J_PORT: "7687"
+      TCM_NEO4J_USER: neo4j
+      TCM_NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j_pass}
+      # RabbitMQ
+      TCM_RABBITMQ_HOST: rabbitmq
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      TCM_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      TCM_RABBITMQ_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8085/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  ai-service:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/ai-service:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-ai-service
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8086"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      # PostgreSQL
+      TCM_DB_HOST: postgres
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: ${POSTGRES_USER:-tcm}
+      TCM_DB_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      TCM_DB_DBNAME: tcm_ai
+      TCM_DB_SSLMODE: disable
+      # 上游服务地址（RAG / Graph）
+      TCM_SERVICES_KNOWLEDGE_URL: "http://knowledge-service:8084"
+      TCM_SERVICES_GRAPH_URL: "http://graph-service:8085"
+      # LLM（默认 stub，生产环境通过 .env 覆盖）
+      TCM_LLM_PROVIDER: ${LLM_PROVIDER:-stub}
+      TCM_LLM_ENDPOINT: ${LLM_ENDPOINT:-}
+      TCM_LLM_API_KEY: ${LLM_API_KEY:-}
+      TCM_LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      # RabbitMQ
+      TCM_RABBITMQ_HOST: rabbitmq
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      TCM_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      TCM_RABBITMQ_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8086/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  learning-service:
+    image: ghcr.io/zhangzhenling/tcm-history-ai/learning-service:${IMAGE_TAG:-1.1.0}
+    container_name: tcm-learning-service
+    restart: unless-stopped
+    networks: [tcm-net]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      TCM_APP_ENV: ${APP_ENV:-docker}
+      TCM_HTTP_PORT: "8087"
+      TCM_LOG_LEVEL: ${LOG_LEVEL:-info}
+      # PostgreSQL
+      TCM_DB_HOST: postgres
+      TCM_DB_PORT: "5432"
+      TCM_DB_USER: ${POSTGRES_USER:-tcm}
+      TCM_DB_PASSWORD: ${POSTGRES_PASSWORD:-tcm_pass}
+      TCM_DB_DBNAME: tcm_learning
+      TCM_DB_SSLMODE: disable
+      # Redis
+      TCM_REDIS_HOST: redis
+      TCM_REDIS_PORT: "6379"
+      TCM_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_pass}
+      # AI Service
+      TCM_AI_SERVICE_BASE_URL: "http://ai-service:8086"
+      # RabbitMQ
+      TCM_RABBITMQ_HOST: rabbitmq
+      TCM_RABBITMQ_PORT: "5672"
+      TCM_RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-tcm}
+      TCM_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-tcm_pass}
+      TCM_RABBITMQ_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/tcm}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8087/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
