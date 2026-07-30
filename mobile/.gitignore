@@ -40,6 +40,7 @@ ios/ServiceDefinitions.json
 ios/Runner/GeneratedPluginRegistrant.*
 **/Pods/
 *.xcworkspace
+!Runner.xcworkspace
 DerivedData/
 
 # iOS 签名配置（敏感信息，不提交）
