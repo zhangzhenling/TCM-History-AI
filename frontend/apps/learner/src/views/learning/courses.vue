@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { Spin, Empty, Pagination, Card, Button, Tag, message } from 'ant-design-vue';
-import { useRouter } from 'vue-router';
+import { Spin, Empty, Pagination, Card, Tag, message } from 'ant-design-vue';
 
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
 import type { Course } from '@tcm/api';
 
 const apis = useApi();
-const router = useRouter();
 
 const loading = ref(false);
 const courses = ref<Course[]>([]);

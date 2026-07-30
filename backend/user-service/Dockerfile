@@ -19,7 +19,8 @@ RUN go mod download
 COPY . .
 
 # Build a statically-linked binary for the user-service.
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags="-s -w" \
     -o /out/user-service \
     ./user-service/cmd/user-service

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { Spin, Empty, Pagination, Card, Button, Tag, Progress, message } from 'ant-design-vue';
+import { Spin, Empty, Pagination, Card, Tag, Progress, message } from 'ant-design-vue';
 
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
