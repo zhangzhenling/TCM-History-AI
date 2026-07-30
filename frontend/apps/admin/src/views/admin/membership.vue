@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Switch, Popconfirm, message, Tag } from 'ant-design-vue';
+import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Switch, Popconfirm, message } from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -42,7 +42,7 @@ const dataSource = computed(() =>
     price: `¥${(p.price / 100).toFixed(2)}`,
     is_active: p.is_active ? '启用' : '禁用',
   })),
-);
+) as unknown as Record<string, unknown>[];
 
 async function load() {
   loading.value = true;

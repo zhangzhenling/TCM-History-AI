@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, Popconfirm, message, Tag } from 'ant-design-vue';
+import { Table, Pagination, Button, Modal, Form, Input, Popconfirm, message } from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -33,7 +33,7 @@ const dataSource = computed(() =>
     description: r.description || '—',
     created_at: r.created_at?.slice(0, 19).replace('T', ' ') || '—',
   })),
-);
+) as unknown as Record<string, unknown>[];
 
 async function load() {
   loading.value = true;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, Switch, Popconfirm, message, Tag, Alert } from 'ant-design-vue';
+import { Table, Pagination, Button, Modal, Form, Input, Switch, Popconfirm, message, Alert } from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -38,7 +38,7 @@ const dataSource = computed(() =>
     last_used_at: k.last_used_at ? formatDateTime(k.last_used_at) : '—',
     created_at: formatDateTime(k.created_at),
   })),
-);
+) as unknown as Record<string, unknown>[];
 
 async function load() {
   loading.value = true;
