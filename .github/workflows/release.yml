@@ -352,8 +352,8 @@ jobs:
           if [ -d "$ARCHIVE_DSYM_DIR" ]; then
             ( cd "$ARCHIVE_DSYM_DIR" && zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-dSYM.zip" . )
           fi
-          ( cd "$STAGE" && sha256sum *.ipa *.zip > tcm-mobile-${VERSION}-ios.sha256 2>/dev/null || \
-                       sha256sum *.ipa           > tcm-mobile-${VERSION}-ios.sha256 )
+          ( cd "$STAGE" && shasum -a 256 *.ipa *.zip > tcm-mobile-${VERSION}-ios.sha256 2>/dev/null || \
+                       shasum -a 256 *.ipa           > tcm-mobile-${VERSION}-ios.sha256 )
           echo "STAGE=$STAGE" >> "$GITHUB_ENV"
 
       # ====== 分支 B：无证书 → 回退 no-codesign Runner.app.zip ======
@@ -372,7 +372,7 @@ jobs:
             ( cd "../Build/Intermediates.noindex/ArchiveIntermediates/Runner/BuildProductsPath/Release-iphoneos" && \
               zip -ry "$STAGE/tcm-mobile-${VERSION}-ios-dSYM.zip" Runner.app.dSYM )
           fi
-          ( cd "$STAGE" && sha256sum *.zip > tcm-mobile-${VERSION}-ios.sha256 )
+          ( cd "$STAGE" && shasum -a 256 *.zip > tcm-mobile-${VERSION}-ios.sha256 )
           echo "STAGE=$STAGE" >> "$GITHUB_ENV"
 
       # ====== 上传产物（两条分支共用） ======
