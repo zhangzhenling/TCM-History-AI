@@ -483,15 +483,12 @@ services:
       start_period: 20s
 
   # ================================================================
-  # 前端（learner + admin，本地构建镜像）
+  # 前端（learner + admin，使用 GHCR 已发布镜像）
   # learner 暴露在 80 端口，admin 暴露在 8088 端口
   # Nginx 将 /api、/health 反代到 gateway 服务
   # ================================================================
   frontend:
-    build:
-      context: ../../frontend
-      dockerfile: Dockerfile
-    image: tcm-history-ai/frontend:${IMAGE_TAG:-1.1.0}
+    image: ghcr.io/zhangzhenling/tcm-history-ai/frontend:${IMAGE_TAG:-1.1.0}
     container_name: tcm-frontend
     restart: unless-stopped
     networks: [tcm-net]

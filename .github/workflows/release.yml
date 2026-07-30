@@ -434,11 +434,54 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   # ------------------------------------------------------------------
+  # Docker：前端镜像（learner + admin 多阶段构建，推送到 GHCR）
+  # ------------------------------------------------------------------
+  docker-frontend:
+    name: Docker frontend
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ needs.prepare.outputs.image_repo }}/frontend
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=TCM-History-AI frontend
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ------------------------------------------------------------------
   # 发布：聚合全部产物，创建 GitHub Release
   # ------------------------------------------------------------------
   release:
     name: GitHub Release
-    needs: [prepare, backend, frontend, mobile, mobile-ios, docker]
+    needs: [prepare, backend, frontend, mobile, mobile-ios, docker, docker-frontend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
