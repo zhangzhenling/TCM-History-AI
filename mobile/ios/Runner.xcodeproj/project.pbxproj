@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		A1A1A1A1A1A1A1A1A1A1000E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A1000D /* AppDelegate.swift */; };
+		A1A1A1A1A1A1A1A1A1A10021 /* GeneratedPluginRegistrant.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10020 /* GeneratedPluginRegistrant.swift */; };
 		A1A1A1A1A1A1A1A1A1A10011 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10010 /* Main.storyboard */; };
 		A1A1A1A1A1A1A1A1A1A10013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10012 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A1A1A1A1A1A1A1A1A1A1000D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A1A1A1A1A1A1A1A1A1A10020 /* GeneratedPluginRegistrant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedPluginRegistrant.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A1A1A1A1000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A1A1A1A10010 /* Main.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A1A1A1A10012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -49,6 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				A1A1A1A1A1A1A1A1A1A1000D /* AppDelegate.swift */,
+				A1A1A1A1A1A1A1A1A1A10020 /* GeneratedPluginRegistrant.swift */,
 				A1A1A1A1A1A1A1A1A1A1000F /* Info.plist */,
 				A1A1A1A1A1A1A1A1A1A10010 /* Main.storyboard */,
 				A1A1A1A1A1A1A1A1A1A10012 /* Assets.xcassets */,
@@ -158,6 +161,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1A1A1A1A1A1A1A1A1A1000E /* AppDelegate.swift in Sources */,
+				A1A1A1A1A1A1A1A1A1A10021 /* GeneratedPluginRegistrant.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
