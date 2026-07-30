@@ -250,6 +250,26 @@ jobs:
           flutter config --no-enable-swift-package-manager
           flutter pub get
 
+      - name: Ensure GeneratedPluginRegistrant.swift exists
+        working-directory: mobile/ios/Runner
+        run: |
+          if [ ! -f GeneratedPluginRegistrant.swift ]; then
+            cat > GeneratedPluginRegistrant.swift <<'SWIFT'
+          //
+          //  Generated file. Do not edit.
+          //
+
+          import Flutter
+          import UIKit
+
+          func registerGeneratedPlugins(registry: FlutterPluginRegistry) {
+          }
+          SWIFT
+            echo "Created placeholder GeneratedPluginRegistrant.swift"
+          else
+            echo "GeneratedPluginRegistrant.swift already exists"
+          fi
+
       # ====== 签名准备：导入证书与描述文件 ======
       - name: Import code signing materials
         if: env.HAVE_SIGN_SECRETS == 'true'
