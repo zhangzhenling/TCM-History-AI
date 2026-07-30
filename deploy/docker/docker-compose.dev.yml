@@ -20,6 +20,9 @@ volumes:
   rabbitmq_data:
 
 services:
+  # ================================================================
+  # 基础设施（与 docker-compose.dev.yml 保持一致）
+  # ================================================================
   postgres:
     image: postgres:16-alpine
     container_name: tcm-postgres
@@ -34,6 +37,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -85,7 +89,7 @@ services:
       start_period: 40s
 
   etcd:
-    image: bitnami/etcd:3.5
+    image: bitnamilegacy/etcd:3.5
     container_name: tcm-etcd
     restart: unless-stopped
     networks: [tcm-net]
@@ -95,7 +99,7 @@ services:
       ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
     volumes:
-      - etcd_data:/bitnami/etcd
+      - etcd_data:/bitnamilegacy/etcd
     healthcheck:
       test: ["CMD-SHELL", "etcdctl endpoint health || exit 1"]
       interval: 10s
@@ -104,7 +108,7 @@ services:
       start_period: 15s
 
   minio:
-    image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+    image: minio/minio:latest
     container_name: tcm-minio
     restart: unless-stopped
     networks: [tcm-net]
@@ -129,6 +133,9 @@ services:
     container_name: tcm-milvus
     restart: unless-stopped
     networks: [tcm-net]
+    command: ["milvus", "run", "standalone"]   # ← 加上这行
+    security_opt:                               # ← 加上这行（Windows Docker 必需）
+      - seccomp:unconfined
     depends_on:
       etcd:
         condition: service_healthy
