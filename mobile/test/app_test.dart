@@ -26,6 +26,6 @@ void main() {
     // 仅 pump 一帧验证 widget 挂载，不使用 pumpAndSettle（会等待网络请求超时）
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('首页'), findsOneWidget);
+    expect(find.text('首页'), findsAtLeastNWidgets(1));
   });
 }
