@@ -246,7 +246,9 @@ jobs:
           cache-key: flutter-stable-macos
       - name: Install dependencies
         working-directory: mobile
-        run: flutter pub get
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter pub get
 
       # ====== 签名准备：导入证书与描述文件 ======
       - name: Import code signing materials
