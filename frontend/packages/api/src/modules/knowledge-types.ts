@@ -61,6 +61,19 @@ export interface DocumentChunk {
   embedding_model: string;
 }
 
+export interface DocumentChunkRequest {
+  document_id: number;
+  chunk_id?: string;
+  chunk_index?: number;
+  classic_code?: string;
+  volume?: string;
+  clause_no?: number;
+  content_type?: string;
+  content: string;
+  text_original?: string;
+  text_translation?: string;
+}
+
 export interface EmbeddingTask {
   id: number;
   document_id: number;

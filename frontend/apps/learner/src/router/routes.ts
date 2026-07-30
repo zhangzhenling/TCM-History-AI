@@ -79,6 +79,30 @@ export const learnerRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/knowledge/index.vue'),
         meta: { title: '文献检索' },
       },
+      {
+        path: 'learning/courses',
+        name: 'LearningCourses',
+        component: () => import('@/views/learning/courses.vue'),
+        meta: { title: '课程中心', keepAlive: true },
+      },
+      {
+        path: 'learning/exams',
+        name: 'LearningExams',
+        component: () => import('@/views/learning/exams.vue'),
+        meta: { title: '考试中心', keepAlive: true },
+      },
+      {
+        path: 'learning/wrong-questions',
+        name: 'LearningWrongQuestions',
+        component: () => import('@/views/learning/wrong-questions.vue'),
+        meta: { title: '错题本', keepAlive: true },
+      },
+      {
+        path: 'learning/study-plans',
+        name: 'LearningStudyPlans',
+        component: () => import('@/views/learning/study-plans.vue'),
+        meta: { title: '学习计划', keepAlive: true },
+      },
     ],
   },
   {

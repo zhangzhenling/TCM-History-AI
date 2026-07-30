@@ -205,6 +205,12 @@ export interface ExamAttemptSubmitRequest {
   answers_json?: unknown;
 }
 
+export interface ExamAttemptSaveRequest {
+  user_id: number;
+  answers: ExamAttemptAnswerItem[];
+  answers_json?: unknown;
+}
+
 // ============================================================================
 // WrongQuestion
 // ============================================================================
@@ -245,4 +251,11 @@ export interface StudyPlanRequest {
   target_date?: string;
   courses_json?: unknown;
   status?: string;
+}
+
+export interface StudyPlanGenerateRequest {
+  user_id: number;
+  target_date?: string;
+  days_per_week?: number;
+  minutes_per_day?: number;
 }

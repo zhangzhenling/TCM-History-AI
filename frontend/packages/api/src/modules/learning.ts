@@ -12,6 +12,7 @@ import type {
   EnrollmentUpdateProgressRequest,
   Exam,
   ExamAttempt,
+  ExamAttemptSaveRequest,
   ExamAttemptStartRequest,
   ExamAttemptSubmitRequest,
   ExamRequest,
@@ -22,6 +23,7 @@ import type {
   Question,
   QuestionRequest,
   StudyPlan,
+  StudyPlanGenerateRequest,
   StudyPlanRequest,
   WrongQuestion,
 } from './learning-types';
@@ -189,6 +191,12 @@ export class LearningApi {
       payload,
     ) as unknown as Promise<ExamAttempt>;
   }
+  saveExamAttempt(id: number | string, payload: ExamAttemptSaveRequest): Promise<ExamAttempt> {
+    return this.http.post(
+      `/api/v1/learning/attempts/${id}/save`,
+      payload,
+    ) as unknown as Promise<ExamAttempt>;
+  }
 
   // ---- Wrong questions ----
   listWrongQuestions(
@@ -203,6 +211,11 @@ export class LearningApi {
     return this.http.put(
       `/api/v1/learning/wrong-questions/${id}/master`,
     ) as unknown as Promise<WrongQuestion>;
+  }
+  getRecentWrongQuestionIDs(userId: number | string): Promise<number[]> {
+    return this.http.get('/api/v1/learning/wrong-questions/recent', {
+      params: buildQuery({ user_id: userId }),
+    }) as unknown as Promise<number[]>;
   }
 
   // ---- Study plans ----
@@ -219,6 +232,9 @@ export class LearningApi {
   }
   createStudyPlan(payload: StudyPlanRequest): Promise<StudyPlan> {
     return this.http.post('/api/v1/learning/study-plans', payload) as unknown as Promise<StudyPlan>;
+  }
+  generateStudyPlan(payload: StudyPlanGenerateRequest): Promise<StudyPlan> {
+    return this.http.post('/api/v1/learning/study-plans/generate', payload) as unknown as Promise<StudyPlan>;
   }
   updateStudyPlan(id: number | string, payload: StudyPlanRequest): Promise<StudyPlan> {
     return this.http.put(

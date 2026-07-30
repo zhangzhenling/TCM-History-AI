@@ -28,10 +28,28 @@ export const adminRoutes: RouteRecordRaw[] = [
         meta: { title: '用户管理', keepAlive: true },
       },
       {
+        path: 'roles',
+        name: 'AdminRoles',
+        component: () => import('@/views/admin/roles.vue'),
+        meta: { title: '角色管理', keepAlive: true },
+      },
+      {
         path: 'tenants',
         name: 'AdminTenants',
         component: () => import('@/views/tenants/list.vue'),
         meta: { title: '学校/机构管理', keepAlive: true },
+      },
+      {
+        path: 'membership',
+        name: 'AdminMembership',
+        component: () => import('@/views/admin/membership.vue'),
+        meta: { title: '会员方案管理', keepAlive: true },
+      },
+      {
+        path: 'api-keys',
+        name: 'AdminApiKeys',
+        component: () => import('@/views/admin/api-keys.vue'),
+        meta: { title: 'API Key 管理', keepAlive: true },
       },
       {
         path: 'history/dynasties',

@@ -6,8 +6,9 @@ import type { AxiosInstance } from 'axios';
 import { buildQuery, type ListResponse, type PageParams } from '../types';
 import type {
   Document,
-  DocumentRequest,
   DocumentChunk,
+  DocumentChunkRequest,
+  DocumentRequest,
   EmbeddingTask,
   FeedbackRequest,
   RetrieveRequest,
@@ -38,6 +39,11 @@ export class KnowledgeApi {
   deleteDocument(id: number | string): Promise<void> {
     return this.http.delete(`/api/v1/knowledge/documents/${id}`) as unknown as Promise<void>;
   }
+  uploadMarkdown(formData: FormData): Promise<Document> {
+    return this.http.post('/api/v1/knowledge/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<Document>;
+  }
 
   // ---- Chunks ----
   listChunksByDocument(
@@ -47,6 +53,12 @@ export class KnowledgeApi {
     return this.http.get(`/api/v1/knowledge/documents/${documentId}/chunks`, {
       params: buildQuery(params ?? {}),
     }) as unknown as Promise<ListResponse<DocumentChunk>>;
+  }
+  createChunk(documentId: number | string, payload: DocumentChunkRequest): Promise<DocumentChunk> {
+    return this.http.post(
+      `/api/v1/knowledge/documents/${documentId}/chunks`,
+      payload,
+    ) as unknown as Promise<DocumentChunk>;
   }
   getChunk(id: number | string): Promise<DocumentChunk> {
     return this.http.get(`/api/v1/knowledge/chunks/${id}`) as unknown as Promise<DocumentChunk>;

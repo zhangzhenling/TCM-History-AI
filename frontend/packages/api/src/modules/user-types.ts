@@ -81,3 +81,106 @@ export interface UserListParams {
   keyword?: string;
   status?: string;
 }
+
+// ============================================================================
+// Roles & Permissions
+// ============================================================================
+
+export interface Role {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoleRequest {
+  name: string;
+  description?: string;
+}
+
+export interface Permission {
+  id: number;
+  name: string;
+  resource: string;
+  action: string;
+  description: string;
+}
+
+export interface AssignPermissionsRequest {
+  permission_ids: number[];
+}
+
+// ============================================================================
+// Membership Plans
+// ============================================================================
+
+export interface MembershipPlan {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  duration_days: number;
+  features_json: unknown;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MembershipPlanRequest {
+  name: string;
+  description?: string;
+  price: number;
+  duration_days: number;
+  features_json?: unknown;
+  is_active?: boolean;
+}
+
+export interface Subscription {
+  id: number;
+  user_id: number;
+  plan_id: number;
+  plan_name: string;
+  status: 'active' | 'expired' | 'cancelled' | string;
+  started_at: string;
+  expires_at: string;
+  auto_renew: boolean;
+}
+
+export interface Order {
+  id: number;
+  user_id: number;
+  plan_id: number;
+  plan_name: string;
+  amount: number;
+  status: string;
+  created_at: string;
+}
+
+// ============================================================================
+// API Keys
+// ============================================================================
+
+export interface ApiKey {
+  id: number;
+  user_id: number;
+  name: string;
+  key_prefix: string;
+  is_active: boolean;
+  last_used_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiKeyCreateResponse {
+  id: number;
+  name: string;
+  key: string;
+  key_prefix: string;
+  message: string;
+}
+
+export interface ApiKeyRequest {
+  name: string;
+  is_active?: boolean;
+}
