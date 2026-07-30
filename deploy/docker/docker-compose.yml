@@ -98,7 +98,7 @@ services:
       start_period: 40s
 
   etcd:
-    image: bitnami/etcd:3.5
+    image: bitnamilegacy/etcd:3.5
     container_name: tcm-etcd
     restart: unless-stopped
     networks: [tcm-net]
@@ -108,7 +108,7 @@ services:
       ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
     volumes:
-      - etcd_data:/bitnami/etcd
+      - etcd_data:/bitnamilegacy/etcd
     healthcheck:
       test: ["CMD-SHELL", "etcdctl endpoint health || exit 1"]
       interval: 10s
@@ -117,7 +117,7 @@ services:
       start_period: 15s
 
   minio:
-    image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+    image: minio/minio:latest
     container_name: tcm-minio
     restart: unless-stopped
     networks: [tcm-net]
@@ -142,6 +142,9 @@ services:
     container_name: tcm-milvus
     restart: unless-stopped
     networks: [tcm-net]
+    command: ["milvus", "run", "standalone"]   # ← 加上这行
+    security_opt:                               # ← 加上这行（Windows Docker 必需）
+      - seccomp:unconfined
     depends_on:
       etcd:
         condition: service_healthy
@@ -481,6 +484,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 20s
+
 
   # ================================================================
   # 前端（learner + admin，使用 GHCR 已发布镜像）
