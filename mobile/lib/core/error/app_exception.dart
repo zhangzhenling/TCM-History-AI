@@ -33,4 +33,7 @@ class BusinessException extends AppException {
   final int code;
   const BusinessException({required this.code, required String message})
       : super(message);
+
+  @override
+  String toString() => 'BusinessException(code: $code): $message';
 }

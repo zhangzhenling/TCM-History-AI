@@ -5,8 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tcm_history_ai/core/network/token_storage.dart';
+import 'package:tcm_history_ai/features/profile/data/profile_repository.dart';
 import 'package:tcm_history_ai/features/profile/domain/profile_state.dart';
 import 'package:tcm_history_ai/features/profile/presentation/profile_provider.dart';
+
+/// 伪 ProfileRepository：避免真实网络请求（CI 无后端）。
+class _FakeProfileRepository implements ProfileRepository {
+  @override
+  Future<ProfileState> fetchProfile() async {
+    return const ProfileState.placeholder();
+  }
+}
 
 void main() {
   late ProviderContainer container;
@@ -19,6 +28,7 @@ void main() {
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        profileRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
       ],
     );
   });
