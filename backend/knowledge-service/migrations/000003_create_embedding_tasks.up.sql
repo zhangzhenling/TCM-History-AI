@@ -22,10 +22,24 @@ CREATE INDEX IF NOT EXISTS idx_embedding_tasks_status ON embedding_tasks(status)
 CREATE INDEX IF NOT EXISTS idx_embedding_tasks_document_id ON embedding_tasks(document_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_tasks_status_created ON embedding_tasks(status, created_at);
 
-ALTER TABLE embedding_tasks
-    ADD CONSTRAINT fk_embedding_tasks_document
-    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_embedding_tasks_document'
+    ) THEN
+        ALTER TABLE embedding_tasks
+            ADD CONSTRAINT fk_embedding_tasks_document
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+    END IF;
+END $$;
 
-ALTER TABLE embedding_tasks
-    ADD CONSTRAINT fk_embedding_tasks_chunk
-    FOREIGN KEY (chunk_id) REFERENCES document_chunks(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_embedding_tasks_chunk'
+    ) THEN
+        ALTER TABLE embedding_tasks
+            ADD CONSTRAINT fk_embedding_tasks_chunk
+            FOREIGN KEY (chunk_id) REFERENCES document_chunks(id) ON DELETE CASCADE;
+    END IF;
+END $$;

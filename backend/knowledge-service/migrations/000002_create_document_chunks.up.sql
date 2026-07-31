@@ -24,6 +24,13 @@ CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding_id ON document_chunks(e
 CREATE INDEX IF NOT EXISTS idx_document_chunks_classic ON document_chunks(classic_code);
 CREATE INDEX IF NOT EXISTS idx_document_chunks_doc ON document_chunks(document_id);
 
-ALTER TABLE document_chunks
-    ADD CONSTRAINT fk_document_chunks_document
-    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_document_chunks_document'
+    ) THEN
+        ALTER TABLE document_chunks
+            ADD CONSTRAINT fk_document_chunks_document
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+    END IF;
+END $$;
