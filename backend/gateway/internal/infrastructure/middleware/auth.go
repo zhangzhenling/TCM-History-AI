@@ -15,10 +15,12 @@ import (
 	"tcm-history-ai/backend/pkg/response"
 )
 
-// whitelist holds the path-prefix list that bypasses JWT verification. The
-// gateway must allow unauthenticated access to the auth endpoints themselves
-// plus its own health probe.
+// whitelist holds the path list that bypasses JWT verification. The gateway
+// must allow unauthenticated access to the auth endpoints themselves, its own
+// health probe, and common browser requests (root path, favicon, CORS preflight).
 var whitelist = []string{
+	"/",
+	"/favicon.ico",
 	"/health",
 	"/api/v1/auth/login",
 	"/api/v1/auth/register",
@@ -40,6 +42,11 @@ type jwtClaims struct {
 // controller can forward them as X-User-ID / X-User-Roles headers.
 func (c *Chain) Auth() app.HandlerFunc {
 	return func(ctx context.Context, rc *app.RequestContext) {
+		// CORS preflight requests must never be subject to auth.
+		if string(rc.Method()) == "OPTIONS" {
+			rc.Next(ctx)
+			return
+		}
 		path := string(rc.Path())
 		if isWhitelisted(path) {
 			rc.Next(ctx)

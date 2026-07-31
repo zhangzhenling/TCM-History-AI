@@ -41,13 +41,14 @@ func TestIsWhitelisted(t *testing.T) {
 		{"/api/v1/auth/login", true},
 		{"/api/v1/auth/register", true},
 		{"/api/v1/auth/refresh", true},
+		{"/", true},
+		{"/favicon.ico", true},
 		// Whitelist is exact-match only; sub-paths are NOT whitelisted.
 		{"/health/sub", false},
 		{"/api/v1/auth/login/sub", false},
 		{"/api/v1/users", false},
 		{"/api/v1/history/persons", false},
 		{"", false},
-		{"/", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {

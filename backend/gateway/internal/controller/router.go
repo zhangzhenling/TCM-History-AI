@@ -27,6 +27,8 @@ func RegisterRoutes(h *server.Hertz, deps *Deps, mw *middleware.Chain) {
 	)
 
 	h.GET("/health", deps.Health.Health)
+	h.GET("/", deps.Health.Root)
+	h.GET("/favicon.ico", deps.Health.Favicon)
 
 	// Everything else is proxied. Hertz doesn't expose a single catch-all
 	// method, so register every verb we expect to forward.
