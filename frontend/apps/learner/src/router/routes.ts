@@ -108,6 +108,7 @@ export const learnerRoutes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/layouts/BlankLayout.vue'),
+    redirect: '/app/home',
     children: [
       {
         path: 'login',
