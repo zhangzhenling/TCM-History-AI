@@ -3,29 +3,48 @@
 -- ============================================================================
 -- 用途：部署后一次性执行，创建所有数据库、表结构、RBAC 种子数据和初始登录账号
 -- 执行方式：
---   psql -h <host> -U tcm -d tcm_history -f init-all.sql
+--   psql -h <host> -U tcm -d postgres -f init-all.sql
 --   或在 docker-compose 中将本文件挂载覆盖 init-db.sql 即可自动执行
 -- ============================================================================
 
+-- ============================================================================
+-- 第一部分：数据库创建（不能在事务块内执行 CREATE DATABASE）
+-- ============================================================================
+
+-- 1.1 创建默认库 tcm_history（user-service + history-service 共用）
+SELECT 'CREATE DATABASE tcm_history'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'tcm_history')\gexec
+
+-- 1.2 创建其余业务库
+SELECT 'CREATE DATABASE tcm_knowledge'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'tcm_knowledge')\gexec
+
+SELECT 'CREATE DATABASE tcm_graph'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'tcm_graph')\gexec
+
+SELECT 'CREATE DATABASE tcm_ai'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'tcm_ai')\gexec
+
+SELECT 'CREATE DATABASE tcm_learning'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'tcm_learning')\gexec
+
+-- 1.3 为所有业务库授予 tcm 用户完整权限
+GRANT ALL PRIVILEGES ON DATABASE tcm_history   TO tcm;
+GRANT ALL PRIVILEGES ON DATABASE tcm_knowledge TO tcm;
+GRANT ALL PRIVILEGES ON DATABASE tcm_graph     TO tcm;
+GRANT ALL PRIVILEGES ON DATABASE tcm_ai        TO tcm;
+GRANT ALL PRIVILEGES ON DATABASE tcm_learning  TO tcm;
+
+-- 1.4 切换到 tcm_history 库，后续表结构均在此库中创建
+\connect tcm_history
+
+-- ============================================================================
+-- 第二部分：表结构、RBAC 种子数据、初始账号
+-- ============================================================================
 BEGIN;
 
 -- ============================================================================
--- 第一部分：数据库创建
--- 注意：tcm_history 由 POSTGRES_DB 环境变量自动创建，此处补充其余业务库
--- ============================================================================
-CREATE DATABASE tcm_knowledge;
-CREATE DATABASE tcm_graph;
-CREATE DATABASE tcm_ai;
-CREATE DATABASE tcm_learning;
-
--- 为所有业务库授予 tcm 用户完整权限
-GRANT ALL PRIVILEGES ON DATABASE tcm_knowledge TO tcm;
-GRANT ALL PRIVILEGES ON DATABASE tcm_graph    TO tcm;
-GRANT ALL PRIVILEGES ON DATABASE tcm_ai       TO tcm;
-GRANT ALL PRIVILEGES ON DATABASE tcm_learning TO tcm;
-
--- ============================================================================
--- 第二部分：通用工具函数
+-- 通用工具函数
 -- ============================================================================
 
 -- updated_at 自动维护触发器函数
