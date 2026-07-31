@@ -114,9 +114,7 @@ func (s *StubProvider) Model() string {
 // fixed ack response so that downstream code can exercise the full chat / agent
 // pipeline without depending on a real LLM.
 func (s *StubProvider) Chat(ctx context.Context, req service.LLMChatRequest) (*service.LLMChatResponse, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	_ = ctx
 	if len(req.Messages) == 0 {
 		return nil, errno.New(errno.InvalidParams, "llm: empty messages")
 	}

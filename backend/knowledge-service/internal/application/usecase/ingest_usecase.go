@@ -83,7 +83,7 @@ func (uc *IngestUseCase) IngestMarkdown(ctx context.Context, documentID int64, m
 		if err != nil {
 			return errno.Wrap(errno.DependencyUnavailable, "ingest: fetch markdown from minio", err)
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 		body, err := io.ReadAll(reader)
 		if err != nil {
 			return errno.Wrap(errno.DependencyUnavailable, "ingest: read markdown body", err)

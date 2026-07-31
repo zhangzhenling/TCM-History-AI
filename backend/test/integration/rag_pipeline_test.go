@@ -189,7 +189,7 @@ func TestRAGPipeline_EndToEnd(t *testing.T) {
 	err = db.Raw(`
 		SELECT d.title, dc.content
 		FROM rag_queries rq
-		JOIN document_chunks dc ON dc.id::text = ANY (string_to_array(replace(replace(rq.retrieved_chunk_ids::text, '[', ''), ']', ''), ',')::bigint[])
+		JOIN document_chunks dc ON dc.id = ANY (string_to_array(replace(replace(rq.retrieved_chunk_ids::text, '[', ''), ']', ''), ',')::bigint[])
 		JOIN documents d ON d.id = dc.document_id
 		WHERE rq.id = $1
 		LIMIT 1`, ragQueryID).

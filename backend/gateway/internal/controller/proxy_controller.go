@@ -174,7 +174,7 @@ func (p *ProxyController) Proxy(ctx context.Context, c *app.RequestContext) {
 		response.FailWith(ctx, c, errno.InternalError, "read downstream body")
 		return
 	}
-	c.Write(bodyBytes)
+	_, _ = c.Write(bodyBytes)
 }
 
 // isHopByHop reports whether header k is hop-by-hop.

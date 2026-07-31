@@ -145,7 +145,7 @@ func (c *Client) do(httpReq *http.Request) ([]byte, error) {
 	if err != nil {
 		return nil, errno.Wrap(errno.DependencyUnavailable, "retrieval: call upstream", err)
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {

@@ -88,7 +88,7 @@ func (e *HTTPExecutor) Execute(ctx context.Context, toolName string, params map[
 		// 调用失败时回退到桩结果，避免阻塞 Agent 链路（参考 doc/07 §9.2 降级策略）。
 		return stubResult(t.Name, params), nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	var parsed map[string]any
 	if err := json.Unmarshal(respBody, &parsed); err != nil {

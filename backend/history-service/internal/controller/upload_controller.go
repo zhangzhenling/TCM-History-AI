@@ -38,7 +38,7 @@ func (h *UploadController) Upload(ctx context.Context, c *app.RequestContext) {
 		response.Fail(ctx, c, errno.Wrap(errno.InvalidParams, "open uploaded file", err))
 		return
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	resp, err := h.uc.Upload(ctx, purpose, fileHeader.Filename, fileHeader.Header.Get("Content-Type"), fileHeader.Size, src)
 	okOrFail(ctx, c, resp, err)

@@ -104,6 +104,6 @@ func newTestBGEServer() *httptest.Server {
 			data += fmt.Sprintf(`{"object":"embedding","index":%d,"embedding":%s}`, i, vecJSON)
 		}
 
-		fmt.Fprintf(w, `{"object":"list","data":[%s],"model":"bge-large-zh-v1.5","usage":{"prompt_tokens":%d,"total_tokens":%d}}`, data, batch*10, batch*10)
+		_, _ = fmt.Fprintf(w, `{"object":"list","data":[%s],"model":"bge-large-zh-v1.5","usage":{"prompt_tokens":%d,"total_tokens":%d}}`, data, batch*10, batch*10)
 	}))
 }

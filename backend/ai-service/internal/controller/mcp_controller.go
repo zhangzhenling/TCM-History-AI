@@ -48,8 +48,8 @@ func (h *MCPController) SSE(ctx context.Context, c *app.RequestContext) {
 
 	// Write the initial endpoint event.
 	endpoint := "/mcp/message?session_id=" + sessionID
-	c.WriteString("event: endpoint\n")
-	c.WriteString("data: " + endpoint + "\n\n")
+	_, _ = c.WriteString("event: endpoint\n")
+	_, _ = c.WriteString("data: " + endpoint + "\n\n")
 
 	// Flush headers.
 	if flusher, ok := c.GetWriter().(interface{ Flush() error }); ok {
@@ -67,7 +67,7 @@ func (h *MCPController) SSE(ctx context.Context, c *app.RequestContext) {
 				return
 			}
 			raw, _ := json.Marshal(resp)
-			c.WriteString("event: message\n")
+			_, _ = c.WriteString("event: message\n")
 			c.WriteString("data: " + string(raw) + "\n\n")
 			if flusher, ok := c.GetWriter().(interface{ Flush() error }); ok {
 				_ = flusher.Flush()
@@ -146,7 +146,7 @@ func writeMCPResponse(ctx context.Context, c *app.RequestContext, resp *mcp.Resp
 		c.SetStatusCode(status)
 	}
 	raw, _ := json.Marshal(resp)
-	c.Write(raw)
+	_, _ = c.Write(raw)
 }
 
 // scopesFromHeader extracts bearer token scopes from the Authorization header.

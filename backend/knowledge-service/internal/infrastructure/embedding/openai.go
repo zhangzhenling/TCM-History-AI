@@ -129,7 +129,7 @@ func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32
 	if err != nil {
 		return nil, errno.Wrap(errno.DependencyUnavailable, "embedding/openai: call api", err)
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	respBody, err := io.ReadAll(httpResp.Body)
 	if err != nil {

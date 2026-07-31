@@ -35,7 +35,7 @@ func (h *DocumentController) UploadMarkdown(ctx context.Context, c *app.RequestC
 		response.FailWith(ctx, c, errno.InternalError, "cannot open uploaded file")
 		return
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	body, err := io.ReadAll(src)
 	if err != nil {

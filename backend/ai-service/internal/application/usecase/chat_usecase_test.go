@@ -649,16 +649,18 @@ func TestToMessageResponse_Timestamps(t *testing.T) {
 	require.NoError(t, err)
 
 	// Find any persisted message and exercise the mapper via ListByConversation
-	// after stamping its CreatedAt.
+	// after stamping all messages' CreatedAt (ListByConversation sorts by ID,
+	// so the first item in the sorted list may not be the one we stamped).
+	var convID int64
 	for _, m := range msgRepo.items {
 		m.CreatedAt = time.Now()
-		list, err := uc.ListMessages(context.Background(), m.ConversationID, pagination.Params{Page: 1, PageSize: 10})
-		require.NoError(t, err)
-		// A single chat turn persists 2 messages (user + assistant).
-		require.Len(t, list.Items, 2)
-		assert.NotEmpty(t, list.Items[0].CreatedAt)
-		break
+		convID = m.ConversationID
 	}
+	list, err := uc.ListMessages(context.Background(), convID, pagination.Params{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	// A single chat turn persists 2 messages (user + assistant).
+	require.Len(t, list.Items, 2)
+	assert.NotEmpty(t, list.Items[0].CreatedAt)
 }
 
 // TestChatUseCase_ConstantsSanity verifies LLMMessage construction uses the

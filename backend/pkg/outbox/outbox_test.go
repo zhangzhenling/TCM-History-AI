@@ -117,7 +117,7 @@ func TestRepository_MarkPublished(t *testing.T) {
 	// avoid scanning occurred_at, which SQLite returns as string).
 	var status string
 	var publishedAtStr string
-	db.Raw(`SELECT status, COALESCE(CAST(published_at AS TEXT), '') FROM outbox_messages WHERE id = ?`, id).Row().Scan(&status, &publishedAtStr)
+	_ = db.Raw(`SELECT status, COALESCE(CAST(published_at AS TEXT), '') FROM outbox_messages WHERE id = ?`, id).Row().Scan(&status, &publishedAtStr)
 	if status != StatusPublished {
 		t.Errorf("expected status published, got %s", status)
 	}
@@ -173,7 +173,7 @@ func TestRepository_MarkFailed_RetriesWhileUnderCap(t *testing.T) {
 		// Verify status is still pending (targeted select to avoid scanning
 		// occurred_at, which SQLite returns as string).
 		var status, lastErr string
-		db.Raw(`SELECT status, COALESCE(last_error, '') FROM outbox_messages WHERE id = ?`, pending[0].ID).Row().Scan(&status, &lastErr)
+		_ = db.Raw(`SELECT status, COALESCE(last_error, '') FROM outbox_messages WHERE id = ?`, pending[0].ID).Row().Scan(&status, &lastErr)
 		if status != StatusPending {
 			t.Fatalf("iteration %d: expected status pending, got %s", i, status)
 		}
@@ -189,7 +189,7 @@ func TestRepository_MarkFailed_RetriesWhileUnderCap(t *testing.T) {
 	}
 	_ = repo.MarkFailed(ctx, pending[0].ID, "permanent failure")
 	var status string
-	db.Raw(`SELECT status FROM outbox_messages WHERE id = ?`, pending[0].ID).Row().Scan(&status)
+	_ = db.Raw(`SELECT status FROM outbox_messages WHERE id = ?`, pending[0].ID).Row().Scan(&status)
 	if status != StatusFailed {
 		t.Errorf("expected status failed after MaxAttempts, got %s", status)
 	}
@@ -314,10 +314,20 @@ func TestRelay_HappyPath(t *testing.T) {
 	}
 
 	// All rows should now be marked published.
+	// Retry a few times to allow MarkPublished calls to commit.
 	var pendingCount int64
-	db.Model(&Message{}).Where("status = ?", StatusPending).Count(&pendingCount)
-	if pendingCount != 0 {
-		t.Errorf("expected 0 pending after relay, got %d", pendingCount)
+	deadline2 := time.After(500 * time.Millisecond)
+	for {
+		db.Model(&Message{}).Where("status = ?", StatusPending).Count(&pendingCount)
+		if pendingCount == 0 {
+			break
+		}
+		select {
+		case <-deadline2:
+			t.Errorf("expected 0 pending after relay, got %d", pendingCount)
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 	var publishedCount int64
 	db.Model(&Message{}).Where("status = ?", StatusPublished).Count(&publishedCount)

@@ -5,12 +5,12 @@ import "encoding/json"
 // ChatRequest is the payload for POST /api/v1/ai/chat.
 // 单轮或多轮对话的请求体。conversation_id 为空时新建对话。
 type ChatRequest struct {
-	ConversationID int64             `json:"conversation_id,optional"`
-	UserID         int64             `json:"user_id,optional"`
-	Mode           string            `json:"mode,optional"`           // chat | agent | reasoning
-	Message        string            `json:"message,required"`        // 本轮用户输入
-	Variables      map[string]any    `json:"variables,optional"`      // Prompt 渲染变量
-	TemplateScene  string            `json:"template_scene,optional"` // 指定 Prompt 模板场景，默认 chat
+	ConversationID int64             `json:"conversation_id,omitempty"`
+	UserID         int64             `json:"user_id,omitempty"`
+	Mode           string            `json:"mode,omitempty"`           // chat | agent | reasoning
+	Message        string            `json:"message"`                  // 本轮用户输入
+	Variables      map[string]any    `json:"variables,omitempty"`      // Prompt 渲染变量
+	TemplateScene  string            `json:"template_scene,omitempty"` // 指定 Prompt 模板场景，默认 chat
 }
 
 // ChatResponse is the wire representation of a chat turn.
@@ -27,10 +27,10 @@ type ChatResponse struct {
 
 // AgentRequest is the payload for POST /api/v1/ai/agents/run.
 type AgentRequest struct {
-	ConversationID int64          `json:"conversation_id,optional"`
-	UserID        int64          `json:"user_id,optional"`
-	Question     string          `json:"question,required"`
-	Variables     map[string]any `json:"variables,optional"`
+	ConversationID int64          `json:"conversation_id,omitempty"`
+	UserID        int64          `json:"user_id,omitempty"`
+	Question     string          `json:"question"`
+	Variables     map[string]any `json:"variables,omitempty"`
 }
 
 // AgentStep is a single step in an Agent run, used by AgentResponse.Steps.
@@ -56,17 +56,17 @@ type AgentResponse struct {
 
 // PromptTemplateRequest is the create/update payload for prompt templates.
 type PromptTemplateRequest struct {
-	Name          string          `json:"name,required"`
-	Scene         string          `json:"scene,required"`
-	SystemPrompt  string          `json:"system_prompt,required"`
-	Template      string          `json:"template,optional"`
-	VariablesJSON json.RawMessage `json:"variables_json,optional"`
-	Model         string          `json:"model,optional"`
-	Temperature   float32         `json:"temperature,optional"`
-	MaxTokens     int             `json:"max_tokens,optional"`
-	TopP          float32         `json:"top_p,optional"`
-	IsActive      bool            `json:"is_active,optional"`
-	Version       int             `json:"version,optional"`
+	Name          string          `json:"name"`
+	Scene         string          `json:"scene"`
+	SystemPrompt  string          `json:"system_prompt"`
+	Template      string          `json:"template,omitempty"`
+	VariablesJSON json.RawMessage `json:"variables_json,omitempty"`
+	Model         string          `json:"model,omitempty"`
+	Temperature   float32         `json:"temperature,omitempty"`
+	MaxTokens     int             `json:"max_tokens,omitempty"`
+	TopP          float32         `json:"top_p,omitempty"`
+	IsActive      bool            `json:"is_active,omitempty"`
+	Version       int             `json:"version,omitempty"`
 }
 
 // PromptTemplateResponse is the wire representation of a prompt template.
@@ -89,14 +89,14 @@ type PromptTemplateResponse struct {
 
 // ToolRequest is the create/update payload for tools.
 type ToolRequest struct {
-	Name           string          `json:"name,required"`
-	Description    string          `json:"description,optional"`
-	Endpoint       string          `json:"endpoint,optional"`
-	Method         string          `json:"method,optional"`
-	ParametersJSON json.RawMessage `json:"parameters_json,optional"`
-	Category       string          `json:"category,optional"`
-	IsEnabled      bool            `json:"is_enabled,optional"`
-	Version        string          `json:"version,optional"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description,omitempty"`
+	Endpoint       string          `json:"endpoint,omitempty"`
+	Method         string          `json:"method,omitempty"`
+	ParametersJSON json.RawMessage `json:"parameters_json,omitempty"`
+	Category       string          `json:"category,omitempty"`
+	IsEnabled      bool            `json:"is_enabled,omitempty"`
+	Version        string          `json:"version,omitempty"`
 }
 
 // ToolResponse is the wire representation of a tool.
@@ -116,7 +116,7 @@ type ToolResponse struct {
 
 // ToolExecuteRequest is the payload for POST /api/v1/ai/tools/:id/execute.
 type ToolExecuteRequest struct {
-	Params map[string]any `json:"params,optional"`
+	Params map[string]any `json:"params,omitempty"`
 }
 
 // ToolExecuteResponse is the wire representation of a tool execution result.

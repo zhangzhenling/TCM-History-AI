@@ -115,7 +115,7 @@ func (c *Client) runCypher(ctx context.Context, stmt string, params map[string]a
 	if err != nil {
 		return nil, errno.Wrap(errno.DependencyUnavailable, "neo4j: call api", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errno.Wrap(errno.DependencyUnavailable, "neo4j: read body", err)
@@ -164,7 +164,7 @@ func (c *Client) runMultiCypher(ctx context.Context, stmts []cypherStatement) er
 	if err != nil {
 		return errno.Wrap(errno.DependencyUnavailable, "neo4j: call api", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return errno.Wrap(errno.DependencyUnavailable, "neo4j: read body", err)

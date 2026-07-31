@@ -21,7 +21,7 @@ func TestDefault_NoInitReturnsNoop(t *testing.T) {
 	require.NotNil(t, l)
 	// A no-op logger should not panic on any call.
 	l.Info("no-op")
-	l.Sync()
+	_ = l.Sync()
 }
 
 // TestSet_DefaultRoundTrip verifies Set installs a logger that Default then
