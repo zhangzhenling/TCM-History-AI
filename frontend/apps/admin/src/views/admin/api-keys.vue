@@ -125,7 +125,7 @@ function closeModal() {
         <Button type="primary" @click="openCreate">创建 API Key</Button>
       </div>
 
-      <Table :data-source="dataSource" :columns="columns" :loading="loading" :pagination="false" row-key="id" size="middle">
+      <Table :data-source="(dataSource as any)" :columns="columns" :loading="loading" :pagination="false" row-key="id" size="middle">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
             <Button type="link" size="small" @click="openEdit(record)">编辑</Button>
