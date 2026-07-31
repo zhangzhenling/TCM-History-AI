@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	"tcm-history-ai/backend/history-service/internal/application/dto"
@@ -131,6 +130,4 @@ func toDynastyResponse(d *entity.Dynasty) *dto.DynastyResponse {
 	}
 }
 
-// errEmptyDynasty signals an empty result from the repository; only used
-// internally to keep the contract uniform across entities.
-var errEmptyDynasty = errors.New("dynasty: empty result")
+

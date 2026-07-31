@@ -68,13 +68,13 @@ func (h *MCPController) SSE(ctx context.Context, c *app.RequestContext) {
 			}
 			raw, _ := json.Marshal(resp)
 			_, _ = c.WriteString("event: message\n")
-			c.WriteString("data: " + string(raw) + "\n\n")
+			_, _ = c.WriteString("data: " + string(raw) + "\n\n")
 			if flusher, ok := c.GetWriter().(interface{ Flush() error }); ok {
 				_ = flusher.Flush()
 			}
 		case <-ticker.C:
 			// Keep-alive comment.
-			c.WriteString(":keepalive\n\n")
+			_, _ = c.WriteString(":keepalive\n\n")
 			if flusher, ok := c.GetWriter().(interface{ Flush() error }); ok {
 				_ = flusher.Flush()
 			}
@@ -115,7 +115,7 @@ func (h *MCPController) Message(ctx context.Context, c *app.RequestContext) {
 		h.server.SendToSession(sessionID, resp)
 		// Acknowledge the request.
 		c.SetStatusCode(202)
-		c.WriteString("Accepted")
+		_, _ = c.WriteString("Accepted")
 		return
 	}
 

@@ -28,7 +28,7 @@ func (h *IngestController) Ingest(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	var body struct {
-		MarkdownText string `json:"markdown_text,optional"`
+		MarkdownText string `json:"markdown_text,omitempty"`
 	}
 	_ = c.BindJSON(&body) // 允许空 body
 

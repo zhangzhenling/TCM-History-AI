@@ -112,7 +112,7 @@ func (c *Client) doPOST(ctx context.Context, path string, body any) ([]byte, int
 	if err != nil {
 		return nil, 0, errno.Wrap(errno.DependencyUnavailable, "milvus: call api", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, resp.StatusCode, errno.Wrap(errno.DependencyUnavailable, "milvus: read body", err)

@@ -154,7 +154,7 @@ func (p *AnthropicProvider) Chat(ctx context.Context, req service.LLMChatRequest
 	if err != nil {
 		return nil, errno.Wrap(errno.DependencyUnavailable, "llm/anthropic: call api", err)
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	respBody, err := io.ReadAll(httpResp.Body)
 	if err != nil {

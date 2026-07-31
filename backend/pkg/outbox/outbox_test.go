@@ -370,11 +370,22 @@ func TestRelay_RetriesOnFailure(t *testing.T) {
 
 	// Verify the message is now published (targeted select to avoid
 	// scanning occurred_at, which SQLite returns as string).
+	// Retry a few times to allow MarkPublished to commit after the
+	// successful retry.
 	var status string
 	var attempts int
-	db.Raw(`SELECT status, attempts FROM outbox_messages WHERE routing_key = ?`, "ai.test.retry").Row().Scan(&status, &attempts)
-	if status != StatusPublished {
-		t.Errorf("expected status published after retry, got %s", status)
+	deadline2 := time.After(500 * time.Millisecond)
+	for {
+		_ = db.Raw(`SELECT status, attempts FROM outbox_messages WHERE routing_key = ?`, "ai.test.retry").Row().Scan(&status, &attempts)
+		if status == StatusPublished {
+			break
+		}
+		select {
+		case <-deadline2:
+			t.Errorf("expected status published after retry, got %s", status)
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 	if attempts < 2 {
 		t.Errorf("expected attempts >= 2, got %d", attempts)

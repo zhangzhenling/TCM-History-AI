@@ -4,22 +4,22 @@ import "encoding/json"
 
 // DocumentRequest is the create/update payload for documents.
 type DocumentRequest struct {
-	ClassicCode       string          `json:"classic_code,required"`
-	Title             string          `json:"title,required"`
-	Version           string          `json:"version,optional"`
-	Dynasty           string          `json:"dynasty,optional"`
-	School            string          `json:"school,optional"`
-	Author            string          `json:"author,optional"`
-	SourceType        string          `json:"source_type,optional"`
-	SourceRef         string          `json:"source_ref,optional"`
-	FileURL           string          `json:"file_url,optional"`
-	PDFObjectKey      string          `json:"pdf_object_key,optional"`
-	MarkdownObjectKey string          `json:"markdown_object_key,optional"`
-	MimeType          string          `json:"mime_type,optional"`
-	ContentHash       string          `json:"content_hash,optional"`
-	VolumeCount       int             `json:"volume_count,optional"`
-	ClauseCount       int             `json:"clause_count,optional"`
-	MetadataJSON      json.RawMessage `json:"metadata_json,optional"`
+	ClassicCode       string          `json:"classic_code"`
+	Title             string          `json:"title"`
+	Version           string          `json:"version,omitempty"`
+	Dynasty           string          `json:"dynasty,omitempty"`
+	School            string          `json:"school,omitempty"`
+	Author            string          `json:"author,omitempty"`
+	SourceType        string          `json:"source_type,omitempty"`
+	SourceRef         string          `json:"source_ref,omitempty"`
+	FileURL           string          `json:"file_url,omitempty"`
+	PDFObjectKey      string          `json:"pdf_object_key,omitempty"`
+	MarkdownObjectKey string          `json:"markdown_object_key,omitempty"`
+	MimeType          string          `json:"mime_type,omitempty"`
+	ContentHash       string          `json:"content_hash,omitempty"`
+	VolumeCount       int             `json:"volume_count,omitempty"`
+	ClauseCount       int             `json:"clause_count,omitempty"`
+	MetadataJSON      json.RawMessage `json:"metadata_json,omitempty"`
 }
 
 // DocumentResponse is the wire representation of a document.
@@ -87,13 +87,13 @@ type TaskResponse struct {
 
 // RetrieveRequest is the payload for RAG retrieval.
 type RetrieveRequest struct {
-	Query        string   `json:"query,required"`
-	TopK         int      `json:"topk,optional"`
-	ClassicCodes []string `json:"classic_codes,optional"`
-	Dynasties    []string `json:"dynasties,optional"`
-	Schools      []string `json:"schools,optional"`
-	ContentTypes []string `json:"content_types,optional"`
-	SessionID    string   `json:"session_id,optional"`
+	Query        string   `json:"query"`
+	TopK         int      `json:"topk,omitempty"`
+	ClassicCodes []string `json:"classic_codes,omitempty"`
+	Dynasties    []string `json:"dynasties,omitempty"`
+	Schools      []string `json:"schools,omitempty"`
+	ContentTypes []string `json:"content_types,omitempty"`
+	SessionID    string   `json:"session_id,omitempty"`
 }
 
 // RetrievedChunk is a single hit in retrieval results.
@@ -123,5 +123,5 @@ type RetrieveResponse struct {
 
 // FeedbackRequest updates a rag_query's feedback field.
 type FeedbackRequest struct {
-	Feedback string `json:"feedback,required"` // good | bad
+	Feedback string `json:"feedback"` // good | bad
 }

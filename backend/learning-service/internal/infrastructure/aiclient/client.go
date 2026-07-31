@@ -82,7 +82,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (string, error) {
 		logger.Default().Warn("ai service chat call failed", zap.Error(err))
 		return "", nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", nil

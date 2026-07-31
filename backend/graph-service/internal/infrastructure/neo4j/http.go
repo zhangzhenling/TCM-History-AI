@@ -300,13 +300,6 @@ func parseEdgeList(raw json.RawMessage, types []string, srcUIDs, tgtUIDs []strin
 	return out
 }
 
-// parseStringList parses a column that is an array of strings.
-func parseStringList(raw json.RawMessage) []string {
-	var arr []string
-	_ = json.Unmarshal(raw, &arr)
-	return arr
-}
-
 // httpEnsureConstraints 建立 8 类节点唯一约束 + B-Tree 索引（doc/05 §5.8）。
 func (c *Client) httpEnsureConstraints(ctx context.Context) error {
 	var stmts []cypherStatement

@@ -2,17 +2,17 @@ package dto
 
 // PersonRequest is the create/update payload for history_person.
 type PersonRequest struct {
-	Name         string `json:"name,required"`
-	CourtesyName string `json:"courtesy_name,optional"`
-	AliasName    string `json:"alias_name,optional"`
-	DynastyID    int64  `json:"dynasty_id,optional"`
-	BirthYear    int16  `json:"birth_year,optional"`
-	DeathYear    int16  `json:"death_year,optional"`
-	Gender       string `json:"gender,optional"`
-	Title        string `json:"title,optional"`
-	Biography    string `json:"biography,optional"`
-	Achievements string `json:"achievements,optional"`
-	PortraitURL  string `json:"portrait_url,optional"`
+	Name         string `json:"name"`
+	CourtesyName string `json:"courtesy_name,omitempty"`
+	AliasName    string `json:"alias_name,omitempty"`
+	DynastyID    int64  `json:"dynasty_id,omitempty"`
+	BirthYear    int16  `json:"birth_year,omitempty"`
+	DeathYear    int16  `json:"death_year,omitempty"`
+	Gender       string `json:"gender,omitempty"`
+	Title        string `json:"title,omitempty"`
+	Biography    string `json:"biography,omitempty"`
+	Achievements string `json:"achievements,omitempty"`
+	PortraitURL  string `json:"portrait_url,omitempty"`
 }
 
 // PersonResponse is the wire representation of a person.

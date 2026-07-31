@@ -2,12 +2,12 @@ package dto
 
 // DiseaseRequest is the create/update payload for disease.
 type DiseaseRequest struct {
-	Name            string `json:"name,required"`
-	Pinyin          string `json:"pinyin,optional"`
-	Category        string `json:"category,optional"`
-	Description     string `json:"description,optional"`
-	Symptoms        string `json:"symptoms,optional"`
-	TCMPathogenesis string `json:"tcm_pathogenesis,optional"`
+	Name            string `json:"name"`
+	Pinyin          string `json:"pinyin,omitempty"`
+	Category        string `json:"category,omitempty"`
+	Description     string `json:"description,omitempty"`
+	Symptoms        string `json:"symptoms,omitempty"`
+	TCMPathogenesis string `json:"tcm_pathogenesis,omitempty"`
 }
 
 // DiseaseResponse is the wire representation of a disease.

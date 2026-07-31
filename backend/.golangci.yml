@@ -1,0 +1,24 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -QF1001
+        - -QF1008
+        - -QF1011
+        - -S1007
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: '_test\.go'
+      linters:
+        - unused
+    - path: '_test\.go'
+      text: 'SA1019'

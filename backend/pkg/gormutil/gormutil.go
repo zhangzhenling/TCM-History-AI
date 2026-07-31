@@ -42,9 +42,6 @@ type DBConfig struct {
 
 // DSN renders the PostgreSQL DSN for this config.
 func (c DBConfig) DSN() string {
-	if c.Driver == "" {
-		c.Driver = "postgres"
-	}
 	ssl := c.SSLMode
 	if ssl == "" {
 		ssl = "disable"

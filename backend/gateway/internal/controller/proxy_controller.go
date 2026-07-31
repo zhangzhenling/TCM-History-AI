@@ -150,7 +150,7 @@ func (p *ProxyController) Proxy(ctx context.Context, c *app.RequestContext) {
 		response.FailWith(ctx, c, errno.DependencyUnavailable, "downstream call failed")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Copy status + headers (skip hop-by-hop) back to the client.
 	c.SetStatusCode(resp.StatusCode)

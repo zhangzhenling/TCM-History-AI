@@ -2,11 +2,11 @@ package dto
 
 // DynastyRequest is the create/update payload for history_dynasty.
 type DynastyRequest struct {
-	Name        string `json:"name,required"`
-	StartYear   int16  `json:"start_year,optional"`
-	EndYear     int16  `json:"end_year,optional"`
-	SortOrder   int    `json:"sort_order,optional"`
-	Description string `json:"description,optional"`
+	Name        string `json:"name"`
+	StartYear   int16  `json:"start_year,omitempty"`
+	EndYear     int16  `json:"end_year,omitempty"`
+	SortOrder   int    `json:"sort_order,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // DynastyResponse is the wire representation of a dynasty.

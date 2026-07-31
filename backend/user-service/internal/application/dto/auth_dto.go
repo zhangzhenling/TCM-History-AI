@@ -5,21 +5,21 @@ package dto
 
 // RegisterRequest is the payload for POST /api/v1/auth/register.
 type RegisterRequest struct {
-	Username string `json:"username,required"`
-	Password string `json:"password,required"`
-	Email    string `json:"email,optional"`
-	Phone    string `json:"phone,optional"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
 }
 
 // LoginRequest is the payload for POST /api/v1/auth/login.
 type LoginRequest struct {
-	Username string `json:"username,required"`
-	Password string `json:"password,required"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // RefreshRequest is the payload for POST /api/v1/auth/refresh.
 type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token,required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // TokenResponse is returned by every auth endpoint that mints a token pair.

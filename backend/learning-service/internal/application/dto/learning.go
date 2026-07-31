@@ -11,15 +11,15 @@ import (
 
 // CourseRequest is the create/update payload for courses.
 type CourseRequest struct {
-	Title           string `json:"title,required"`
-	Description     string `json:"description,optional"`
-	CoverURL        string `json:"cover_url,optional"`
-	Category        string `json:"category,optional"`
-	Difficulty      string `json:"difficulty,optional"`
-	DurationMinutes int    `json:"duration_minutes,optional"`
-	LessonCount     int    `json:"lesson_count,optional"`
-	IsPublished     bool   `json:"is_published,optional"`
-	SortOrder       int    `json:"sort_order,optional"`
+	Title           string `json:"title"`
+	Description     string `json:"description,omitempty"`
+	CoverURL        string `json:"cover_url,omitempty"`
+	Category        string `json:"category,omitempty"`
+	Difficulty      string `json:"difficulty,omitempty"`
+	DurationMinutes int    `json:"duration_minutes,omitempty"`
+	LessonCount     int    `json:"lesson_count,omitempty"`
+	IsPublished     bool   `json:"is_published,omitempty"`
+	SortOrder       int    `json:"sort_order,omitempty"`
 }
 
 // CourseResponse is the wire representation of a course.
@@ -44,15 +44,15 @@ type CourseResponse struct {
 
 // LessonRequest is the create/update payload for lessons.
 type LessonRequest struct {
-	CourseID        int64  `json:"course_id,required"`
-	Title           string `json:"title,required"`
-	Content         string `json:"content,optional"`
-	ContentType     string `json:"content_type,optional"`
-	VideoURL        string `json:"video_url,optional"`
-	DurationMinutes int    `json:"duration_minutes,optional"`
-	SortOrder       int    `json:"sort_order,optional"`
-	IsFree          bool   `json:"is_free,optional"`
-	IsPublished     bool   `json:"is_published,optional"`
+	CourseID        int64  `json:"course_id"`
+	Title           string `json:"title"`
+	Content         string `json:"content,omitempty"`
+	ContentType     string `json:"content_type,omitempty"`
+	VideoURL        string `json:"video_url,omitempty"`
+	DurationMinutes int    `json:"duration_minutes,omitempty"`
+	SortOrder       int    `json:"sort_order,omitempty"`
+	IsFree          bool   `json:"is_free,omitempty"`
+	IsPublished     bool   `json:"is_published,omitempty"`
 }
 
 // LessonResponse is the wire representation of a lesson.
@@ -77,15 +77,15 @@ type LessonResponse struct {
 
 // EnrollmentRequest is the create/update payload for enrollments.
 type EnrollmentRequest struct {
-	UserID   int64 `json:"user_id,required"`
-	CourseID int64 `json:"course_id,required"`
+	UserID   int64 `json:"user_id"`
+	CourseID int64 `json:"course_id"`
 }
 
 // EnrollmentUpdateProgressRequest is the payload for updating enrollment progress.
 type EnrollmentUpdateProgressRequest struct {
-	UserID         int64 `json:"user_id,required"`
-	LastLessonID   int64 `json:"last_lesson_id,optional"`
-	ProgressPercent int  `json:"progress_percent,optional"`
+	UserID         int64 `json:"user_id"`
+	LastLessonID   int64 `json:"last_lesson_id,omitempty"`
+	ProgressPercent int  `json:"progress_percent,omitempty"`
 }
 
 // EnrollmentResponse is the wire representation of an enrollment.
@@ -107,13 +107,13 @@ type EnrollmentResponse struct {
 
 // LearningRecordRequest is the create/update payload for learning records.
 type LearningRecordRequest struct {
-	UserID          int64 `json:"user_id,required"`
-	LessonID        int64 `json:"lesson_id,required"`
-	CourseID        int64 `json:"course_id,required"`
-	DurationSeconds int   `json:"duration_seconds,optional"`
-	PositionPercent int   `json:"position_percent,optional"`
-	LastPosition    int   `json:"last_position,optional"`
-	IsCompleted     bool  `json:"is_completed,optional"`
+	UserID          int64 `json:"user_id"`
+	LessonID        int64 `json:"lesson_id"`
+	CourseID        int64 `json:"course_id"`
+	DurationSeconds int   `json:"duration_seconds,omitempty"`
+	PositionPercent int   `json:"position_percent,omitempty"`
+	LastPosition    int   `json:"last_position,omitempty"`
+	IsCompleted     bool  `json:"is_completed,omitempty"`
 }
 
 // LearningRecordResponse is the wire representation of a learning record.
@@ -137,13 +137,13 @@ type LearningRecordResponse struct {
 
 // ExamRequest is the create/update payload for exams.
 type ExamRequest struct {
-	Title           string `json:"title,required"`
-	CourseID        int64  `json:"course_id,optional"`
-	LessonID        int64  `json:"lesson_id,optional"`
-	Description     string `json:"description,optional"`
-	PassScore       int    `json:"pass_score,optional"`
-	DurationMinutes int    `json:"duration_minutes,optional"`
-	IsPublished     bool   `json:"is_published,optional"`
+	Title           string `json:"title"`
+	CourseID        int64  `json:"course_id,omitempty"`
+	LessonID        int64  `json:"lesson_id,omitempty"`
+	Description     string `json:"description,omitempty"`
+	PassScore       int    `json:"pass_score,omitempty"`
+	DurationMinutes int    `json:"duration_minutes,omitempty"`
+	IsPublished     bool   `json:"is_published,omitempty"`
 }
 
 // ExamResponse is the wire representation of an exam.
@@ -167,14 +167,14 @@ type ExamResponse struct {
 
 // QuestionRequest is the create/update payload for questions.
 type QuestionRequest struct {
-	ExamID      int64           `json:"exam_id,required"`
-	Type        string          `json:"type,required"`
-	Content     string          `json:"content,required"`
-	OptionsJSON json.RawMessage `json:"options_json,optional"`
-	AnswerJSON  json.RawMessage `json:"answer_json,optional"`
-	Explanation string          `json:"explanation,optional"`
-	Score       int             `json:"score,optional"`
-	Difficulty  string          `json:"difficulty,optional"`
+	ExamID      int64           `json:"exam_id"`
+	Type        string          `json:"type"`
+	Content     string          `json:"content"`
+	OptionsJSON json.RawMessage `json:"options_json,omitempty"`
+	AnswerJSON  json.RawMessage `json:"answer_json,omitempty"`
+	Explanation string          `json:"explanation,omitempty"`
+	Score       int             `json:"score,omitempty"`
+	Difficulty  string          `json:"difficulty,omitempty"`
 }
 
 // QuestionResponse is the wire representation of a question.
@@ -198,23 +198,23 @@ type QuestionResponse struct {
 
 // ExamAttemptStartRequest is the payload for starting an exam attempt.
 type ExamAttemptStartRequest struct {
-	ExamID int64 `json:"exam_id,required"`
-	UserID int64 `json:"user_id,required"`
+	ExamID int64 `json:"exam_id"`
+	UserID int64 `json:"user_id"`
 }
 
 // ExamAttemptSaveRequest is the payload for saving answers during an exam
 // (auto-save, not final submit).
 type ExamAttemptSaveRequest struct {
-	UserID  int64                   `json:"user_id,required"`
-	Answers []ExamAttemptAnswerItem `json:"answers,required"`
+	UserID  int64                   `json:"user_id"`
+	Answers []ExamAttemptAnswerItem `json:"answers"`
 }
 
 // ExamAttemptSubmitRequest is the payload for submitting an exam attempt.
 // AnswersJSON maps question_id -> user answer (option indices / text).
 type ExamAttemptSubmitRequest struct {
-	UserID        int64                     `json:"user_id,required"`
-	Answers       []ExamAttemptAnswerItem   `json:"answers,required"`
-	AnswersJSON   json.RawMessage           `json:"answers_json,optional"`
+	UserID        int64                     `json:"user_id"`
+	Answers       []ExamAttemptAnswerItem   `json:"answers"`
+	AnswersJSON   json.RawMessage           `json:"answers_json,omitempty"`
 }
 
 // ExamAttemptAnswerItem is one answer in a submit request.
@@ -282,9 +282,9 @@ type DashboardResponse struct {
 
 // StudyPlanGenerateRequest is the payload for generating a study plan via AI.
 type StudyPlanGenerateRequest struct {
-	UserID     int64  `json:"user_id,required"`
-	Goal       string `json:"goal,required"`
-	TargetDays int    `json:"target_days,optional"`
+	UserID     int64  `json:"user_id"`
+	Goal       string `json:"goal"`
+	TargetDays int    `json:"target_days,omitempty"`
 }
 
 // StudyPlanGenerateResponse is the AI-generated study plan.
@@ -297,11 +297,11 @@ type StudyPlanGenerateResponse struct {
 
 // StudyPlanRequest is the create/update payload for study plans.
 type StudyPlanRequest struct {
-	UserID      int64           `json:"user_id,required"`
-	Title       string          `json:"title,required"`
-	TargetDate  *time.Time      `json:"target_date,optional"`
-	CoursesJSON json.RawMessage `json:"courses_json,optional"`
-	Status      string          `json:"status,optional"`
+	UserID      int64           `json:"user_id"`
+	Title       string          `json:"title"`
+	TargetDate  *time.Time      `json:"target_date,omitempty"`
+	CoursesJSON json.RawMessage `json:"courses_json,omitempty"`
+	Status      string          `json:"status,omitempty"`
 }
 
 // StudyPlanResponse is the wire representation of a study plan.

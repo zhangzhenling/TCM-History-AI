@@ -2,15 +2,15 @@ package dto
 
 // MedicineRequest is the create/update payload for medicine.
 type MedicineRequest struct {
-	Name      string   `json:"name,required"`
-	Pinyin    string   `json:"pinyin,optional"`
-	AliasJSON []string `json:"alias_json,optional"`
-	Nature    string   `json:"nature,optional"`
-	Flavor    string   `json:"flavor,optional"`
-	Meridian  string   `json:"meridian,optional"`
-	Efficacy  string   `json:"efficacy,optional"`
-	Dosage    string   `json:"dosage,optional"`
-	Toxicity  string   `json:"toxicity,optional"`
+	Name      string   `json:"name"`
+	Pinyin    string   `json:"pinyin,omitempty"`
+	AliasJSON []string `json:"alias_json,omitempty"`
+	Nature    string   `json:"nature,omitempty"`
+	Flavor    string   `json:"flavor,omitempty"`
+	Meridian  string   `json:"meridian,omitempty"`
+	Efficacy  string   `json:"efficacy,omitempty"`
+	Dosage    string   `json:"dosage,omitempty"`
+	Toxicity  string   `json:"toxicity,omitempty"`
 }
 
 // MedicineResponse is the wire representation of a medicine.
