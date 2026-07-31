@@ -27,13 +27,13 @@ const columns = [
   { title: '操作', dataIndex: 'action', key: 'action', width: 200 },
 ];
 
-const dataSource = computed(() =>
+const dataSource = computed<any>(() =>
   roles.value.map((r) => ({
     ...r,
     description: r.description || '—',
     created_at: r.created_at?.slice(0, 19).replace('T', ' ') || '—',
   })),
-) as unknown as Record<string, unknown>[];
+);
 
 async function load() {
   loading.value = true;

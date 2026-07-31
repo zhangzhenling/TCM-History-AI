@@ -35,14 +35,14 @@ const columns = [
   { title: '操作', dataIndex: 'action', key: 'action', width: 160 },
 ];
 
-const dataSource = computed(() =>
+const dataSource = computed<any>(() =>
   plans.value.map((p) => ({
     ...p,
     description: p.description || '—',
     price: `¥${(p.price / 100).toFixed(2)}`,
     is_active: p.is_active ? '启用' : '禁用',
   })),
-) as unknown as Record<string, unknown>[];
+);
 
 async function load() {
   loading.value = true;

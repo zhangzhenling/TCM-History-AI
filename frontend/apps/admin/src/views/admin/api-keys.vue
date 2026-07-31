@@ -31,14 +31,14 @@ const columns = [
   { title: '操作', dataIndex: 'action', key: 'action', width: 240 },
 ];
 
-const dataSource = computed(() =>
+const dataSource = computed<any>(() =>
   apiKeys.value.map((k) => ({
     ...k,
     is_active: k.is_active ? '启用' : '禁用',
     last_used_at: k.last_used_at ? formatDateTime(k.last_used_at) : '—',
     created_at: formatDateTime(k.created_at),
   })),
-) as unknown as Record<string, unknown>[];
+);
 
 async function load() {
   loading.value = true;
