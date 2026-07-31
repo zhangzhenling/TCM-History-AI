@@ -128,7 +128,7 @@ function closeModal() {
       <Table :data-source="(dataSource as any)" :columns="columns" :loading="loading" :pagination="false" row-key="id" size="middle">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
-            <Button type="link" size="small" @click="openEdit(record)">编辑</Button>
+            <Button type="link" size="small" @click="openEdit(record as any)">编辑</Button>
             <Button type="link" size="small" @click="handleRegenerate(record.id)">重新生成</Button>
             <Popconfirm title="确定删除此 API Key?" @confirm="handleDelete(record.id)">
               <Button type="link" danger size="small">删除</Button>

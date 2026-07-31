@@ -289,7 +289,7 @@ func TestLearnerJourney_EndToEnd(t *testing.T) {
 		gotQuestionID  int64
 	)
 	err = db.Raw(`
-		SELECT wq.user_id, e.course_id, ex.id, att.id, wq.question_id
+		SELECT wq.user_id, e.id, ex.id, att.id, wq.question_id
 		FROM learning_wrong_questions wq
 		JOIN learning_exams ex ON ex.id = wq.exam_id
 		JOIN learning_courses e ON e.id = ex.course_id
