@@ -661,3 +661,728 @@ CREATE INDEX IF NOT EXISTS idx_prescription_disease_disease_id
     ON prescription_disease (disease_id);
 
 COMMIT;
+
+-- ============================================================================
+-- 第七部分：knowledge-service 表结构（database: tcm_knowledge）
+-- ============================================================================
+
+\connect tcm_knowledge
+
+BEGIN;
+
+-- 7.1 updated_at 自动维护触发器函数（每个库独立创建）
+CREATE OR REPLACE FUNCTION tcm_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 7.2 documents: 文献元信息表
+CREATE TABLE IF NOT EXISTS documents (
+    id              BIGINT       NOT NULL PRIMARY KEY,
+    classic_code    VARCHAR(32)  NOT NULL,
+    title           VARCHAR(255) NOT NULL,
+    version         VARCHAR(32),
+    dynasty         VARCHAR(16),
+    school          VARCHAR(32),
+    author          VARCHAR(64),
+    source_type     VARCHAR(32)  NOT NULL DEFAULT 'book',
+    source_ref      VARCHAR(255),
+    file_url        VARCHAR(512),
+    pdf_object_key  VARCHAR(256),
+    markdown_object_key VARCHAR(256),
+    mime_type       VARCHAR(64),
+    content_hash    VARCHAR(64),
+    status          VARCHAR(32)  NOT NULL DEFAULT 'pending',
+    chunk_count     INTEGER      NOT NULL DEFAULT 0,
+    volume_count    INTEGER,
+    clause_count    INTEGER,
+    metadata_json   JSONB        NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
+CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source_type, source_ref);
+CREATE INDEX IF NOT EXISTS idx_documents_classic ON documents(classic_code);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_documents_content_hash ON documents(content_hash) WHERE content_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_documents_deleted_at ON documents(deleted_at);
+
+-- 7.3 document_chunks: 文献切片表
+CREATE TABLE IF NOT EXISTS document_chunks (
+    id               BIGINT      NOT NULL PRIMARY KEY,
+    document_id      BIGINT      NOT NULL,
+    chunk_id         VARCHAR(64) NOT NULL,
+    chunk_index      INTEGER     NOT NULL,
+    classic_code     VARCHAR(32),
+    volume           VARCHAR(64),
+    clause_no        INTEGER,
+    content_type     VARCHAR(16),
+    content          TEXT        NOT NULL,
+    text_original    TEXT,
+    text_translation TEXT,
+    token_count      INTEGER,
+    embedding_id     VARCHAR(128),
+    embedding_model  VARCHAR(64),
+    metadata_json    JSONB       NOT NULL DEFAULT '{}',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_document_chunks_doc_index ON document_chunks(document_id, chunk_index);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_document_chunks_chunk_id ON document_chunks(chunk_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding_id ON document_chunks(embedding_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_classic ON document_chunks(classic_code);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_doc ON document_chunks(document_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_document_chunks_document'
+    ) THEN
+        ALTER TABLE document_chunks
+            ADD CONSTRAINT fk_document_chunks_document
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- 7.4 embedding_tasks: 文献处理任务状态表
+CREATE TABLE IF NOT EXISTS embedding_tasks (
+    id            BIGINT      NOT NULL PRIMARY KEY,
+    document_id   BIGINT,
+    chunk_id      BIGINT,
+    task_type     VARCHAR(32) NOT NULL,
+    stage         VARCHAR(32),
+    status        VARCHAR(32) NOT NULL DEFAULT 'queued',
+    progress      INTEGER     NOT NULL DEFAULT 0,
+    model         VARCHAR(64),
+    chunk_count   INTEGER     NOT NULL DEFAULT 0,
+    vector_count  INTEGER     NOT NULL DEFAULT 0,
+    error_message TEXT,
+    retry_count   INTEGER     NOT NULL DEFAULT 0,
+    started_at    TIMESTAMPTZ,
+    finished_at   TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_embedding_tasks_status ON embedding_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_embedding_tasks_document_id ON embedding_tasks(document_id);
+CREATE INDEX IF NOT EXISTS idx_embedding_tasks_status_created ON embedding_tasks(status, created_at);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_embedding_tasks_document'
+    ) THEN
+        ALTER TABLE embedding_tasks
+            ADD CONSTRAINT fk_embedding_tasks_document
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_embedding_tasks_chunk'
+    ) THEN
+        ALTER TABLE embedding_tasks
+            ADD CONSTRAINT fk_embedding_tasks_chunk
+            FOREIGN KEY (chunk_id) REFERENCES document_chunks(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- 7.5 rag_queries: RAG 检索日志表
+CREATE TABLE IF NOT EXISTS rag_queries (
+    id                  BIGINT      NOT NULL PRIMARY KEY,
+    session_id          VARCHAR(64),
+    user_id             BIGINT,
+    query_text          TEXT        NOT NULL,
+    query_embedding     JSONB,
+    top_k               INTEGER     NOT NULL DEFAULT 5,
+    retrieved_chunk_ids JSONB       NOT NULL DEFAULT '[]',
+    latency_ms          INTEGER,
+    feedback            VARCHAR(16),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rag_queries_user_id ON rag_queries(user_id);
+CREATE INDEX IF NOT EXISTS idx_rag_queries_created_at ON rag_queries(created_at);
+CREATE INDEX IF NOT EXISTS idx_rag_queries_session_id ON rag_queries(session_id);
+
+COMMIT;
+
+-- ============================================================================
+-- 第八部分：ai-service 表结构 + 种子数据（database: tcm_ai）
+-- ============================================================================
+
+\connect tcm_ai
+
+BEGIN;
+
+-- 8.1 updated_at 自动维护触发器函数
+CREATE OR REPLACE FUNCTION tcm_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8.2 ai_conversations: AI 对话表
+CREATE TABLE IF NOT EXISTS ai_conversations (
+    id              BIGINT       NOT NULL PRIMARY KEY,
+    user_id         BIGINT       NOT NULL,
+    title           VARCHAR(255) NOT NULL,
+    mode            VARCHAR(32)  NOT NULL DEFAULT 'chat',
+    status          VARCHAR(32)  NOT NULL DEFAULT 'active',
+    message_count   INTEGER      NOT NULL DEFAULT 0,
+    metadata_json   JSONB        NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_user ON ai_conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_mode ON ai_conversations(mode);
+CREATE INDEX IF NOT EXISTS idx_conversations_status ON ai_conversations(status);
+CREATE INDEX IF NOT EXISTS idx_conversations_deleted_at ON ai_conversations(deleted_at);
+
+-- 8.3 ai_messages: AI 消息表
+CREATE TABLE IF NOT EXISTS ai_messages (
+    id                  BIGINT       NOT NULL PRIMARY KEY,
+    conversation_id     BIGINT       NOT NULL,
+    role                VARCHAR(32)  NOT NULL,
+    content             TEXT         NOT NULL,
+    tool_calls_json     JSONB,
+    tool_call_id        VARCHAR(128),
+    tokens_prompt       INTEGER,
+    tokens_completion   INTEGER,
+    latency_ms          INTEGER,
+    model_name          VARCHAR(64),
+    created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON ai_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_deleted_at ON ai_messages(deleted_at);
+
+-- 8.4 ai_prompt_templates: Prompt 模板表
+CREATE TABLE IF NOT EXISTS ai_prompt_templates (
+    id              BIGINT       NOT NULL PRIMARY KEY,
+    name            VARCHAR(128) NOT NULL,
+    scene           VARCHAR(32)  NOT NULL,
+    system_prompt   TEXT         NOT NULL,
+    template        TEXT,
+    variables_json  JSONB        NOT NULL DEFAULT '[]',
+    model           VARCHAR(64),
+    temperature     REAL,
+    max_tokens      INTEGER,
+    top_p           REAL,
+    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
+    version         INTEGER      NOT NULL DEFAULT 1,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_prompt_templates_name ON ai_prompt_templates(name);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_scene ON ai_prompt_templates(scene);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_active ON ai_prompt_templates(is_active);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_deleted_at ON ai_prompt_templates(deleted_at);
+
+-- 8.5 ai_tools: MCP Tool 注册表
+CREATE TABLE IF NOT EXISTS ai_tools (
+    id              BIGINT       NOT NULL PRIMARY KEY,
+    name            VARCHAR(64)  NOT NULL,
+    description     TEXT,
+    endpoint        VARCHAR(512),
+    method          VARCHAR(16)  NOT NULL DEFAULT 'GET',
+    parameters_json JSONB        NOT NULL DEFAULT '{}',
+    category        VARCHAR(32),
+    is_enabled      BOOLEAN      NOT NULL DEFAULT TRUE,
+    version         VARCHAR(32)  NOT NULL DEFAULT 'v1',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tools_name ON ai_tools(name);
+CREATE INDEX IF NOT EXISTS idx_tools_category ON ai_tools(category);
+CREATE INDEX IF NOT EXISTS idx_tools_enabled ON ai_tools(is_enabled);
+CREATE INDEX IF NOT EXISTS idx_tools_deleted_at ON ai_tools(deleted_at);
+
+-- 8.6 ai_agent_runs: Agent 运行记录表
+CREATE TABLE IF NOT EXISTS ai_agent_runs (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    conversation_id   BIGINT       NOT NULL,
+    user_id           BIGINT       NOT NULL,
+    plan_json         JSONB,
+    steps_json        JSONB,
+    final_answer      TEXT,
+    status            VARCHAR(32)  NOT NULL DEFAULT 'pending',
+    error_msg         TEXT,
+    total_tokens      INTEGER,
+    total_latency_ms  INTEGER,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_conversation ON ai_agent_runs(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_user ON ai_agent_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON ai_agent_runs(status);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_deleted_at ON ai_agent_runs(deleted_at);
+
+-- 8.7 outbox_messages: 事件 Outbox 表
+CREATE TABLE IF NOT EXISTS outbox_messages (
+    id            BIGSERIAL    PRIMARY KEY,
+    routing_key   VARCHAR(255) NOT NULL,
+    payload       JSONB        NOT NULL,
+    occurred_at   TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_at  TIMESTAMPTZ,
+    attempts      INT          NOT NULL DEFAULT 0,
+    last_error    TEXT,
+    status        VARCHAR(32)  NOT NULL DEFAULT 'pending'
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_pending
+    ON outbox_messages (occurred_at)
+    WHERE status = 'pending';
+
+COMMIT;
+
+-- 8.8 ai_prompt_templates 种子数据（4 条核心场景 Prompt）
+BEGIN;
+
+INSERT INTO ai_prompt_templates (id, name, scene, system_prompt, template, variables_json, model, temperature, max_tokens, top_p, is_active, version, created_at, updated_at)
+VALUES (
+  1,
+  'tcm.history.chat',
+  'chat',
+  '你是一名中医发展史领域的研究型导师，专精从先秦到近现代的中医学术流变、医家传承与经典著作演变。
+
+回答必须遵循以下规则：
+1. 答案的事实依据必须来自检索上下文或知识图谱实体，不得编造史实。
+2. 涉及学术争议时，呈现主要观点而非单一结论，注明各家代表人物与时代。
+3. 根据用户学习画像调整表达深度：初学者多补充背景解释，进阶者直接进入学术要点。
+4. 引用古籍原文时以方括号标注出处，格式为[来源:经典名#篇目]。
+
+【用户问题】
+{{user_question}}
+
+【对话历史】
+{{chat_history}}',
+  '',
+  '[{"name":"user_question","type":"string","required":true,"description":"用户原始问题"},{"name":"chat_history","type":"array","required":false,"description":"最近 N 轮对话"}]'::jsonb,
+  'gpt-4o-mini',
+  0.6,
+  1024,
+  0.9,
+  true,
+  1,
+  now(),
+  now()
+)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO ai_prompt_templates (id, name, scene, system_prompt, template, variables_json, model, temperature, max_tokens, top_p, is_active, version, created_at, updated_at)
+VALUES (
+  2,
+  'tcm.history.agent.planner',
+  'agent',
+  '你是一名中医发展史研究型 Agent，职责是整合 Planner/Reasoner/Retriever 产出的证据，生成带来源标注的最终回答。
+
+整合规则：
+1. 每一条事实陈述后以方括号标注出处，格式为[来源:文档标题#片段编号]或[来源:图谱实体#实体名]。
+2. 若证据不足以支撑完整回答，明确告知用户"现有资料不足以回答该问题的某部分"，不得用推测填补。
+3. 涉及关联路径时，按时间或逻辑顺序组织叙述，引用图谱关系佐证。
+4. 在回答末尾给出延伸学习建议，与用户已学知识点衔接。
+
+【用户问题】
+{{user_question}}
+
+【Agent 步骤】
+{{steps}}',
+  '',
+  '[{"name":"user_question","type":"string","required":true,"description":"用户原始问题"},{"name":"steps","type":"array","required":false,"description":"Agent 各步骤执行结果"}]'::jsonb,
+  'gpt-4o',
+  0.3,
+  2048,
+  0.9,
+  true,
+  1,
+  now(),
+  now()
+)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO ai_prompt_templates (id, name, scene, system_prompt, template, variables_json, model, temperature, max_tokens, top_p, is_active, version, created_at, updated_at)
+VALUES (
+  3,
+  'tcm.history.reasoning',
+  'reasoning',
+  '你是一名中医发展史推理分析专家，擅长处理涉及人物—学派—经典—思想传承网络的关联性问题。
+
+推理要求：
+1. 把大问题拆解为有依赖关系的子问题，逐个求解后再整合。
+2. 推理链路显式化：先给出每步推理的前提与结论，再给出最终判断。
+3. 涉及传承路径时，沿"师承—著作—学术观点—后世影响"四类关系展开。
+4. 推理不确定的环节显式标注置信度，避免硬编造。
+
+【用户问题】
+{{user_question}}',
+  '',
+  '[{"name":"user_question","type":"string","required":true,"description":"用户原始问题"}]'::jsonb,
+  'claude-3-5-sonnet',
+  0.2,
+  2048,
+  0.9,
+  true,
+  1,
+  now(),
+  now()
+)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO ai_prompt_templates (id, name, scene, system_prompt, template, variables_json, model, temperature, max_tokens, top_p, is_active, version, created_at, updated_at)
+VALUES (
+  4,
+  'tcm.history.summarize.classic',
+  'summarize',
+  '你是一名中医经典文献研究者，职责是对给定的中医经典原文片段进行三维度结构化总结，帮助学习者快速把握要义。
+
+总结维度与要求：
+1. 学术要旨：提炼原文的核心学术观点、理论创新与方法论，区分本文"提出什么"与"论证什么"。
+2. 历史地位：说明该经典或该片段在中医学术史中的位置，包括所属学派、对前人的继承与对后世的影响，引用图谱关系佐证。
+3. 当代启示：结合现代中医临床与研究的视角，阐释该片段对当代的指导意义与可借鉴之处，避免过度引申。
+
+撰写规范：
+- 三维度分别成段，每段以一句话概括开头，再展开 2-3 句论证。
+- 原文引用以引号标注并注明篇目出处。
+- 根据用户画像调整深度：初学者增加术语解释，进阶者直接进入学术分析。
+
+【经典原文片段】
+{{classic_text}}
+
+【知识图谱实体】
+{{graph_entities}}',
+  '',
+  '[{"name":"classic_text","type":"string","required":true,"description":"待总结的经典原文片段"},{"name":"graph_entities","type":"array","required":false,"description":"图谱查询返回的实体与关系"}]'::jsonb,
+  'gpt-4o',
+  0.5,
+  2048,
+  0.9,
+  true,
+  1,
+  now(),
+  now()
+)
+ON CONFLICT (name) DO NOTHING;
+
+COMMIT;
+
+-- ============================================================================
+-- 第九部分：learning-service 表结构 + 种子数据（database: tcm_learning）
+-- ============================================================================
+
+\connect tcm_learning
+
+BEGIN;
+
+-- 9.1 updated_at 自动维护触发器函数
+CREATE OR REPLACE FUNCTION tcm_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 9.2 learning_courses: 课程表
+CREATE TABLE IF NOT EXISTS learning_courses (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    title             VARCHAR(255) NOT NULL,
+    description       TEXT,
+    cover_url         VARCHAR(512),
+    category          VARCHAR(64),
+    difficulty        VARCHAR(32)  NOT NULL DEFAULT 'beginner',
+    duration_minutes  INTEGER,
+    lesson_count      INTEGER      NOT NULL DEFAULT 0,
+    is_published      BOOLEAN      NOT NULL DEFAULT FALSE,
+    sort_order        INTEGER      NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_courses_category  ON learning_courses(category);
+CREATE INDEX IF NOT EXISTS idx_courses_published ON learning_courses(is_published);
+CREATE INDEX IF NOT EXISTS idx_courses_deleted_at ON learning_courses(deleted_at);
+
+-- 9.3 learning_lessons: 课时表
+CREATE TABLE IF NOT EXISTS learning_lessons (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    course_id         BIGINT       NOT NULL,
+    title             VARCHAR(255) NOT NULL,
+    content           TEXT,
+    content_type      VARCHAR(32)  NOT NULL DEFAULT 'article',
+    video_url         VARCHAR(512),
+    duration_minutes  INTEGER,
+    sort_order        INTEGER      NOT NULL DEFAULT 0,
+    is_free           BOOLEAN      NOT NULL DEFAULT FALSE,
+    is_published      BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_lessons_course     ON learning_lessons(course_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_published  ON learning_lessons(is_published);
+CREATE INDEX IF NOT EXISTS idx_lessons_deleted_at ON learning_lessons(deleted_at);
+
+-- 9.4 learning_enrollments: 选课表
+CREATE TABLE IF NOT EXISTS learning_enrollments (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    user_id           BIGINT       NOT NULL,
+    course_id         BIGINT       NOT NULL,
+    progress_percent  INTEGER      NOT NULL DEFAULT 0,
+    last_lesson_id    BIGINT,
+    status            VARCHAR(32)  NOT NULL DEFAULT 'enrolled',
+    completed_at      TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_enrollments_user     ON learning_enrollments(user_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_course   ON learning_enrollments(course_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_status   ON learning_enrollments(status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_enrollments_user_course ON learning_enrollments(user_id, course_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_deleted_at ON learning_enrollments(deleted_at);
+
+-- 9.5 learning_records: 学习记录表
+CREATE TABLE IF NOT EXISTS learning_records (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    user_id           BIGINT       NOT NULL,
+    lesson_id         BIGINT       NOT NULL,
+    course_id         BIGINT       NOT NULL,
+    duration_seconds  INTEGER      NOT NULL DEFAULT 0,
+    position_percent  INTEGER      NOT NULL DEFAULT 0,
+    is_completed      BOOLEAN      NOT NULL DEFAULT FALSE,
+    last_position     INTEGER      NOT NULL DEFAULT 0,
+    learned_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_records_user       ON learning_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_records_lesson     ON learning_records(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_records_course     ON learning_records(course_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_records_user_lesson ON learning_records(user_id, lesson_id);
+CREATE INDEX IF NOT EXISTS idx_records_deleted_at ON learning_records(deleted_at);
+
+-- 9.6 learning_exams: 考试表
+CREATE TABLE IF NOT EXISTS learning_exams (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    title             VARCHAR(255) NOT NULL,
+    course_id         BIGINT,
+    lesson_id         BIGINT,
+    description       TEXT,
+    question_count    INTEGER      NOT NULL DEFAULT 0,
+    pass_score        INTEGER      NOT NULL DEFAULT 60,
+    duration_minutes  INTEGER,
+    is_published      BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_exams_course     ON learning_exams(course_id);
+CREATE INDEX IF NOT EXISTS idx_exams_lesson     ON learning_exams(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_exams_published  ON learning_exams(is_published);
+CREATE INDEX IF NOT EXISTS idx_exams_deleted_at ON learning_exams(deleted_at);
+
+-- 9.7 learning_questions: 题目表
+CREATE TABLE IF NOT EXISTS learning_questions (
+    id            BIGINT       NOT NULL PRIMARY KEY,
+    exam_id       BIGINT       NOT NULL,
+    type          VARCHAR(32)  NOT NULL DEFAULT 'single_choice',
+    content       TEXT         NOT NULL,
+    options_json  JSONB        NOT NULL DEFAULT '[]',
+    answer_json   JSONB        NOT NULL DEFAULT '[]',
+    explanation   TEXT,
+    score         INTEGER      NOT NULL DEFAULT 1,
+    difficulty    VARCHAR(32)  NOT NULL DEFAULT 'beginner',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_questions_exam       ON learning_questions(exam_id);
+CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON learning_questions(difficulty);
+CREATE INDEX IF NOT EXISTS idx_questions_deleted_at ON learning_questions(deleted_at);
+
+-- 9.8 learning_exam_attempts: 考试记录表
+CREATE TABLE IF NOT EXISTS learning_exam_attempts (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    exam_id           BIGINT       NOT NULL,
+    user_id           BIGINT       NOT NULL,
+    score             INTEGER      NOT NULL DEFAULT 0,
+    total_score       INTEGER      NOT NULL DEFAULT 0,
+    is_passed         BOOLEAN      NOT NULL DEFAULT FALSE,
+    started_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    submitted_at      TIMESTAMPTZ,
+    duration_seconds  INTEGER      NOT NULL DEFAULT 0,
+    answers_json      JSONB        NOT NULL DEFAULT '[]',
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_attempts_exam        ON learning_exam_attempts(exam_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_user        ON learning_exam_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_deleted_at  ON learning_exam_attempts(deleted_at);
+
+-- 9.9 learning_wrong_questions: 错题表
+CREATE TABLE IF NOT EXISTS learning_wrong_questions (
+    id               BIGINT       NOT NULL PRIMARY KEY,
+    user_id          BIGINT       NOT NULL,
+    question_id      BIGINT       NOT NULL,
+    exam_id          BIGINT       NOT NULL,
+    attempt_id       BIGINT,
+    user_answer_json JSONB        NOT NULL DEFAULT '[]',
+    wrong_count      INTEGER      NOT NULL DEFAULT 1,
+    last_wrong_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    is_mastered      BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at       TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_wrong_user        ON learning_wrong_questions(user_id);
+CREATE INDEX IF NOT EXISTS idx_wrong_question    ON learning_wrong_questions(question_id);
+CREATE INDEX IF NOT EXISTS idx_wrong_exam        ON learning_wrong_questions(exam_id);
+CREATE INDEX IF NOT EXISTS idx_wrong_mastered    ON learning_wrong_questions(is_mastered);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_wrong_user_question ON learning_wrong_questions(user_id, question_id);
+CREATE INDEX IF NOT EXISTS idx_wrong_deleted_at  ON learning_wrong_questions(deleted_at);
+
+-- 9.10 learning_study_plans: 学习计划表
+CREATE TABLE IF NOT EXISTS learning_study_plans (
+    id                BIGINT       NOT NULL PRIMARY KEY,
+    user_id           BIGINT       NOT NULL,
+    title             VARCHAR(255) NOT NULL,
+    target_date       TIMESTAMPTZ,
+    courses_json      JSONB        NOT NULL DEFAULT '[]',
+    progress_percent  INTEGER      NOT NULL DEFAULT 0,
+    status            VARCHAR(32)  NOT NULL DEFAULT 'active',
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_plans_user        ON learning_study_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_plans_status      ON learning_study_plans(status);
+CREATE INDEX IF NOT EXISTS idx_plans_deleted_at  ON learning_study_plans(deleted_at);
+
+COMMIT;
+
+-- 9.11 learning-service 种子数据（3 门课程 + 12 课时 + 3 考试 + 15 题目）
+BEGIN;
+
+INSERT INTO learning_courses (id, title, description, cover_url, category, difficulty, duration_minutes, lesson_count, is_published, sort_order, created_at, updated_at)
+SELECT * FROM (VALUES
+  (7001, '中医发展史入门', '从先秦到清代，系统了解中医学的发展脉络与核心学派。', '', 'history', 'beginner',     180, 4, TRUE,  1, now(), now()),
+  (7002, '伤寒论精读',     '深入解读张仲景《伤寒杂病论》的六经辨证体系与经典方剂。', '', 'classic', 'intermediate', 240, 4, TRUE,  2, now(), now()),
+  (7003, '温病学派专题',   '梳理明清温病学派的形成、代表人物与卫气营血辨证理论。', '', 'school',  'advanced',     200, 4, FALSE, 3, now(), now())
+) AS t(id, title, description, cover_url, category, difficulty, duration_minutes, lesson_count, is_published, sort_order, created_at, updated_at)
+WHERE NOT EXISTS (SELECT 1 FROM learning_courses WHERE id = t.id);
+
+INSERT INTO learning_lessons (id, course_id, title, content, content_type, video_url, duration_minutes, sort_order, is_free, is_published, created_at, updated_at)
+SELECT * FROM (VALUES
+  (7101, 7001, '第一课 中医起源',        '介绍先秦至两汉中医学的起源与《黄帝内经》的成书。', 'article', '', 45, 1, TRUE,  TRUE, now(), now()),
+  (7102, 7001, '第二课 黄帝内经',        '讲解《黄帝内经》的阴阳五行、藏象经络核心理论。',     'article', '', 45, 2, FALSE, TRUE, now(), now()),
+  (7103, 7001, '第三课 伤寒论',          '介绍张仲景与《伤寒杂病论》的辨证论治体系。',         'article', '', 45, 3, FALSE, TRUE, now(), now()),
+  (7104, 7001, '第四课 金元四大家',      '寒凉、攻下、补土、养阴四派学术争鸣概览。',           'article', '', 45, 4, FALSE, TRUE, now(), now()),
+  (7105, 7002, '第一课 六经辨证总论',    '太阳、阳明、少阳、太阴、少阴、厥阴六经体系概览。',   'article', '', 60, 1, TRUE,  TRUE, now(), now()),
+  (7106, 7002, '第二课 太阳病篇',        '太阳病的提纲、经证腑证与代表方剂桂枝汤、麻黄汤。',   'article', '', 60, 2, FALSE, TRUE, now(), now()),
+  (7107, 7002, '第三课 阳明病篇',        '阳明经证、腑证与白虎汤、承气汤类方解析。',           'article', '', 60, 3, FALSE, TRUE, now(), now()),
+  (7108, 7002, '第四课 少阳病篇',        '少阳病提纲与小柴胡汤的和解少阳法。',                 'article', '', 60, 4, FALSE, TRUE, now(), now()),
+  (7109, 7003, '第一课 温病学派形成',    '明末清初温疫流行背景下温病学派的兴起。',             'article', '', 50, 1, TRUE,  TRUE, now(), now()),
+  (7110, 7003, '第二课 叶天士卫气营血',  '叶天士《温热论》卫气营血辨证理论体系。',             'article', '', 50, 2, FALSE, TRUE, now(), now()),
+  (7111, 7003, '第三课 吴鞠通三焦辨证',  '吴鞠通《温病条辨》上中下三焦辨证与方剂。',           'article', '', 50, 3, FALSE, TRUE, now(), now()),
+  (7112, 7003, '第四课 温病代表方剂',    '银翘散、桑菊饮、清营汤等温病经典方剂解析。',         'article', '', 50, 4, FALSE, TRUE, now(), now())
+) AS t(id, course_id, title, content, content_type, video_url, duration_minutes, sort_order, is_free, is_published, created_at, updated_at)
+WHERE NOT EXISTS (SELECT 1 FROM learning_lessons WHERE id = t.id);
+
+UPDATE learning_courses c
+SET lesson_count = (SELECT count(*) FROM learning_lessons l WHERE l.course_id = c.id)
+WHERE c.id IN (7001, 7002, 7003);
+
+INSERT INTO learning_exams (id, title, course_id, lesson_id, description, question_count, pass_score, duration_minutes, is_published, created_at, updated_at)
+SELECT * FROM (VALUES
+  (7201, '中医发展史入门 测验', 7001, NULL::BIGINT, '考察先秦至金元时期中医发展脉络与代表人物。', 5, 60, 30, TRUE,  now(), now()),
+  (7202, '伤寒论精读 期中考试', 7002, NULL::BIGINT, '考察六经辨证总论与太阳、阳明、少阳病篇要点。', 5, 70, 40, TRUE,  now(), now()),
+  (7203, '温病学派专题 测验',   7003, NULL::BIGINT, '考察温病学派形成与卫气营血、三焦辨证理论。',   5, 70, 40, FALSE, now(), now())
+) AS t(id, title, course_id, lesson_id, description, question_count, pass_score, duration_minutes, is_published, created_at, updated_at)
+WHERE NOT EXISTS (SELECT 1 FROM learning_exams WHERE id = t.id);
+
+INSERT INTO learning_questions (id, exam_id, type, content, options_json, answer_json, explanation, score, difficulty, created_at, updated_at)
+SELECT * FROM (VALUES
+  (7301, 7201, 'single_choice', '《黄帝内经》成书于哪个时期？',
+    '["先秦","两汉","隋唐","宋代"]'::jsonb, '[1]'::jsonb,
+    '《黄帝内经》大约成书于战国至两汉时期，是中医理论奠基之作。', 2, 'beginner', now(), now()),
+  (7302, 7201, 'single_choice', '张仲景所著的辨证论治奠基之作是？',
+    '["《黄帝内经》","《难经》","《伤寒杂病论》","《神农本草经》"]'::jsonb, '[2]'::jsonb,
+    '张仲景著《伤寒杂病论》确立辨证论治体系。', 2, 'beginner', now(), now()),
+  (7303, 7201, 'single_choice', '金元四大家中"补土派"的代表人物是？',
+    '["刘完素","张从正","李杲","朱震亨"]'::jsonb, '[2]'::jsonb,
+    '李杲（李东垣）创立补土派，主张健脾升阳。', 2, 'intermediate', now(), now()),
+  (7304, 7201, 'multiple_choice', '下列哪些属于金元四大家？（多选）',
+    '["刘完素","张从正","李杲","朱震亨","孙思邈"]'::jsonb, '[0,1,2,3]'::jsonb,
+    '金元四大家为刘完素（寒凉派）、张从正（攻下派）、李杲（补土派）、朱震亨（养阴派）。', 3, 'intermediate', now(), now()),
+  (7305, 7201, 'true_false', '《伤寒杂病论》是华佗所著。',
+    '["对","错"]'::jsonb, '[1]'::jsonb,
+    '《伤寒杂病论》为张仲景所著，华佗以麻沸散与外科闻名。', 1, 'beginner', now(), now()),
+  (7306, 7202, 'single_choice', '六经辨证中"太阳病"的提纲证是？',
+    '["发热恶寒、头项强痛","但热不寒、口渴","往来寒热","腹满而吐"]'::jsonb, '[0]'::jsonb,
+    '太阳病提纲：脉浮、头项强痛而恶寒。', 2, 'intermediate', now(), now()),
+  (7307, 7202, 'single_choice', '太阳病发汗解表的首选方剂是？',
+    '["白虎汤","桂枝汤","承气汤","小柴胡汤"]'::jsonb, '[1]'::jsonb,
+    '桂枝汤为太阳中风证主方，调和营卫、解肌发汗。', 2, 'intermediate', now(), now()),
+  (7308, 7202, 'single_choice', '阳明腑实证的代表方剂是？',
+    '["白虎汤","桂枝汤","大承气汤","小柴胡汤"]'::jsonb, '[2]'::jsonb,
+    '大承气汤主治阳明腑实证，泻热通便、软坚润燥。', 2, 'intermediate', now(), now()),
+  (7309, 7202, 'multiple_choice', '下列哪些方剂属于《伤寒论》的和解剂？（多选）',
+    '["小柴胡汤","大柴胡汤","桂枝汤","半夏泻心汤"]'::jsonb, '[0,1,3]'::jsonb,
+    '小柴胡汤、大柴胡汤、半夏泻心汤均为和解剂；桂枝汤属解表剂。', 3, 'advanced', now(), now()),
+  (7310, 7202, 'true_false', '少阳病的代表方剂是白虎汤。',
+    '["对","错"]'::jsonb, '[1]'::jsonb,
+    '少阳病代表方为小柴胡汤；白虎汤为阳明经证方剂。', 1, 'intermediate', now(), now()),
+  (7311, 7203, 'single_choice', '卫气营血辨证的创立者是？',
+    '["吴鞠通","叶天士","王孟英","薛生白"]'::jsonb, '[1]'::jsonb,
+    '叶天士在《温热论》中创立卫气营血辨证。', 2, 'advanced', now(), now()),
+  (7312, 7203, 'single_choice', '三焦辨证的创立者是？',
+    '["叶天士","吴鞠通","王孟英","薛生白"]'::jsonb, '[1]'::jsonb,
+    '吴鞠通在《温病条辨》中创立三焦辨证。', 2, 'advanced', now(), now()),
+  (7313, 7203, 'single_choice', '银翘散主治的证型是？',
+    '["卫分证","气分证","营分证","血分证"]'::jsonb, '[0]'::jsonb,
+    '银翘散辛凉透表、清热解毒，主治温病初起卫分证。', 2, 'advanced', now(), now()),
+  (7314, 7203, 'multiple_choice', '下列哪些是温病学派的代表人物？（多选）',
+    '["叶天士","吴鞠通","王孟英","薛生白","张仲景"]'::jsonb, '[0,1,2,3]'::jsonb,
+    '温病四大家：叶天士、吴鞠通、王孟英、薛生白。张仲景为伤寒派代表。', 3, 'advanced', now(), now()),
+  (7315, 7203, 'true_false', '清营汤主治温病营分证。',
+    '["对","错"]'::jsonb, '[0]'::jsonb,
+    '清营汤清营透热、养阴生津，主治热入营分证。', 1, 'advanced', now(), now())
+) AS t(id, exam_id, type, content, options_json, answer_json, explanation, score, difficulty, created_at, updated_at)
+WHERE NOT EXISTS (SELECT 1 FROM learning_questions WHERE id = t.id);
+
+UPDATE learning_exams e
+SET question_count = (SELECT count(*) FROM learning_questions q WHERE q.exam_id = e.id)
+WHERE e.id IN (7201, 7202, 7203);
+
+COMMIT;
