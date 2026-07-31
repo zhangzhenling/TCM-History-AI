@@ -32,7 +32,7 @@ export const useUserStore = defineStore(
 
     /** 注入 HTTP 拦截器所需的 token 读取与刷新回调。应用启动时调用一次。 */
     function bindToHttp(opts?: { baseURL?: string }): void {
-      const baseURL = opts?.baseURL || '/api';
+      const baseURL = opts?.baseURL || '';
       configureAuth({
         tokenAccessor: () => ({
           accessToken: accessToken.value || null,

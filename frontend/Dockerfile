@@ -32,8 +32,8 @@ RUN pnpm install --frozen-lockfile
 # 拷全部源码
 COPY . .
 
-# 构建 learner + admin（VITE_API_BASE 默认 /api，由 Nginx 反代到 gateway）
-ARG VITE_API_BASE=/api
+# 构建 learner + admin（API 模块已带 /api/v1 前缀，baseURL 留空即可，由 Nginx 反代到 gateway）
+ARG VITE_API_BASE=
 ENV VITE_API_BASE=${VITE_API_BASE}
 RUN pnpm build && pnpm build:admin
 

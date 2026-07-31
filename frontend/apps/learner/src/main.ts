@@ -22,13 +22,13 @@ app.use(pinia);
 // 全局错误提示：HTTP 拦截器与业务层共用。
 configureErrorHandler((msg) => message.error(msg));
 
-// 创建 API 实例（baseURL 走 Vite 代理 /api）。
-const http = createHttp({ baseURL: import.meta.env.VITE_API_BASE || '/api' });
+// 创建 API 实例（API 模块已带 /api/v1 前缀，baseURL 留空即可）。
+const http = createHttp({ baseURL: import.meta.env.VITE_API_BASE || '' });
 const apis = createApis(http);
 
 // 绑定 user store 的 token 读取/刷新回调到 HTTP 拦截器。
 const userStore = useUserStore();
-userStore.bindToHttp({ baseURL: import.meta.env.VITE_API_BASE || '/api' });
+userStore.bindToHttp({ baseURL: import.meta.env.VITE_API_BASE || '' });
 
 // 全局提供 apis，组件用 inject('apis') 取用。
 app.provide('apis', apis);
