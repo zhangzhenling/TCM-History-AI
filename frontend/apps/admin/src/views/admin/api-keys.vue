@@ -21,7 +21,7 @@ const newKey = ref<string | null>(null);
 const formRef = ref<FormInstance>();
 const formState = reactive({ name: '', is_active: true });
 
-const columns = [
+const columns: any[] = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: 'Key 前缀', dataIndex: 'key_prefix', key: 'key_prefix' },

@@ -25,7 +25,7 @@ const formState = reactive<MembershipPlanRequest>({
   is_active: true,
 });
 
-const columns = [
+const columns: any[] = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
   { title: '方案名称', dataIndex: 'name', key: 'name' },
   { title: '描述', dataIndex: 'description', key: 'description' },
