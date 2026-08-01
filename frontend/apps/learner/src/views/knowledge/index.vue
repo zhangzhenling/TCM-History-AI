@@ -440,17 +440,11 @@ onMounted(() => {
 
 .doc-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--tcm-spacing-lg);
 }
 
-@media (max-width: 1024px) {
-  .doc-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
+@media (max-width: 480px) {
   .doc-grid {
     grid-template-columns: 1fr;
   }

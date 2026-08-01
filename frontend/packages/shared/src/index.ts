@@ -7,3 +7,4 @@ export * from './utils/format';
 // 组件
 export { default as ErrorBoundary } from './components/ErrorBoundary.vue';
 export { default as LoadingWrapper } from './components/LoadingWrapper.vue';
+export { default as SkeletonCard } from './components/SkeletonCard.vue';

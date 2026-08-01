@@ -301,6 +301,20 @@ function clearSelected() {
   .graph-layout {
     grid-template-columns: 1fr;
   }
+
+  .subgraph-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-box {
+    flex-direction: column;
+  }
+
+  .search-box .ant-btn {
+    width: 100%;
+  }
 }
 
 .result-meta {
