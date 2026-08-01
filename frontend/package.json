@@ -1,6 +1,6 @@
 {
   "name": "tcm-history-ai-web",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "TCM-History-AI 前端 monorepo（学习端 + 后台 + 共享包）",
   "packageManager": "pnpm@10.28.1",
