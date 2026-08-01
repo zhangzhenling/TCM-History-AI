@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal } from 'ant-design-vue';
+import { Table, Pagination, Button, Modal, Form, Input, Select, Popconfirm, message } from 'ant-design-vue';
+import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
 import { truncate } from '@tcm/shared';
-import type { Disease } from '@tcm/api';
+import type { Disease, DiseaseRequest } from '@tcm/api';
 
 const apis = useApi();
 
@@ -12,9 +13,19 @@ const loading = ref(false);
 const diseases = ref<Disease[]>([]);
 const total = ref(0);
 const query = reactive({ page: 1, page_size: 10 });
-const detailVisible = ref(false);
-const detailLoading = ref(false);
-const currentDisease = ref<Disease | null>(null);
+const modalVisible = ref(false);
+const modalLoading = ref(false);
+const currentId = ref<number | null>(null);
+
+const formRef = ref<FormInstance>();
+const formState = reactive<DiseaseRequest>({
+  name: '',
+  pinyin: '',
+  category: '',
+  description: '',
+  symptoms: '',
+  tcm_pathogenesis: '',
+});
 
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
@@ -24,7 +35,21 @@ const columns = [
   { title: '描述', dataIndex: 'description', key: 'description' },
   { title: '症状', dataIndex: 'symptoms', key: 'symptoms' },
   { title: '病机', dataIndex: 'tcm_pathogenesis', key: 'tcm_pathogenesis' },
-  { title: '操作', dataIndex: 'action', key: 'action', width: 100, fixed: 'right' as const },
+  { title: '操作', dataIndex: 'action', key: 'action', width: 200, fixed: 'right' as const },
+];
+
+const categoryOptions = [
+  { value: '外感病', label: '外感病' },
+  { value: '内伤病', label: '内伤病' },
+  { value: '伤寒', label: '伤寒' },
+  { value: '温病', label: '温病' },
+  { value: '杂病', label: '杂病' },
+  { value: '妇科病', label: '妇科病' },
+  { value: '儿科病', label: '儿科病' },
+  { value: '外科病', label: '外科病' },
+  { value: '皮肤病', label: '皮肤病' },
+  { value: '五官病', label: '五官病' },
+  { value: '其他', label: '其他' },
 ];
 
 const dataSource = computed(() =>
@@ -57,14 +82,74 @@ function onPageChange(p: number, ps: number) {
   load();
 }
 
-async function openDetail(id: number) {
-  detailLoading.value = true;
-  detailVisible.value = true;
-  currentDisease.value = null;
+function resetForm() {
+  formState.name = '';
+  formState.pinyin = '';
+  formState.category = '';
+  formState.description = '';
+  formState.symptoms = '';
+  formState.tcm_pathogenesis = '';
+  formRef.value?.clearValidate();
+}
+
+function openAddModal() {
+  currentId.value = null;
+  resetForm();
+  modalVisible.value = true;
+}
+
+async function openEditModal(record: Disease) {
+  currentId.value = record.id;
+  resetForm();
   try {
-    currentDisease.value = await apis.history.getDisease(id);
+    const detail = await apis.history.getDisease(record.id);
+    formState.name = detail.name;
+    formState.pinyin = detail.pinyin;
+    formState.category = detail.category;
+    formState.description = detail.description;
+    formState.symptoms = detail.symptoms;
+    formState.tcm_pathogenesis = detail.tcm_pathogenesis;
+  } catch (e) {
+    formState.name = record.name;
+    formState.pinyin = record.pinyin;
+    formState.category = record.category;
+    formState.description = record.description;
+    formState.symptoms = record.symptoms;
+    formState.tcm_pathogenesis = record.tcm_pathogenesis;
+  }
+  modalVisible.value = true;
+}
+
+async function handleOk() {
+  try {
+    await formRef.value?.validate();
+  } catch (e) {
+    return;
+  }
+
+  modalLoading.value = true;
+  try {
+    if (currentId.value) {
+      await apis.history.updateDisease(currentId.value, formState);
+      message.success('更新成功');
+    } else {
+      await apis.history.createDisease(formState);
+      message.success('创建成功');
+    }
+    modalVisible.value = false;
+    load();
   } finally {
-    detailLoading.value = false;
+    modalLoading.value = false;
+  }
+}
+
+async function handleDelete(id: number) {
+  try {
+    await apis.history.deleteDisease(id);
+    message.success('删除成功');
+    load();
+  } catch (e) {
+    // error handled by interceptor
   }
 }
 </script>
@@ -75,7 +160,7 @@ async function openDetail(id: number) {
 
     <div class="table-card">
       <div class="toolbar">
-        <span class="table-hint">疾病数据仅供查看，暂不支持编辑删除</span>
+        <Button type="primary" @click="openAddModal">新增疾病</Button>
       </div>
       <Table
         :data-source="dataSource"
@@ -88,7 +173,10 @@ async function openDetail(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openDetail(record.id)">详情</Button>
+            <Button type="link" size="small" @click="openEditModal(record as Disease)">编辑</Button>
+            <Popconfirm title="确定删除该疾病吗？" @confirm="handleDelete((record as Disease).id)">
+              <Button type="link" size="small" danger>删除</Button>
+            </Popconfirm>
           </template>
           <template v-else>{{ text }}</template>
         </template>
@@ -106,46 +194,39 @@ async function openDetail(id: number) {
     </div>
 
     <Modal
-      :open="detailVisible"
-      title="疾病详情"
-      :confirm-loading="detailLoading"
-      @cancel="detailVisible = false"
-      @ok="detailVisible = false"
-      width="640px"
+      :open="modalVisible"
+      :title="currentId ? '编辑疾病' : '新增疾病'"
+      :confirm-loading="modalLoading"
+      @cancel="modalVisible = false"
+      @ok="handleOk"
+      :width="640"
     >
-      <div v-if="detailLoading" class="detail-loading">加载中...</div>
-      <div v-else-if="currentDisease" class="detail-content">
-        <div class="detail-item">
-          <span class="detail-label">ID：</span>
-          <span class="detail-value">{{ currentDisease.id }}</span>
+      <Form ref="formRef" :model="formState" layout="vertical">
+        <Form.Item label="病名" name="name" :rules="[{ required: true, message: '请输入病名' }]">
+          <Input v-model:value="formState.name" placeholder="请输入病名" />
+        </Form.Item>
+        <div class="form-row">
+          <Form.Item label="拼音" name="pinyin">
+            <Input v-model:value="formState.pinyin" placeholder="请输入拼音" />
+          </Form.Item>
+          <Form.Item label="分类" name="category">
+            <Select v-model:value="formState.category" placeholder="请选择分类" allow-clear>
+              <Select.Option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </Select.Option>
+            </Select>
+          </Form.Item>
         </div>
-        <div class="detail-item">
-          <span class="detail-label">病名：</span>
-          <span class="detail-value">{{ currentDisease.name }}</span>
-        </div>
-        <div class="detail-row">
-          <div class="detail-item">
-            <span class="detail-label">拼音：</span>
-            <span class="detail-value">{{ currentDisease.pinyin || '—' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">分类：</span>
-            <span class="detail-value">{{ currentDisease.category || '—' }}</span>
-          </div>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">描述：</span>
-          <span class="detail-value">{{ currentDisease.description || '—' }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">症状：</span>
-          <span class="detail-value">{{ currentDisease.symptoms || '—' }}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">病机：</span>
-          <span class="detail-value">{{ currentDisease.tcm_pathogenesis || '—' }}</span>
-        </div>
-      </div>
+        <Form.Item label="描述" name="description">
+          <Input.TextArea v-model:value="formState.description" placeholder="请输入疾病描述" :rows="3" />
+        </Form.Item>
+        <Form.Item label="症状" name="symptoms">
+          <Input.TextArea v-model:value="formState.symptoms" placeholder="请输入症状表现" :rows="3" />
+        </Form.Item>
+        <Form.Item label="病机" name="tcm_pathogenesis">
+          <Input.TextArea v-model:value="formState.tcm_pathogenesis" placeholder="请输入中医病机分析" :rows="3" />
+        </Form.Item>
+      </Form>
     </Modal>
   </div>
 </template>
@@ -160,13 +241,6 @@ async function openDetail(id: number) {
 
 .toolbar {
   margin-bottom: var(--tcm-spacing-base);
-  display: flex;
-  align-items: center;
-}
-
-.table-hint {
-  color: rgba(31, 42, 68, 0.55);
-  font-size: 14px;
 }
 
 .pagination-wrap {
@@ -175,37 +249,12 @@ async function openDetail(id: number) {
   margin-top: var(--tcm-spacing-lg);
 }
 
-.detail-loading {
-  color: rgba(31, 42, 68, 0.55);
-  text-align: center;
-  padding: var(--tcm-spacing-lg) 0;
-}
-
-.detail-content {
+.form-row {
   display: flex;
-  flex-direction: column;
   gap: var(--tcm-spacing-base);
-}
 
-.detail-row {
-  display: flex;
-  gap: var(--tcm-spacing-lg);
-}
-
-.detail-item {
-  display: flex;
-  flex: 1;
-  line-height: 1.6;
-}
-
-.detail-label {
-  color: rgba(31, 42, 68, 0.55);
-  min-width: 70px;
-  flex-shrink: 0;
-}
-
-.detail-value {
-  color: #1f2a44;
-  word-break: break-all;
+  .ant-form-item {
+    flex: 1;
+  }
 }
 </style>

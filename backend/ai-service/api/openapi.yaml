@@ -1,0 +1,1134 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI AI Service API
+  version: 1.0.0
+  description: |
+    AI Service 是 TCM-History-AI 平台的智能中枢，提供 LLM 对话、Agent 编排、
+    Prompt 模板管理、MCP 工具集成以及 Token 用量统计等能力。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8086
+    description: local dev
+  - url: http://gateway/api
+    description: production via gateway
+tags:
+  - name: health
+  - name: chat
+  - name: conversation
+  - name: message
+  - name: agent
+  - name: agent-run
+  - name: prompt
+  - name: tool
+  - name: token
+  - name: mcp
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/ai/chat:
+    post:
+      tags: [chat]
+      summary: Chat with LLM (streaming or non-streaming)
+      description: |
+        向 LLM 发送消息列表，支持多轮对话、System Prompt、函数调用等。
+        通过 stream 参数控制是否使用 SSE 流式返回。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: chat completion
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/ai/conversations:
+    get:
+      tags: [conversation]
+      summary: List conversations (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: filter by owner
+      responses:
+        '200':
+          description: paginated list of conversations
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationList'
+    post:
+      tags: [conversation]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/ai/conversations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [conversation]
+      summary: Get a conversation by ID
+      responses:
+        '200':
+          description: conversation detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [conversation]
+      summary: Update conversation title or metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationUpdateRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [conversation]
+      summary: Delete a conversation and its messages
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/ai/conversations/{id}/messages:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [message]
+      summary: List messages in a conversation (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of messages
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MessageList'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [message]
+      summary: Append a message to a conversation (triggers LLM response)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+      responses:
+        '201':
+          description: message created and assistant reply generated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/ai/agents/run:
+    post:
+      tags: [agent]
+      summary: Run an agent with given input
+      description: |
+        启动一个 Agent 任务，Agent 可根据配置的工具集自主决策调用，
+        最终返回结构化结果。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRunRequest'
+      responses:
+        '202':
+          description: agent run started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/ai/agent-runs:
+    get:
+      tags: [agent-run]
+      summary: List agent runs (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, running, completed, failed]
+        - name: agent_type
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: paginated list of agent runs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentRunList'
+
+  /api/v1/ai/agent-runs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [agent-run]
+      summary: Get an agent run by ID (includes step-by-step trace)
+      responses:
+        '200':
+          description: agent run detail with trace
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentRunDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/ai/prompts:
+    get:
+      tags: [prompt]
+      summary: List prompt templates (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: paginated list of prompts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PromptList'
+    post:
+      tags: [prompt]
+      summary: Create a prompt template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PromptResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/ai/prompts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [prompt]
+      summary: Get a prompt template
+      responses:
+        '200':
+          description: prompt detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PromptResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [prompt]
+      summary: Update a prompt template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PromptResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [prompt]
+      summary: Delete a prompt template
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/ai/tools:
+    get:
+      tags: [tool]
+      summary: List MCP tools registered in the system (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: server_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: paginated list of tools
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ToolList'
+    post:
+      tags: [tool]
+      summary: Register a new MCP tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ToolResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/ai/tools/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [tool]
+      summary: Get tool detail
+      responses:
+        '200':
+          description: tool detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ToolResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [tool]
+      summary: Update a tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ToolResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [tool]
+      summary: Delete a tool
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/ai/tokens:
+    get:
+      tags: [token]
+      summary: Query token usage records (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: paginated list of token usage records
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenUsageList'
+    post:
+      tags: [token]
+      summary: Manually record token usage (for offline/batch jobs)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenUsageRequest'
+      responses:
+        '201':
+          description: recorded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenUsageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/ai/mcp/servers:
+    post:
+      tags: [mcp]
+      summary: Register or manage an MCP server endpoint
+      description: |
+        注册新的 MCP Server，配置其 URL、认证信息和暴露的工具列表。
+        也可用于测试连接或触发重新发现。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPServerRequest'
+      responses:
+        '201':
+          description: MCP server registered
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MCPServerResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    BadRequest:
+      description: invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          description: payload; shape depends on the endpoint
+        trace_id:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 10004
+        message:
+          type: string
+          example: resource not found
+        trace_id:
+          type: string
+    PaginationEnvelope:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_page:
+          type: integer
+        items:
+          type: array
+          items: {}
+
+    ChatRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          example: gpt-4o
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        temperature:
+          type: number
+          format: float
+          default: 0.7
+          minimum: 0
+          maximum: 2
+        max_tokens:
+          type: integer
+          format: int32
+        stream:
+          type: boolean
+          default: false
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolDefinition'
+        system_prompt:
+          type: string
+        conversation_id:
+          type: integer
+          format: int64
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+        name:
+          type: string
+          description: participant name when role is user or assistant
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [function]
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+            arguments:
+              type: object
+              additionalProperties: true
+    ToolDefinition:
+      type: object
+      required: [type, function]
+      properties:
+        type:
+          type: string
+          enum: [function]
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            parameters:
+              type: object
+              additionalProperties: true
+
+    ChatResponse:
+      type: object
+      properties:
+        reply:
+          $ref: '#/components/schemas/ChatMessage'
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+        model:
+          type: string
+        finish_reason:
+          type: string
+
+    TokenUsage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+          format: int32
+        completion_tokens:
+          type: integer
+          format: int32
+        total_tokens:
+          type: integer
+          format: int32
+        estimated_cost:
+          type: number
+          format: float
+
+    ConversationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        model:
+          type: string
+        system_prompt:
+          type: string
+        user_id:
+          type: integer
+          format: int64
+    ConversationUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    ConversationResponse:
+      allOf:
+        - $ref: '#/components/schemas/ConversationRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            message_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    ConversationList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConversationResponse'
+
+    MessageRequest:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+    MessageResponse:
+      allOf:
+        - $ref: '#/components/schemas/MessageRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            conversation_id:
+              type: integer
+              format: int64
+            token_usage:
+              $ref: '#/components/schemas/TokenUsage'
+            created_at:
+              type: string
+              format: date-time
+    MessageList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageResponse'
+
+    AgentRunRequest:
+      type: object
+      required: [agent_type, input]
+      properties:
+        agent_type:
+          type: string
+          example: research_agent
+        input:
+          type: object
+          additionalProperties: true
+        tools:
+          type: array
+          items:
+            type: string
+        conversation_id:
+          type: integer
+          format: int64
+        max_steps:
+          type: integer
+          default: 20
+    AgentRunResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        agent_type:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        output:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    AgentRunDetail:
+      allOf:
+        - $ref: '#/components/schemas/AgentRunResponse'
+        - type: object
+          properties:
+            steps:
+              type: array
+              items:
+                $ref: '#/components/schemas/AgentStep'
+    AgentStep:
+      type: object
+      properties:
+        step_index:
+          type: integer
+        thought:
+          type: string
+        action:
+          type: string
+        observation:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+        token_usage:
+          $ref: '#/components/schemas/TokenUsage'
+    AgentRunList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AgentRunResponse'
+
+    PromptRequest:
+      type: object
+      required: [name, template]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+        category:
+          type: string
+          example: system
+        template:
+          type: string
+          description: jinja2 / f-string 模板，可包含变量占位符
+        variables:
+          type: array
+          items:
+            type: string
+        model:
+          type: string
+        temperature:
+          type: number
+          format: float
+    PromptResponse:
+      allOf:
+        - $ref: '#/components/schemas/PromptRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_by:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    PromptList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PromptResponse'
+
+    ToolRequest:
+      type: object
+      required: [name, tool_type]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        tool_type:
+          type: string
+          enum: [mcp, function, custom]
+        description:
+          type: string
+        server_id:
+          type: integer
+          format: int64
+        schema:
+          type: object
+          description: JSON Schema for tool input
+          additionalProperties: true
+        enabled:
+          type: boolean
+          default: true
+    ToolResponse:
+      allOf:
+        - $ref: '#/components/schemas/ToolRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    ToolList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ToolResponse'
+
+    TokenUsageRequest:
+      type: object
+      required: [user_id, tokens]
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        conversation_id:
+          type: integer
+          format: int64
+        agent_run_id:
+          type: integer
+          format: int64
+        model:
+          type: string
+        tokens:
+          type: integer
+          format: int32
+        estimated_cost:
+          type: number
+          format: float
+        description:
+          type: string
+    TokenUsageResponse:
+      allOf:
+        - $ref: '#/components/schemas/TokenUsageRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+    TokenUsageList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TokenUsageResponse'
+
+    MCPServerRequest:
+      type: object
+      required: [name, url]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        url:
+          type: string
+          format: uri
+        description:
+          type: string
+        auth_type:
+          type: string
+          enum: [none, bearer, api_key, oauth2]
+        auth_config:
+          type: object
+          additionalProperties: true
+        enabled:
+          type: boolean
+          default: true
+    MCPServerResponse:
+      allOf:
+        - $ref: '#/components/schemas/MCPServerRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            tool_count:
+              type: integer
+            status:
+              type: string
+              enum: [connected, disconnected, error]
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time

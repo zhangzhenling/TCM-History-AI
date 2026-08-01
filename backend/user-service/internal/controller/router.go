@@ -1,12 +1,9 @@
 package controller
 
 import (
-	"context"
-
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 
-	"tcm-history-ai/backend/pkg/response"
+	"tcm-history-ai/backend/pkg/health"
 )
 
 // Deps bundles every controller the router needs. It is populated by wire.
@@ -28,12 +25,7 @@ type Deps struct {
 // the auth endpoints themselves are on the gateway whitelist and reach this
 // service unauthenticated.
 func RegisterRoutes(h *server.Hertz, deps *Deps) {
-	h.GET("/health", func(ctx context.Context, c *app.RequestContext) {
-		response.OKWith(ctx, c, "user-service up", map[string]any{
-			"service": "user-service",
-			"status":  "ok",
-		})
-	})
+	health.Register(h, "user-service")
 
 	v1 := h.Group("/api/v1")
 

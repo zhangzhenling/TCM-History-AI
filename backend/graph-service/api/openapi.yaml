@@ -1,0 +1,759 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI Graph Service API
+  version: 1.0.0
+  description: |
+    Graph Service 是 TCM-History-AI 平台的知识图谱服务，基于 Neo4j 构建。
+    提供节点（Node）与边（Edge）的 CRUD、跨实体图谱查询（人物著作、学派脉络、
+    最短路径、朝代人物、方剂详情等）以及全量同步接口。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8084
+    description: local dev
+  - url: http://gateway/api
+    description: production via gateway
+tags:
+  - name: health
+  - name: node
+  - name: edge
+  - name: query
+  - name: sync
+  - name: search
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/graph/nodes:
+    get:
+      tags: [node]
+      summary: List graph nodes (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: node_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [person, dynasty, school, book, event, prescription, medicine, disease]
+        - name: label
+          in: query
+          required: false
+          schema:
+            type: string
+          description: filter by label
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: paginated list of graph nodes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NodeList'
+    post:
+      tags: [node]
+      summary: Create a graph node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NodeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/graph/nodes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [node]
+      summary: Get a graph node by ID
+      responses:
+        '200':
+          description: node detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NodeResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [node]
+      summary: Update a graph node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NodeResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [node]
+      summary: Delete a graph node and its connected edges
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/graph/edges:
+    get:
+      tags: [edge]
+      summary: List graph edges (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: edge_type
+          in: query
+          required: false
+          schema:
+            type: string
+          description: e.g. authored, belongs_to, occurred_in
+        - name: from_node_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: to_node_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: paginated list of edges
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EdgeList'
+    post:
+      tags: [edge]
+      summary: Create a graph edge (relationship between two nodes)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EdgeRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EdgeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/graph/edges/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [edge]
+      summary: Get an edge by ID
+      responses:
+        '200':
+          description: edge detail
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [edge]
+      summary: Update an edge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EdgeRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [edge]
+      summary: Delete an edge
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/graph/query/persons-works:
+    get:
+      tags: [query]
+      summary: Get all works (books) authored by a person
+      parameters:
+        - name: person_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: list of books by person
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NodeResponse'
+
+  /api/v1/graph/query/school-lineage:
+    get:
+      tags: [query]
+      summary: Get academic lineage for a school (founder → disciples → works)
+      parameters:
+        - name: school_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: school lineage subgraph
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SubgraphResponse'
+
+  /api/v1/graph/query/shortest-path:
+    get:
+      tags: [query]
+      summary: Find shortest path between two nodes in the graph
+      parameters:
+        - name: from_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: to_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: max_depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: shortest path nodes and edges
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PathResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/graph/query/dynasty-figures:
+    get:
+      tags: [query]
+      summary: Get all notable figures (persons) of a dynasty
+      parameters:
+        - name: dynasty_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of persons in a dynasty
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NodeList'
+
+  /api/v1/graph/query/prescription-detail:
+    get:
+      tags: [query]
+      summary: Get full detail of a prescription with its ingredients and source
+      parameters:
+        - name: prescription_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: prescription detail with related nodes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PrescriptionDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/graph/query/subgraph:
+    get:
+      tags: [query]
+      summary: Extract a subgraph centered on a node with given depth
+      parameters:
+        - name: node_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 2
+        - name: edge_types
+          in: query
+          required: false
+          schema:
+            type: string
+          description: comma-separated edge types to include
+      responses:
+        '200':
+          description: subgraph with nodes and edges
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SubgraphResponse'
+
+  /api/v1/graph/search:
+    get:
+      tags: [search]
+      summary: Full-text search across graph nodes
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: node_types
+          in: query
+          required: false
+          schema:
+            type: string
+          description: comma-separated node types
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/graph/sync:
+    post:
+      tags: [sync]
+      summary: Sync data from history-service to graph (full or incremental)
+      description: |
+        从 History Service 拉取全量/增量数据并写入 Neo4j 图谱。
+        支持按实体类型过滤。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequest'
+      responses:
+        '202':
+          description: sync job started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SyncResponse'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    BadRequest:
+      description: invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          description: payload; shape depends on the endpoint
+        trace_id:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 10004
+        message:
+          type: string
+          example: resource not found
+        trace_id:
+          type: string
+    PaginationEnvelope:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_page:
+          type: integer
+        items:
+          type: array
+          items: {}
+
+    NodeRequest:
+      type: object
+      required: [node_type, name]
+      properties:
+        node_type:
+          type: string
+          enum: [person, dynasty, school, book, event, prescription, medicine, disease]
+        name:
+          type: string
+          maxLength: 256
+        label:
+          type: string
+          description: display label (e.g. 张仲景)
+        properties:
+          type: object
+          description: arbitrary node properties
+          additionalProperties: true
+        source_id:
+          type: integer
+          format: int64
+          description: original ID in history-service
+    NodeResponse:
+      allOf:
+        - $ref: '#/components/schemas/NodeRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            graph_id:
+              type: string
+              description: Neo4j node ID
+            edge_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    NodeList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/NodeResponse'
+
+    EdgeRequest:
+      type: object
+      required: [edge_type, from_node_id, to_node_id]
+      properties:
+        edge_type:
+          type: string
+          example: authored
+          description: relationship type (e.g. authored, belongs_to, occurred_in, treats)
+        from_node_id:
+          type: integer
+          format: int64
+        to_node_id:
+          type: integer
+          format: int64
+        properties:
+          type: object
+          additionalProperties: true
+        weight:
+          type: number
+          format: float
+          default: 1
+        source_id:
+          type: integer
+          format: int64
+    EdgeResponse:
+      allOf:
+        - $ref: '#/components/schemas/EdgeRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            graph_id:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+    EdgeList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/EdgeResponse'
+
+    SubgraphResponse:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeResponse'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeResponse'
+
+    PathResponse:
+      type: object
+      properties:
+        from_node:
+          $ref: '#/components/schemas/NodeResponse'
+        to_node:
+          $ref: '#/components/schemas/NodeResponse'
+        distance:
+          type: integer
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeResponse'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeResponse'
+
+    PrescriptionDetailResponse:
+      type: object
+      properties:
+        prescription:
+          $ref: '#/components/schemas/NodeResponse'
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeResponse'
+        source_book:
+          $ref: '#/components/schemas/NodeResponse'
+        source_person:
+          $ref: '#/components/schemas/NodeResponse'
+        dynasty:
+          $ref: '#/components/schemas/NodeResponse'
+        related_edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeResponse'
+
+    SearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+    SearchHit:
+      type: object
+      properties:
+        node:
+          $ref: '#/components/schemas/NodeResponse'
+        score:
+          type: number
+          format: float
+        highlight:
+          type: string
+
+    SyncRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [full, incremental]
+          default: incremental
+        entity_types:
+          type: array
+          items:
+            type: string
+          description: entity types to sync; empty means all
+        since:
+          type: string
+          format: date-time
+          description: for incremental sync
+    SyncResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        nodes_created:
+          type: integer
+        edges_created:
+          type: integer
+        message:
+          type: string

@@ -1,0 +1,707 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI Knowledge Service API
+  version: 1.0.0
+  description: |
+    Knowledge Service 是 TCM-History-AI 平台的 RAG 知识底座，提供文档管理、文本分块、
+    向量化嵌入、检索增强生成（RAG）以及嵌入任务监控等能力。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8085
+    description: local dev
+  - url: http://gateway/api
+    description: production via gateway
+tags:
+  - name: health
+  - name: document
+  - name: chunk
+  - name: task
+  - name: retrieve
+  - name: feedback
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/knowledge/documents:
+    get:
+      tags: [document]
+      summary: List documents (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: doc_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [markdown, pdf, html, txt]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, uploaded, ingested, failed]
+        - name: knowledge_base_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: paginated list of documents
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DocumentList'
+    post:
+      tags: [document]
+      summary: Create a document record (metadata only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/knowledge/documents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [document]
+      summary: Get document detail
+      responses:
+        '200':
+          description: document detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [document]
+      summary: Update document metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [document]
+      summary: Delete a document and all its chunks
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/knowledge/documents/upload:
+    post:
+      tags: [document]
+      summary: Upload a markdown or text file for a document
+      description: |
+        上传 Markdown 文件内容，创建文档记录并保存原始文本。
+        可选择自动触发摄取流程。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                knowledge_base_id:
+                  type: integer
+                  format: int64
+                auto_ingest:
+                  type: boolean
+                  default: false
+              required: [file]
+      responses:
+        '201':
+          description: document uploaded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/knowledge/documents/{id}/ingest:
+    post:
+      tags: [document]
+      summary: Trigger ingestion (chunking + embedding) for a document
+      description: |
+        对文档执行分块和向量化嵌入，生成可检索的 Chunk 记录。
+        此过程异步执行，可通过 /api/v1/knowledge/tasks 查询状态。
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+      responses:
+        '202':
+          description: ingestion task started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IngestResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/knowledge/documents/{id}/chunks:
+    get:
+      tags: [chunk]
+      summary: List chunks for a document (paginated)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of chunks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChunkList'
+    post:
+      tags: [chunk]
+      summary: Manually create / edit a chunk for a document
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChunkRequest'
+      responses:
+        '201':
+          description: chunk created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChunkResponse'
+
+  /api/v1/knowledge/chunks/{id}:
+    get:
+      tags: [chunk]
+      summary: Get a single chunk with its embedding
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: chunk detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChunkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/knowledge/tasks:
+    get:
+      tags: [task]
+      summary: List embedding/ingestion tasks (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+        - name: task_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [chunking, embedding, ingest]
+        - name: document_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: paginated list of tasks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TaskList'
+
+  /api/v1/knowledge/retrieve:
+    post:
+      tags: [retrieve]
+      summary: RAG retrieval - find relevant chunks for a query
+      description: |
+        根据查询文本执行向量相似度检索，返回 Top-K 相关的文本块，
+        可直接用于 LLM 上下文注入。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrieveRequest'
+      responses:
+        '200':
+          description: retrieval results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RetrieveResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/knowledge/queries/{id}/feedback:
+    post:
+      tags: [feedback]
+      summary: Submit feedback for a retrieval query (relevant/not relevant)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '201':
+          description: feedback recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    BadRequest:
+      description: invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          description: payload; shape depends on the endpoint
+        trace_id:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 10004
+        message:
+          type: string
+          example: resource not found
+        trace_id:
+          type: string
+    PaginationEnvelope:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_page:
+          type: integer
+        items:
+          type: array
+          items: {}
+
+    DocumentRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        doc_type:
+          type: string
+          enum: [markdown, pdf, html, txt]
+          default: markdown
+        knowledge_base_id:
+          type: integer
+          format: int64
+        source_url:
+          type: string
+          format: uri
+        content:
+          type: string
+          description: raw text content (for markdown or plain text)
+        metadata:
+          type: object
+          additionalProperties: true
+    DocumentResponse:
+      allOf:
+        - $ref: '#/components/schemas/DocumentRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            status:
+              type: string
+              enum: [draft, uploaded, ingested, failed]
+            chunk_count:
+              type: integer
+            token_count:
+              type: integer
+            created_by:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    DocumentList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DocumentResponse'
+
+    IngestRequest:
+      type: object
+      properties:
+        chunk_size:
+          type: integer
+          default: 500
+          description: target chunk size in tokens
+        chunk_overlap:
+          type: integer
+          default: 50
+        model:
+          type: string
+          description: embedding model name
+        force:
+          type: boolean
+          default: false
+          description: re-ingest even if already done
+    IngestResponse:
+      type: object
+      properties:
+        task_id:
+          type: integer
+          format: int64
+        document_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        message:
+          type: string
+
+    ChunkRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          description: chunk text content
+        chunk_index:
+          type: integer
+          description: ordering index within the document
+        metadata:
+          type: object
+          additionalProperties: true
+    ChunkResponse:
+      allOf:
+        - $ref: '#/components/schemas/ChunkRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            document_id:
+              type: integer
+              format: int64
+            embedding:
+              type: array
+              items:
+                type: number
+                format: float
+              description: dense vector (may be omitted in list responses)
+            embedding_model:
+              type: string
+            token_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+    ChunkList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ChunkResponse'
+
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        task_type:
+          type: string
+          enum: [chunking, embedding, ingest]
+        document_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        message:
+          type: string
+        error:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    TaskList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaskResponse'
+
+    RetrieveRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: natural language query
+        top_k:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 50
+        score_threshold:
+          type: number
+          format: float
+          default: 0.5
+          minimum: 0
+          maximum: 1
+        knowledge_base_id:
+          type: integer
+          format: int64
+        document_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        rerank:
+          type: boolean
+          default: true
+    RetrieveResponse:
+      type: object
+      properties:
+        query_id:
+          type: string
+        query:
+          type: string
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetrieveHit'
+    RetrieveHit:
+      type: object
+      properties:
+        chunk_id:
+          type: integer
+          format: int64
+        document_id:
+          type: integer
+          format: int64
+        content:
+          type: string
+        score:
+          type: number
+          format: float
+        document_title:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    FeedbackRequest:
+      type: object
+      required: [relevant]
+      properties:
+        relevant:
+          type: boolean
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+        comment:
+          type: string
+        highlighted_chunk_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
