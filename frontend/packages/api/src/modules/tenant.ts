@@ -45,20 +45,29 @@ export class TenantApi {
   // ---- 成员管理 ----
 
   listMembers(tenantId: number | string): Promise<MemberListResponse> {
-    return this.http.get(`/api/v1/admin/tenants/${tenantId}/members`) as unknown as Promise<MemberListResponse>;
+    return this.http.get(
+      `/api/v1/admin/tenants/${tenantId}/members`,
+    ) as unknown as Promise<MemberListResponse>;
   }
 
   addMember(tenantId: number | string, payload: AddMemberRequest): Promise<TenantMember> {
-    return this.http.post(`/api/v1/admin/tenants/${tenantId}/members`, payload) as unknown as Promise<TenantMember>;
+    return this.http.post(
+      `/api/v1/admin/tenants/${tenantId}/members`,
+      payload,
+    ) as unknown as Promise<TenantMember>;
   }
 
   removeMember(tenantId: number | string, userId: number | string): Promise<void> {
-    return this.http.delete(`/api/v1/admin/tenants/${tenantId}/members/${userId}`) as unknown as Promise<void>;
+    return this.http.delete(
+      `/api/v1/admin/tenants/${tenantId}/members/${userId}`,
+    ) as unknown as Promise<void>;
   }
 
   // ---- 用户租户查询 ----
 
   listUserTenants(userId: number | string): Promise<UserTenantsResponse> {
-    return this.http.get(`/api/v1/admin/tenants-for-user/${userId}`) as unknown as Promise<UserTenantsResponse>;
+    return this.http.get(
+      `/api/v1/admin/tenants-for-user/${userId}`,
+    ) as unknown as Promise<UserTenantsResponse>;
   }
 }

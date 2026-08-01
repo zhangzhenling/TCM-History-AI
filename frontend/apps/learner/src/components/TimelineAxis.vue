@@ -340,7 +340,11 @@ watch(
     </svg>
 
     <!-- Tooltip 浮层 -->
-    <div v-show="tooltip.visible" class="tooltip" :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }">
+    <div
+      v-show="tooltip.visible"
+      class="tooltip"
+      :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
+    >
       <div class="tooltip-title">{{ tooltip.title }}</div>
       <div class="tooltip-year">{{ formatYear(tooltip.year) }}</div>
     </div>

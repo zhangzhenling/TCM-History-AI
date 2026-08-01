@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Tag, Popconfirm, message, Descriptions } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Tag,
+  Popconfirm,
+  message,
+  Descriptions,
+} from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
 import { formatDateTime } from '@tcm/shared';
@@ -119,14 +128,21 @@ function roleColor(role: string): string {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'mode'">
-            <Tag :color="modeLabelMap[text] ? 'blue' : 'default'">{{ modeLabelMap[text] || text || '—' }}</Tag>
+            <Tag :color="modeLabelMap[text] ? 'blue' : 'default'">{{
+              modeLabelMap[text] || text || '—'
+            }}</Tag>
           </template>
           <template v-else-if="column.dataIndex === 'status'">
             <Tag :color="statusColorMap[text] || 'default'">{{ text || '—' }}</Tag>
           </template>
           <template v-else-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openDetail(record as Conversation)">查看</Button>
-            <Popconfirm title="确定删除该对话吗？" @confirm="handleDelete((record as Conversation).id)">
+            <Button type="link" size="small" @click="openDetail(record as Conversation)"
+              >查看</Button
+            >
+            <Popconfirm
+              title="确定删除该对话吗？"
+              @confirm="handleDelete((record as Conversation).id)"
+            >
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
           </template>
@@ -158,13 +174,21 @@ function roleColor(role: string): string {
           <Descriptions.Item label="ID">{{ currentConv.id }}</Descriptions.Item>
           <Descriptions.Item label="用户 ID">{{ currentConv.user_id }}</Descriptions.Item>
           <Descriptions.Item label="标题">{{ currentConv.title || '—' }}</Descriptions.Item>
-          <Descriptions.Item label="模式">{{ modeLabelMap[currentConv.mode] || currentConv.mode }}</Descriptions.Item>
+          <Descriptions.Item label="模式">{{
+            modeLabelMap[currentConv.mode] || currentConv.mode
+          }}</Descriptions.Item>
           <Descriptions.Item label="状态">
-            <Tag :color="statusColorMap[currentConv.status] || 'default'">{{ currentConv.status }}</Tag>
+            <Tag :color="statusColorMap[currentConv.status] || 'default'">{{
+              currentConv.status
+            }}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="消息数">{{ currentConv.message_count }}</Descriptions.Item>
-          <Descriptions.Item label="创建时间" :span="2">{{ formatDateTime(currentConv.created_at) }}</Descriptions.Item>
-          <Descriptions.Item label="更新时间" :span="2">{{ formatDateTime(currentConv.updated_at) }}</Descriptions.Item>
+          <Descriptions.Item label="创建时间" :span="2">{{
+            formatDateTime(currentConv.created_at)
+          }}</Descriptions.Item>
+          <Descriptions.Item label="更新时间" :span="2">{{
+            formatDateTime(currentConv.updated_at)
+          }}</Descriptions.Item>
         </Descriptions>
 
         <h4 class="messages-title">消息列表（最近 50 条）</h4>

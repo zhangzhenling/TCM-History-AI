@@ -234,7 +234,10 @@ export class LearningApi {
     return this.http.post('/api/v1/learning/study-plans', payload) as unknown as Promise<StudyPlan>;
   }
   generateStudyPlan(payload: StudyPlanGenerateRequest): Promise<StudyPlan> {
-    return this.http.post('/api/v1/learning/study-plans/generate', payload) as unknown as Promise<StudyPlan>;
+    return this.http.post(
+      '/api/v1/learning/study-plans/generate',
+      payload,
+    ) as unknown as Promise<StudyPlan>;
   }
   updateStudyPlan(id: number | string, payload: StudyPlanRequest): Promise<StudyPlan> {
     return this.http.put(

@@ -71,16 +71,28 @@ export class UserApi {
   }
 
   // ---- Admin: Membership Plans ----
-  listMembershipPlans(params?: { page?: number; page_size?: number }): Promise<ListResponse<MembershipPlan>> {
+  listMembershipPlans(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ListResponse<MembershipPlan>> {
     return this.http.get('/api/v1/admin/membership/plans', {
       params: buildQuery(params ?? {}),
     }) as unknown as Promise<ListResponse<MembershipPlan>>;
   }
   createMembershipPlan(payload: MembershipPlanRequest): Promise<MembershipPlan> {
-    return this.http.post('/api/v1/admin/membership/plans', payload) as unknown as Promise<MembershipPlan>;
+    return this.http.post(
+      '/api/v1/admin/membership/plans',
+      payload,
+    ) as unknown as Promise<MembershipPlan>;
   }
-  updateMembershipPlan(id: number | string, payload: MembershipPlanRequest): Promise<MembershipPlan> {
-    return this.http.put(`/api/v1/admin/membership/plans/${id}`, payload) as unknown as Promise<MembershipPlan>;
+  updateMembershipPlan(
+    id: number | string,
+    payload: MembershipPlanRequest,
+  ): Promise<MembershipPlan> {
+    return this.http.put(
+      `/api/v1/admin/membership/plans/${id}`,
+      payload,
+    ) as unknown as Promise<MembershipPlan>;
   }
   deleteMembershipPlan(id: number | string): Promise<void> {
     return this.http.delete(`/api/v1/admin/membership/plans/${id}`) as unknown as Promise<void>;
@@ -105,6 +117,8 @@ export class UserApi {
     return this.http.delete(`/api/v1/api-keys/${id}`) as unknown as Promise<void>;
   }
   regenerateApiKey(id: number | string): Promise<ApiKeyCreateResponse> {
-    return this.http.post(`/api/v1/api-keys/${id}/regenerate`) as unknown as Promise<ApiKeyCreateResponse>;
+    return this.http.post(
+      `/api/v1/api-keys/${id}/regenerate`,
+    ) as unknown as Promise<ApiKeyCreateResponse>;
   }
 }

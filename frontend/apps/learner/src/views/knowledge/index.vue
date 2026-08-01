@@ -177,7 +177,7 @@ onMounted(() => {
   <div class="tcm-container">
     <PageHeader title="文献检索" subtitle="基于 RAG 的语义检索与中医典籍文献浏览" />
 
-    <Tabs v-model:activeKey="activeTab">
+    <Tabs v-model:active-key="activeTab">
       <!-- ============ Tab 1：RAG 检索 ============ -->
       <TabPane key="retrieve" tab="语义检索">
         <div class="retrieve-box">
@@ -211,7 +211,10 @@ onMounted(() => {
                   <Tag color="var(--tcm-color-indigo)" style="color: #fff">
                     {{ c.classic_code || '—' }}
                   </Tag>
-                  <Tag v-if="c.content_type" :color="CONTENT_TYPE_TEXT[c.content_type] ? 'blue' : 'default'">
+                  <Tag
+                    v-if="c.content_type"
+                    :color="CONTENT_TYPE_TEXT[c.content_type] ? 'blue' : 'default'"
+                  >
                     {{ CONTENT_TYPE_TEXT[c.content_type] ?? c.content_type }}
                   </Tag>
                   <span v-if="c.volume" class="chunk-meta">{{ c.volume }}</span>
@@ -257,8 +260,12 @@ onMounted(() => {
                 <DescriptionsItem label="学派">{{ selectedDoc.school || '—' }}</DescriptionsItem>
                 <DescriptionsItem label="作者">{{ selectedDoc.author || '—' }}</DescriptionsItem>
                 <DescriptionsItem label="版本">{{ selectedDoc.version || '—' }}</DescriptionsItem>
-                <DescriptionsItem label="分片数">{{ selectedDoc.chunk_count || 0 }}</DescriptionsItem>
-                <DescriptionsItem label="卷数">{{ selectedDoc.volume_count || 0 }}</DescriptionsItem>
+                <DescriptionsItem label="分片数">{{
+                  selectedDoc.chunk_count || 0
+                }}</DescriptionsItem>
+                <DescriptionsItem label="卷数">{{
+                  selectedDoc.volume_count || 0
+                }}</DescriptionsItem>
               </Descriptions>
 
               <section class="chunk-section">
@@ -276,14 +283,20 @@ onMounted(() => {
                           {{ CONTENT_TYPE_TEXT[ch.content_type] ?? ch.content_type }}
                         </Tag>
                         <span v-if="ch.volume" class="doc-chunk-meta">{{ ch.volume }}</span>
-                        <span v-if="ch.clause_no" class="doc-chunk-meta">第 {{ ch.clause_no }} 条</span>
+                        <span v-if="ch.clause_no" class="doc-chunk-meta"
+                          >第 {{ ch.clause_no }} 条</span
+                        >
                       </div>
                       <div class="doc-chunk-content">{{ ch.content }}</div>
-                      <div v-if="ch.text_original && ch.text_original !== ch.content" class="doc-chunk-original">
+                      <div
+                        v-if="ch.text_original && ch.text_original !== ch.content"
+                        class="doc-chunk-original"
+                      >
                         <span class="chunk-label">原文：</span>{{ truncate(ch.text_original, 150) }}
                       </div>
                       <div v-if="ch.text_translation" class="doc-chunk-translation">
-                        <span class="chunk-label">译文：</span>{{ truncate(ch.text_translation, 150) }}
+                        <span class="chunk-label">译文：</span
+                        >{{ truncate(ch.text_translation, 150) }}
                       </div>
                     </div>
                   </div>

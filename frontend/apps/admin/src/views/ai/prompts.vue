@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Select, Switch, Tag, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Switch,
+  Tag,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -202,13 +215,17 @@ async function handleActivate(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'scene'">
-            <Tag :color="sceneColorMap[text] || 'default'">{{ sceneLabelMap[text] || text || '—' }}</Tag>
+            <Tag :color="sceneColorMap[text] || 'default'">{{
+              sceneLabelMap[text] || text || '—'
+            }}</Tag>
           </template>
           <template v-else-if="column.dataIndex === 'is_active'">
             <Tag :color="text ? 'success' : 'default'">{{ text ? '启用' : '停用' }}</Tag>
           </template>
           <template v-else-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openEditModal(record as PromptTemplate)">编辑</Button>
+            <Button type="link" size="small" @click="openEditModal(record as PromptTemplate)"
+              >编辑</Button
+            >
             <Button
               v-if="!(record as PromptTemplate).is_active"
               type="link"
@@ -216,7 +233,10 @@ async function handleActivate(id: number) {
               @click="handleActivate((record as PromptTemplate).id)"
               >激活</Button
             >
-            <Popconfirm title="确定删除该模板吗？" @confirm="handleDelete((record as PromptTemplate).id)">
+            <Popconfirm
+              title="确定删除该模板吗？"
+              @confirm="handleDelete((record as PromptTemplate).id)"
+            >
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
           </template>
@@ -239,13 +259,17 @@ async function handleActivate(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑 Prompt 模板' : '新增 Prompt 模板'"
       :confirm-loading="modalLoading"
+      :width="680"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="680"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
         <div class="form-row">
-          <Form.Item label="模板名称" name="name" :rules="[{ required: true, message: '请输入模板名称' }]">
+          <Form.Item
+            label="模板名称"
+            name="name"
+            :rules="[{ required: true, message: '请输入模板名称' }]"
+          >
             <Input v-model:value="formState.name" placeholder="请输入模板名称" />
           </Form.Item>
           <Form.Item label="场景" name="scene" :rules="[{ required: true, message: '请选择场景' }]">
@@ -257,26 +281,55 @@ async function handleActivate(id: number) {
             </Select>
           </Form.Item>
         </div>
-        <Form.Item label="System Prompt" name="system_prompt" :rules="[{ required: true, message: '请输入 System Prompt' }]">
-          <Input.TextArea v-model:value="formState.system_prompt" placeholder="请输入系统提示词" :rows="4" />
+        <Form.Item
+          label="System Prompt"
+          name="system_prompt"
+          :rules="[{ required: true, message: '请输入 System Prompt' }]"
+        >
+          <Input.TextArea
+            v-model:value="formState.system_prompt"
+            placeholder="请输入系统提示词"
+            :rows="4"
+          />
         </Form.Item>
         <Form.Item label="模板内容" name="template">
-          <Input.TextArea v-model:value="formState.template" placeholder="请输入模板内容，使用 {{变量名}} 作为占位符" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.template"
+            placeholder="请输入模板内容，使用 {{变量名}} 作为占位符"
+            :rows="3"
+          />
         </Form.Item>
         <div class="form-row">
           <Form.Item label="模型" name="model">
             <Input v-model:value="formState.model" placeholder="如 gpt-4o" />
           </Form.Item>
           <Form.Item label="温度" name="temperature">
-            <InputNumber v-model:value="formState.temperature" :min="0" :max="2" :step="0.1" style="width: 100%" />
+            <InputNumber
+              v-model:value="formState.temperature"
+              :min="0"
+              :max="2"
+              :step="0.1"
+              style="width: 100%"
+            />
           </Form.Item>
         </div>
         <div class="form-row">
           <Form.Item label="最大 Token" name="max_tokens">
-            <InputNumber v-model:value="formState.max_tokens" :min="1" :step="512" style="width: 100%" />
+            <InputNumber
+              v-model:value="formState.max_tokens"
+              :min="1"
+              :step="512"
+              style="width: 100%"
+            />
           </Form.Item>
           <Form.Item label="Top P" name="top_p">
-            <InputNumber v-model:value="formState.top_p" :min="0" :max="1" :step="0.1" style="width: 100%" />
+            <InputNumber
+              v-model:value="formState.top_p"
+              :min="0"
+              :max="1"
+              :step="0.1"
+              style="width: 100%"
+            />
           </Form.Item>
         </div>
         <div class="form-row">
@@ -284,7 +337,11 @@ async function handleActivate(id: number) {
             <InputNumber v-model:value="formState.version" :min="1" style="width: 100%" />
           </Form.Item>
           <Form.Item label="启用" name="is_active" value-prop-name="checked">
-            <Switch v-model:checked="formState.is_active" checked-children="启用" un-checked-children="停用" />
+            <Switch
+              v-model:checked="formState.is_active"
+              checked-children="启用"
+              un-checked-children="停用"
+            />
           </Form.Item>
         </div>
       </Form>

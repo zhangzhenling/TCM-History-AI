@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Tag, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -74,7 +84,10 @@ function onPageChange(p: number, ps: number) {
 function parseAlias(): string[] {
   if (Array.isArray(formState.alias)) return formState.alias;
   if (typeof formState.alias === 'string' && formState.alias) {
-    return (formState.alias as string).split(/[,，、]/).map((s) => s.trim()).filter(Boolean);
+    return (formState.alias as string)
+      .split(/[,，、]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   return [];
 }
@@ -183,7 +196,9 @@ async function handleDelete(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openEditModal(record as Medicine)">编辑</Button>
+            <Button type="link" size="small" @click="openEditModal(record as Medicine)"
+              >编辑</Button
+            >
             <Popconfirm title="确定删除该药物吗？" @confirm="handleDelete((record as Medicine).id)">
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
@@ -207,9 +222,9 @@ async function handleDelete(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑药物' : '新增药物'"
       :confirm-loading="modalLoading"
+      :width="640"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="640"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="药名" name="name" :rules="[{ required: true, message: '请输入药名' }]">
@@ -221,10 +236,16 @@ async function handleDelete(id: number) {
           </Form.Item>
           <Form.Item label="别名" name="alias_text">
             <Input
-              v-model:value="formState.alias"
-              placeholder="多个别名用逗号分隔"
               :value="Array.isArray(formState.alias) ? formState.alias.join('、') : ''"
-              @input="(e: Event) => { formState.alias = (e.target as HTMLInputElement).value.split(/[,，、]/).map(s => s.trim()).filter(Boolean); }"
+              placeholder="多个别名用逗号分隔"
+              @input="
+                (e: Event) => {
+                  formState.alias = (e.target as HTMLInputElement).value
+                    .split(/[,，、]/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                }
+              "
             />
           </Form.Item>
         </div>

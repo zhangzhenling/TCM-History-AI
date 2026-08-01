@@ -42,14 +42,14 @@ const columns = [
     key: 'is_completed',
     width: 100,
     customRender: ({ record }: { record: LearningRecord }) =>
-      record.is_completed ? h(Tag, { color: 'green' }, () => '已完成') : h(Tag, { color: 'blue' }, () => '学习中'),
+      record.is_completed
+        ? h(Tag, { color: 'green' }, () => '已完成')
+        : h(Tag, { color: 'blue' }, () => '学习中'),
   },
   { title: '学习时间', dataIndex: 'learned_at', key: 'learned_at', width: 180 },
 ];
 
-const dataSource = computed(() =>
-  records.value.map((r) => ({ ...r, key: r.id })),
-);
+const dataSource = computed(() => records.value.map((r) => ({ ...r, key: r.id })));
 
 async function load() {
   loading.value = true;

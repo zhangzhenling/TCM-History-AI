@@ -14,5 +14,5 @@
       "@tcm/stores/*": ["../../packages/stores/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "env.d.ts", "../../packages/shared/src/**/*.ts", "../../packages/api/src/**/*.ts", "../../packages/stores/src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "env.d.ts"]
 }

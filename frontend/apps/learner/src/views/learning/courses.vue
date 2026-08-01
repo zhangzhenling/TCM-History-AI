@@ -132,7 +132,11 @@ function goToCourse(id: number) {
       font-size: 48px;
       font-weight: 700;
       color: var(--tcm-color-primary);
-      background: linear-gradient(135deg, var(--tcm-color-primary-light), var(--tcm-color-primary-bg));
+      background: linear-gradient(
+        135deg,
+        var(--tcm-color-primary-light),
+        var(--tcm-color-primary-bg)
+      );
     }
   }
 

@@ -43,11 +43,7 @@ function startExam(id: number) {
 
     <Spin :spinning="loading">
       <div v-if="exams.length > 0" class="exam-list">
-        <Card
-          v-for="exam in exams"
-          :key="exam.id"
-          class="exam-card"
-        >
+        <Card v-for="exam in exams" :key="exam.id" class="exam-card">
           <div class="exam-info">
             <div class="exam-main">
               <h3 class="exam-title">{{ exam.title }}</h3>

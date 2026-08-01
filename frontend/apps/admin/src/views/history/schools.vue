@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Select, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -221,7 +232,11 @@ async function handleDelete(id: number) {
       @ok="handleOk"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
-        <Form.Item label="学派名称" name="name" :rules="[{ required: true, message: '请输入学派名称' }]">
+        <Form.Item
+          label="学派名称"
+          name="name"
+          :rules="[{ required: true, message: '请输入学派名称' }]"
+        >
           <Input v-model:value="formState.name" placeholder="请输入学派名称" />
         </Form.Item>
         <Form.Item label="朝代" name="dynasty_id">
@@ -232,14 +247,24 @@ async function handleDelete(id: number) {
           </Select>
         </Form.Item>
         <Form.Item label="创始人" name="founder_person_id">
-          <Select v-model:value="formState.founder_person_id" placeholder="请选择创始人" allow-clear show-search option-filter-prop="children">
+          <Select
+            v-model:value="formState.founder_person_id"
+            placeholder="请选择创始人"
+            allow-clear
+            show-search
+            option-filter-prop="children"
+          >
             <Select.Option v-for="p in persons" :key="p.id" :value="p.id">
               {{ p.name }}
             </Select.Option>
           </Select>
         </Form.Item>
         <Form.Item label="创立年份" name="established_year">
-          <InputNumber v-model:value="formState.established_year" placeholder="请输入创立年份" style="width: 100%" />
+          <InputNumber
+            v-model:value="formState.established_year"
+            placeholder="请输入创立年份"
+            style="width: 100%"
+          />
         </Form.Item>
         <Form.Item label="简介" name="summary">
           <Input.TextArea v-model:value="formState.summary" placeholder="请输入简介" :rows="4" />

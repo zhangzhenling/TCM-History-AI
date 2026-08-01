@@ -41,7 +41,11 @@ watch(() => props.id, load);
       <template v-if="medicine">
         <PageHeader :title="medicine.name" :subtitle="medicine.pinyin || ''">
           <template #actions>
-            <Tag v-if="medicine.nature || medicine.flavor" color="var(--tcm-color-celadon)" style="color: #fff">
+            <Tag
+              v-if="medicine.nature || medicine.flavor"
+              color="var(--tcm-color-celadon)"
+              style="color: #fff"
+            >
               {{ medicine.nature }}{{ medicine.flavor }}
             </Tag>
             <Tag v-if="medicine.toxicity" color="orange">有毒</Tag>
@@ -56,7 +60,9 @@ watch(() => props.id, load);
             </template>
             <span v-else>—</span>
           </DescriptionsItem>
-          <DescriptionsItem label="性味">{{ medicine.nature || '—' }}{{ medicine.flavor || '' }}</DescriptionsItem>
+          <DescriptionsItem label="性味"
+            >{{ medicine.nature || '—' }}{{ medicine.flavor || '' }}</DescriptionsItem
+          >
           <DescriptionsItem label="归经">{{ medicine.meridian || '—' }}</DescriptionsItem>
           <DescriptionsItem label="毒性">{{ medicine.toxicity || '无毒' }}</DescriptionsItem>
           <DescriptionsItem label="用量">{{ medicine.dosage || '—' }}</DescriptionsItem>

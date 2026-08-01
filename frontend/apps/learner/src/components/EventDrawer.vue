@@ -41,7 +41,13 @@ function eventTypeColor(t: string): string {
 </script>
 
 <template>
-  <Drawer v-model:open="innerOpen" title="事件详情" placement="right" :width="420" class="event-drawer">
+  <Drawer
+    v-model:open="innerOpen"
+    title="事件详情"
+    placement="right"
+    :width="420"
+    class="event-drawer"
+  >
     <div v-if="event" class="event-detail">
       <div class="detail-type-row">
         <Tag :color="eventTypeColor(event.event_type)" style="color: #fff">

@@ -72,7 +72,10 @@ async function handleSubmit() {
   modalLoading.value = true;
   try {
     if (currentId.value) {
-      await apis.user.updateRole(currentId.value, { name: formState.name, description: formState.description });
+      await apis.user.updateRole(currentId.value, {
+        name: formState.name,
+        description: formState.description,
+      });
       message.success('更新成功');
     } else {
       await apis.user.createRole({ name: formState.name, description: formState.description });
@@ -97,11 +100,18 @@ async function handleDelete(id: number) {
     <h1 class="admin-page-title">角色管理</h1>
 
     <div class="table-card">
-      <div style="margin-bottom: 16px;">
+      <div style="margin-bottom: 16px">
         <Button type="primary" @click="openCreate">新增角色</Button>
       </div>
 
-      <Table :data-source="(dataSource as any)" :columns="columns" :loading="loading" :pagination="false" row-key="id" size="middle">
+      <Table
+        :data-source="dataSource as any"
+        :columns="columns"
+        :loading="loading"
+        :pagination="false"
+        row-key="id"
+        size="middle"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
             <Button type="link" size="small" @click="openEdit(record as any)">编辑</Button>
@@ -113,11 +123,23 @@ async function handleDelete(id: number) {
       </Table>
 
       <div v-if="total > 0" class="pagination-wrap">
-        <Pagination :current="query.page" :page-size="query.page_size" :total="total" show-size-changer :page-size-options="['10', '20', '50']" @change="onPageChange" />
+        <Pagination
+          :current="query.page"
+          :page-size="query.page_size"
+          :total="total"
+          show-size-changer
+          :page-size-options="['10', '20', '50']"
+          @change="onPageChange"
+        />
       </div>
     </div>
 
-    <Modal v-model:open="modalVisible" :title="currentId ? '编辑角色' : '新增角色'" :confirm-loading="modalLoading" @ok="handleSubmit">
+    <Modal
+      v-model:open="modalVisible"
+      :title="currentId ? '编辑角色' : '新增角色'"
+      :confirm-loading="modalLoading"
+      @ok="handleSubmit"
+    >
       <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="角色名称" required>
           <Input v-model:value="formState.name" placeholder="请输入角色名称" />

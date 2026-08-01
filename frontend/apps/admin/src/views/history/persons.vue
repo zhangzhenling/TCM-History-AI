@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Select, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -221,9 +232,9 @@ async function handleDelete(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑人物' : '新增人物'"
       :confirm-loading="modalLoading"
+      :width="600"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="600"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="姓名" name="name" :rules="[{ required: true, message: '请输入姓名' }]">
@@ -246,10 +257,18 @@ async function handleDelete(id: number) {
         </Form.Item>
         <div class="form-row">
           <Form.Item label="生年" name="birth_year">
-            <InputNumber v-model:value="formState.birth_year" placeholder="请输入生年" style="width: 100%" />
+            <InputNumber
+              v-model:value="formState.birth_year"
+              placeholder="请输入生年"
+              style="width: 100%"
+            />
           </Form.Item>
           <Form.Item label="卒年" name="death_year">
-            <InputNumber v-model:value="formState.death_year" placeholder="请输入卒年" style="width: 100%" />
+            <InputNumber
+              v-model:value="formState.death_year"
+              placeholder="请输入卒年"
+              style="width: 100%"
+            />
           </Form.Item>
         </div>
         <div class="form-row">
@@ -267,7 +286,11 @@ async function handleDelete(id: number) {
           <Input.TextArea v-model:value="formState.biography" placeholder="请输入生平" :rows="3" />
         </Form.Item>
         <Form.Item label="成就" name="achievements">
-          <Input.TextArea v-model:value="formState.achievements" placeholder="请输入成就" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.achievements"
+            placeholder="请输入成就"
+            :rows="3"
+          />
         </Form.Item>
         <Form.Item label="头像URL" name="portrait_url">
           <Input v-model:value="formState.portrait_url" placeholder="请输入头像URL" />

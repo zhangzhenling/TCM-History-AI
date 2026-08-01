@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, Select, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -46,19 +56,25 @@ const columns = [
 
 const dynastyMap = computed(() => {
   const map: Record<number, string> = {};
-  dynasties.value.forEach((d) => { map[d.id] = d.name; });
+  dynasties.value.forEach((d) => {
+    map[d.id] = d.name;
+  });
   return map;
 });
 
 const bookMap = computed(() => {
   const map: Record<number, string> = {};
-  books.value.forEach((b) => { map[b.id] = b.title; });
+  books.value.forEach((b) => {
+    map[b.id] = b.title;
+  });
   return map;
 });
 
 const personMap = computed(() => {
   const map: Record<number, string> = {};
-  persons.value.forEach((p) => { map[p.id] = p.name; });
+  persons.value.forEach((p) => {
+    map[p.id] = p.name;
+  });
   return map;
 });
 
@@ -104,7 +120,10 @@ async function loadPersons() {
 async function load() {
   loading.value = true;
   try {
-    const res = await apis.history.listPrescriptions({ page: query.page, page_size: query.page_size });
+    const res = await apis.history.listPrescriptions({
+      page: query.page,
+      page_size: query.page_size,
+    });
     prescriptions.value = res.items ?? [];
     total.value = res.total ?? 0;
   } finally {
@@ -225,8 +244,13 @@ async function handleDelete(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openEditModal(record as Prescription)">编辑</Button>
-            <Popconfirm title="确定删除该方剂吗？" @confirm="handleDelete((record as Prescription).id)">
+            <Button type="link" size="small" @click="openEditModal(record as Prescription)"
+              >编辑</Button
+            >
+            <Popconfirm
+              title="确定删除该方剂吗？"
+              @confirm="handleDelete((record as Prescription).id)"
+            >
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
           </template>
@@ -249,12 +273,16 @@ async function handleDelete(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑方剂' : '新增方剂'"
       :confirm-loading="modalLoading"
+      :width="680"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="680"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
-        <Form.Item label="方剂名称" name="name" :rules="[{ required: true, message: '请输入方剂名称' }]">
+        <Form.Item
+          label="方剂名称"
+          name="name"
+          :rules="[{ required: true, message: '请输入方剂名称' }]"
+        >
           <Input v-model:value="formState.name" placeholder="请输入方剂名称" />
         </Form.Item>
         <div class="form-row">
@@ -262,7 +290,13 @@ async function handleDelete(id: number) {
             <Input v-model:value="formState.pinyin" placeholder="请输入拼音" />
           </Form.Item>
           <Form.Item label="朝代" name="dynasty_id">
-            <Select v-model:value="formState.dynasty_id" placeholder="请选择朝代" allow-clear show-search option-filter-prop="children">
+            <Select
+              v-model:value="formState.dynasty_id"
+              placeholder="请选择朝代"
+              allow-clear
+              show-search
+              option-filter-prop="children"
+            >
               <Select.Option v-for="d in dynasties" :key="d.id" :value="d.id">
                 {{ d.name }}
               </Select.Option>
@@ -270,14 +304,26 @@ async function handleDelete(id: number) {
           </Form.Item>
         </div>
         <Form.Item label="来源著作" name="source_book_id">
-          <Select v-model:value="formState.source_book_id" placeholder="请选择来源著作" allow-clear show-search option-filter-prop="children">
+          <Select
+            v-model:value="formState.source_book_id"
+            placeholder="请选择来源著作"
+            allow-clear
+            show-search
+            option-filter-prop="children"
+          >
             <Select.Option v-for="b in books" :key="b.id" :value="b.id">
               {{ b.title }}
             </Select.Option>
           </Select>
         </Form.Item>
         <Form.Item label="来源人物" name="source_person_id">
-          <Select v-model:value="formState.source_person_id" placeholder="请选择来源人物" allow-clear show-search option-filter-prop="children">
+          <Select
+            v-model:value="formState.source_person_id"
+            placeholder="请选择来源人物"
+            allow-clear
+            show-search
+            option-filter-prop="children"
+          >
             <Select.Option v-for="p in persons" :key="p.id" :value="p.id">
               {{ p.name }}
             </Select.Option>
@@ -307,13 +353,21 @@ async function handleDelete(id: number) {
           </Select>
         </Form.Item>
         <Form.Item label="组成" name="composition">
-          <Input.TextArea v-model:value="formState.composition" placeholder="请输入方剂组成" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.composition"
+            placeholder="请输入方剂组成"
+            :rows="3"
+          />
         </Form.Item>
         <Form.Item label="用法" name="usage">
           <Input.TextArea v-model:value="formState.usage" placeholder="请输入用法用量" :rows="2" />
         </Form.Item>
         <Form.Item label="主治" name="indications">
-          <Input.TextArea v-model:value="formState.indications" placeholder="请输入主治功效" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.indications"
+            placeholder="请输入主治功效"
+            :rows="3"
+          />
         </Form.Item>
       </Form>
     </Modal>

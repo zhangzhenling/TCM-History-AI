@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, Select, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -197,9 +207,9 @@ async function handleDelete(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑疾病' : '新增疾病'"
       :confirm-loading="modalLoading"
+      :width="640"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="640"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="病名" name="name" :rules="[{ required: true, message: '请输入病名' }]">
@@ -218,13 +228,25 @@ async function handleDelete(id: number) {
           </Form.Item>
         </div>
         <Form.Item label="描述" name="description">
-          <Input.TextArea v-model:value="formState.description" placeholder="请输入疾病描述" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.description"
+            placeholder="请输入疾病描述"
+            :rows="3"
+          />
         </Form.Item>
         <Form.Item label="症状" name="symptoms">
-          <Input.TextArea v-model:value="formState.symptoms" placeholder="请输入症状表现" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.symptoms"
+            placeholder="请输入症状表现"
+            :rows="3"
+          />
         </Form.Item>
         <Form.Item label="病机" name="tcm_pathogenesis">
-          <Input.TextArea v-model:value="formState.tcm_pathogenesis" placeholder="请输入中医病机分析" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.tcm_pathogenesis"
+            placeholder="请输入中医病机分析"
+            :rows="3"
+          />
         </Form.Item>
       </Form>
     </Modal>

@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Select, Switch, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Switch,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -211,9 +223,9 @@ async function handleDelete(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑著作' : '新增著作'"
       :confirm-loading="modalLoading"
+      :width="600"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="600"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="书名" name="title" :rules="[{ required: true, message: '请输入书名' }]">
@@ -228,7 +240,11 @@ async function handleDelete(id: number) {
             </Select>
           </Form.Item>
           <Form.Item label="成书年" name="published_year">
-            <InputNumber v-model:value="formState.published_year" placeholder="请输入成书年" style="width: 100%" />
+            <InputNumber
+              v-model:value="formState.published_year"
+              placeholder="请输入成书年"
+              style="width: 100%"
+            />
           </Form.Item>
         </div>
         <div class="form-row">
@@ -236,11 +252,20 @@ async function handleDelete(id: number) {
             <Input v-model:value="formState.category" placeholder="请输入分类" />
           </Form.Item>
           <Form.Item label="卷数" name="volume_count">
-            <InputNumber v-model:value="formState.volume_count" placeholder="请输入卷数" style="width: 100%" :min="0" />
+            <InputNumber
+              v-model:value="formState.volume_count"
+              placeholder="请输入卷数"
+              style="width: 100%"
+              :min="0"
+            />
           </Form.Item>
         </div>
         <Form.Item label="是否存世" name="is_extant" value-prop-name="checked">
-          <Switch v-model:checked="formState.is_extant" checked-children="是" un-checked-children="否" />
+          <Switch
+            v-model:checked="formState.is_extant"
+            checked-children="是"
+            un-checked-children="否"
+          />
         </Form.Item>
         <Form.Item label="简介" name="summary">
           <Input.TextArea v-model:value="formState.summary" placeholder="请输入简介" :rows="4" />

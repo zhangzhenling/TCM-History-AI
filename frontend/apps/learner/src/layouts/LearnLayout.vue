@@ -77,7 +77,15 @@ function handleUserMenu(info: { key: string | number }) {
     <main class="learn-main">
       <RouterView v-slot="{ Component }">
         <KeepAlive
-          :include="['Home', 'Timeline', 'PersonList', 'BookList', 'SchoolList', 'Graph', 'Knowledge']"
+          :include="[
+            'Home',
+            'Timeline',
+            'PersonList',
+            'BookList',
+            'SchoolList',
+            'Graph',
+            'Knowledge',
+          ]"
         >
           <component :is="Component" />
         </KeepAlive>

@@ -1,8 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true,
-    "types": ["vue/macros-global"]
+    "noEmit": true
   },
   "include": ["src/**/*.ts", "src/**/*.vue"]
 }

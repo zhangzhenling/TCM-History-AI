@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -177,20 +187,40 @@ async function handleDelete(id: number) {
       @ok="handleOk"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
-        <Form.Item label="朝代名称" name="name" :rules="[{ required: true, message: '请输入朝代名称' }]">
+        <Form.Item
+          label="朝代名称"
+          name="name"
+          :rules="[{ required: true, message: '请输入朝代名称' }]"
+        >
           <Input v-model:value="formState.name" placeholder="请输入朝代名称" />
         </Form.Item>
         <Form.Item label="起始年份" name="start_year">
-          <InputNumber v-model:value="formState.start_year" placeholder="请输入起始年份" style="width: 100%" />
+          <InputNumber
+            v-model:value="formState.start_year"
+            placeholder="请输入起始年份"
+            style="width: 100%"
+          />
         </Form.Item>
         <Form.Item label="结束年份" name="end_year">
-          <InputNumber v-model:value="formState.end_year" placeholder="请输入结束年份" style="width: 100%" />
+          <InputNumber
+            v-model:value="formState.end_year"
+            placeholder="请输入结束年份"
+            style="width: 100%"
+          />
         </Form.Item>
         <Form.Item label="排序" name="sort_order">
-          <InputNumber v-model:value="formState.sort_order" placeholder="请输入排序值" style="width: 100%" />
+          <InputNumber
+            v-model:value="formState.sort_order"
+            placeholder="请输入排序值"
+            style="width: 100%"
+          />
         </Form.Item>
         <Form.Item label="描述" name="description">
-          <Input.TextArea v-model:value="formState.description" placeholder="请输入描述" :rows="4" />
+          <Input.TextArea
+            v-model:value="formState.description"
+            placeholder="请输入描述"
+            :rows="4"
+          />
         </Form.Item>
       </Form>
     </Modal>
