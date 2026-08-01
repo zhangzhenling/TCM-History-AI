@@ -1,0 +1,1188 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI Learning Service API
+  version: 1.0.0
+  description: |
+    Learning Service 是 TCM-History-AI 平台的学习中心，提供课程管理、选课、
+    考试与作答、学习记录、学习计划以及错题本等功能，支撑个性化学习路径。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8087
+    description: local dev
+  - url: http://gateway/api
+    description: production via gateway
+tags:
+  - name: health
+  - name: course
+  - name: enrollment
+  - name: exam
+  - name: record
+  - name: study-plan
+  - name: wrong-question
+  - name: dashboard
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/learning/courses:
+    get:
+      tags: [course]
+      summary: List courses (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+          description: filter by category
+        - name: difficulty
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: paginated list of courses
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CourseList'
+    post:
+      tags: [course]
+      summary: Create a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CourseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/learning/courses/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [course]
+      summary: Get course detail with chapters
+      responses:
+        '200':
+          description: course detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CourseResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [course]
+      summary: Update a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+      responses:
+        '200':
+          description: updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CourseResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [course]
+      summary: Delete a course
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/learning/enrollments:
+    get:
+      tags: [enrollment]
+      summary: List enrollments for current user (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [enrolled, completed, dropped]
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: paginated list of enrollments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EnrollmentList'
+    post:
+      tags: [enrollment]
+      summary: Enroll in a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentRequest'
+      responses:
+        '201':
+          description: enrolled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EnrollmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/learning/enrollments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [enrollment]
+      summary: Get enrollment detail
+      responses:
+        '200':
+          description: enrollment detail
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [enrollment]
+      summary: Update enrollment (e.g. progress, status)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentUpdateRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [enrollment]
+      summary: Drop/delete an enrollment
+      responses:
+        '204':
+          description: dropped
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/learning/exams:
+    get:
+      tags: [exam]
+      summary: List exams (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: course_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: exam_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [quiz, midterm, final, practice]
+      responses:
+        '200':
+          description: paginated list of exams
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExamList'
+    post:
+      tags: [exam]
+      summary: Create an exam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExamResponse'
+
+  /api/v1/learning/exams/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [exam]
+      summary: Get exam detail with questions
+      responses:
+        '200':
+          description: exam detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExamResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [exam]
+      summary: Update an exam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [exam]
+      summary: Delete an exam
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/learning/exams/{id}/attempts:
+    post:
+      tags: [exam]
+      summary: Submit an exam attempt (answers)
+      description: |
+        提交试卷作答，系统自动评分并返回结果。客观题即时批改，
+        主观题可标记为待人工评分。
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamAttemptRequest'
+      responses:
+        '201':
+          description: attempt submitted and scored
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExamAttemptResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/learning/records:
+    get:
+      tags: [record]
+      summary: List learning records for current user (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: record_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [study, exam, practice]
+        - name: course_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: paginated list of learning records
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LearningRecordList'
+
+  /api/v1/learning/study-plans:
+    get:
+      tags: [study-plan]
+      summary: List study plans for current user (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, completed, paused]
+      responses:
+        '200':
+          description: paginated list of study plans
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StudyPlanList'
+    post:
+      tags: [study-plan]
+      summary: Create a study plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyPlanRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StudyPlanResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/learning/study-plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [study-plan]
+      summary: Get study plan detail with tasks
+      responses:
+        '200':
+          description: study plan detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StudyPlanResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [study-plan]
+      summary: Update a study plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyPlanRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [study-plan]
+      summary: Delete a study plan
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/learning/wrong-questions:
+    get:
+      tags: [wrong-question]
+      summary: List wrong questions for current user (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: course_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: mastery_level
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [new, learning, mastered]
+      responses:
+        '200':
+          description: paginated list of wrong questions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WrongQuestionList'
+    post:
+      tags: [wrong-question]
+      summary: Manually add a question to wrong-question notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WrongQuestionRequest'
+      responses:
+        '201':
+          description: added
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WrongQuestionResponse'
+
+  /api/v1/learning/wrong-questions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [wrong-question]
+      summary: Get wrong question detail
+      responses:
+        '200':
+          description: wrong question detail
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [wrong-question]
+      summary: Update wrong question (e.g. mark as mastered)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WrongQuestionRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [wrong-question]
+      summary: Remove a question from wrong-question notebook
+      responses:
+        '204':
+          description: removed
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/learning/dashboard:
+    get:
+      tags: [dashboard]
+      summary: Get dashboard learning stats for current user
+      description: |
+        返回学习总览数据：课程数、学习时长、完成率、最近活动、
+        错题统计、学习计划进度等。
+      responses:
+        '200':
+          description: dashboard statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DashboardResponse'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    BadRequest:
+      description: invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          description: payload; shape depends on the endpoint
+        trace_id:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 10004
+        message:
+          type: string
+          example: resource not found
+        trace_id:
+          type: string
+    PaginationEnvelope:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_page:
+          type: integer
+        items:
+          type: array
+          items: {}
+
+    CourseRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+        category:
+          type: string
+          example: 中医基础
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        cover_url:
+          type: string
+        teacher_id:
+          type: integer
+          format: int64
+        chapters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChapterRequest'
+        is_published:
+          type: boolean
+          default: false
+    ChapterRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        sort_order:
+          type: integer
+          default: 0
+        video_url:
+          type: string
+        duration_minutes:
+          type: integer
+    CourseResponse:
+      allOf:
+        - $ref: '#/components/schemas/CourseRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            enrollment_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    CourseList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CourseResponse'
+
+    EnrollmentRequest:
+      type: object
+      required: [course_id]
+      properties:
+        course_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+    EnrollmentUpdateRequest:
+      type: object
+      properties:
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        completed_chapters:
+          type: array
+          items:
+            type: integer
+            format: int64
+        status:
+          type: string
+          enum: [enrolled, completed, dropped]
+        last_studied_at:
+          type: string
+          format: date-time
+    EnrollmentResponse:
+      allOf:
+        - $ref: '#/components/schemas/EnrollmentRequest'
+        - $ref: '#/components/schemas/EnrollmentUpdateRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            course:
+              $ref: '#/components/schemas/CourseResponse'
+            enrolled_at:
+              type: string
+              format: date-time
+    EnrollmentList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/EnrollmentResponse'
+
+    ExamRequest:
+      type: object
+      required: [title, exam_type]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+        exam_type:
+          type: string
+          enum: [quiz, midterm, final, practice]
+        course_id:
+          type: integer
+          format: int64
+        duration_minutes:
+          type: integer
+          description: time limit; 0 means no limit
+        passing_score:
+          type: number
+          format: float
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionRequest'
+        is_published:
+          type: boolean
+          default: false
+    QuestionRequest:
+      type: object
+      required: [question_type, content]
+      properties:
+        question_type:
+          type: string
+          enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer]
+        content:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        correct_answer:
+          type: string
+        score:
+          type: number
+          format: float
+          default: 1
+        explanation:
+          type: string
+    ExamResponse:
+      allOf:
+        - $ref: '#/components/schemas/ExamRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            question_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    ExamList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExamResponse'
+
+    ExamAttemptRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerRequest'
+        time_spent_seconds:
+          type: integer
+          format: int32
+    AnswerRequest:
+      type: object
+      required: [question_id]
+      properties:
+        question_id:
+          type: integer
+          format: int64
+        answer:
+          type: string
+        selected_options:
+          type: array
+          items:
+            type: integer
+            format: int32
+    ExamAttemptResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        exam_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        score:
+          type: number
+          format: float
+        total_score:
+          type: number
+          format: float
+        passed:
+          type: boolean
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerResult'
+        time_spent_seconds:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+    AnswerResult:
+      type: object
+      properties:
+        question_id:
+          type: integer
+          format: int64
+        correct:
+          type: boolean
+        user_answer:
+          type: string
+        correct_answer:
+          type: string
+        score_earned:
+          type: number
+          format: float
+        explanation:
+          type: string
+
+    LearningRecordResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        record_type:
+          type: string
+          enum: [study, exam, practice]
+        user_id:
+          type: integer
+          format: int64
+        course_id:
+          type: integer
+          format: int64
+        exam_id:
+          type: integer
+          format: int64
+        duration_seconds:
+          type: integer
+          format: int32
+        details:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    LearningRecordList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/LearningRecordResponse'
+
+    StudyPlanRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+        user_id:
+          type: integer
+          format: int64
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudyTaskRequest'
+        status:
+          type: string
+          enum: [active, completed, paused]
+          default: active
+    StudyTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        task_type:
+          type: string
+          enum: [read, practice, exam, review]
+        course_id:
+          type: integer
+          format: int64
+        chapter_id:
+          type: integer
+          format: int64
+        due_date:
+          type: string
+          format: date
+        completed:
+          type: boolean
+          default: false
+    StudyPlanResponse:
+      allOf:
+        - $ref: '#/components/schemas/StudyPlanRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            progress:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 100
+            tasks:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudyTaskResponse'
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    StudyTaskResponse:
+      allOf:
+        - $ref: '#/components/schemas/StudyTaskRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            completed_at:
+              type: string
+              format: date-time
+    StudyPlanList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudyPlanResponse'
+
+    WrongQuestionRequest:
+      type: object
+      required: [question_content, correct_answer]
+      properties:
+        question_content:
+          type: string
+        your_answer:
+          type: string
+        correct_answer:
+          type: string
+        course_id:
+          type: integer
+          format: int64
+        exam_id:
+          type: integer
+          format: int64
+        question_id:
+          type: integer
+          format: int64
+        mastery_level:
+          type: string
+          enum: [new, learning, mastered]
+          default: new
+        tags:
+          type: array
+          items:
+            type: string
+    WrongQuestionResponse:
+      allOf:
+        - $ref: '#/components/schemas/WrongQuestionRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            user_id:
+              type: integer
+              format: int64
+            wrong_count:
+              type: integer
+              default: 1
+            last_wrong_at:
+              type: string
+              format: date-time
+            next_review_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    WrongQuestionList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/WrongQuestionResponse'
+
+    DashboardResponse:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        overview:
+          type: object
+          properties:
+            enrolled_courses:
+              type: integer
+            completed_courses:
+              type: integer
+            total_study_hours:
+              type: number
+              format: float
+            completed_exams:
+              type: integer
+            avg_score:
+              type: number
+              format: float
+        recent_activity:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningRecordResponse'
+        study_plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudyPlanResponse'
+        wrong_questions_summary:
+          type: object
+          properties:
+            total:
+              type: integer
+            new_count:
+              type: integer
+            learning_count:
+              type: integer
+            mastered_count:
+              type: integer
+        study_streak_days:
+          type: integer
+        weekly_hours:
+          type: array
+          items:
+            type: number
+            format: float
+          description: 7-element array, index 0 = Monday

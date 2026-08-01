@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal } from 'ant-design-vue';
+import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Tag, Popconfirm, message } from 'ant-design-vue';
+import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
 import { truncate } from '@tcm/shared';
-import type { Medicine } from '@tcm/api';
+import type { Medicine, MedicineRequest } from '@tcm/api';
 
 const apis = useApi();
 
@@ -12,20 +13,32 @@ const loading = ref(false);
 const medicines = ref<Medicine[]>([]);
 const total = ref(0);
 const query = reactive({ page: 1, page_size: 10 });
-const detailVisible = ref(false);
-const detailLoading = ref(false);
-const currentMedicine = ref<Medicine | null>(null);
+const modalVisible = ref(false);
+const modalLoading = ref(false);
+const currentId = ref<number | null>(null);
+
+const formRef = ref<FormInstance>();
+const formState = reactive<MedicineRequest>({
+  name: '',
+  pinyin: '',
+  alias: [],
+  nature: '',
+  flavor: '',
+  meridian: '',
+  efficacy: '',
+  dosage: '',
+  toxicity: '',
+});
 
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
   { title: '药名', dataIndex: 'name', key: 'name' },
   { title: '拼音', dataIndex: 'pinyin', key: 'pinyin', width: 140 },
-  { title: '性味', dataIndex: 'nature_flavor', key: 'nature_flavor', width: 120 },
+  { title: '性味', dataIndex: 'nature_flavor', key: 'nature_flavor', width: 140 },
   { title: '归经', dataIndex: 'meridian', key: 'meridian', width: 120 },
   { title: '功效', dataIndex: 'efficacy', key: 'efficacy' },
-  { title: '用量', dataIndex: 'dosage', key: 'dosage', width: 120 },
   { title: '毒性', dataIndex: 'toxicity', key: 'toxicity', width: 100 },
-  { title: '操作', dataIndex: 'action', key: 'action', width: 100, fixed: 'right' as const },
+  { title: '操作', dataIndex: 'action', key: 'action', width: 200, fixed: 'right' as const },
 ];
 
 const dataSource = computed(() =>
@@ -35,7 +48,6 @@ const dataSource = computed(() =>
     nature_flavor: `${m.nature || ''}${m.flavor || ''}` || '—',
     meridian: m.meridian || '—',
     efficacy: truncate(m.efficacy, 40),
-    dosage: m.dosage || '—',
     toxicity: m.toxicity || '—',
   })),
 );
@@ -59,14 +71,95 @@ function onPageChange(p: number, ps: number) {
   load();
 }
 
-async function openDetail(id: number) {
-  detailLoading.value = true;
-  detailVisible.value = true;
-  currentMedicine.value = null;
+function parseAlias(): string[] {
+  if (Array.isArray(formState.alias)) return formState.alias;
+  if (typeof formState.alias === 'string' && formState.alias) {
+    return (formState.alias as string).split(/[,，、]/).map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function resetForm() {
+  formState.name = '';
+  formState.pinyin = '';
+  formState.alias = [];
+  formState.nature = '';
+  formState.flavor = '';
+  formState.meridian = '';
+  formState.efficacy = '';
+  formState.dosage = '';
+  formState.toxicity = '';
+  formRef.value?.clearValidate();
+}
+
+function openAddModal() {
+  currentId.value = null;
+  resetForm();
+  modalVisible.value = true;
+}
+
+async function openEditModal(record: Medicine) {
+  currentId.value = record.id;
+  resetForm();
   try {
-    currentMedicine.value = await apis.history.getMedicine(id);
+    const detail = await apis.history.getMedicine(record.id);
+    formState.name = detail.name;
+    formState.pinyin = detail.pinyin;
+    formState.alias = Array.isArray(detail.alias_json) ? detail.alias_json : [];
+    formState.nature = detail.nature;
+    formState.flavor = detail.flavor;
+    formState.meridian = detail.meridian;
+    formState.efficacy = detail.efficacy;
+    formState.dosage = detail.dosage;
+    formState.toxicity = detail.toxicity;
+  } catch (e) {
+    formState.name = record.name;
+    formState.pinyin = record.pinyin;
+    formState.alias = Array.isArray(record.alias_json) ? record.alias_json : [];
+    formState.nature = record.nature;
+    formState.flavor = record.flavor;
+    formState.meridian = record.meridian;
+    formState.efficacy = record.efficacy;
+    formState.dosage = record.dosage;
+    formState.toxicity = record.toxicity;
+  }
+  modalVisible.value = true;
+}
+
+async function handleOk() {
+  try {
+    await formRef.value?.validate();
+  } catch (e) {
+    return;
+  }
+
+  modalLoading.value = true;
+  try {
+    const payload: MedicineRequest = {
+      ...formState,
+      alias: parseAlias(),
+    };
+    if (currentId.value) {
+      await apis.history.updateMedicine(currentId.value, payload);
+      message.success('更新成功');
+    } else {
+      await apis.history.createMedicine(payload);
+      message.success('创建成功');
+    }
+    modalVisible.value = false;
+    load();
   } finally {
-    detailLoading.value = false;
+    modalLoading.value = false;
+  }
+}
+
+async function handleDelete(id: number) {
+  try {
+    await apis.history.deleteMedicine(id);
+    message.success('删除成功');
+    load();
+  } catch (e) {
+    // error handled by interceptor
   }
 }
 </script>
@@ -77,7 +170,7 @@ async function openDetail(id: number) {
 
     <div class="table-card">
       <div class="toolbar">
-        <span class="table-hint">药物数据仅供查看，暂不支持编辑删除</span>
+        <Button type="primary" @click="openAddModal">新增药物</Button>
       </div>
       <Table
         :data-source="dataSource"
@@ -90,7 +183,10 @@ async function openDetail(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openDetail(record.id)">详情</Button>
+            <Button type="link" size="small" @click="openEditModal(record as Medicine)">编辑</Button>
+            <Popconfirm title="确定删除该药物吗？" @confirm="handleDelete((record as Medicine).id)">
+              <Button type="link" size="small" danger>删除</Button>
+            </Popconfirm>
           </template>
           <template v-else>{{ text }}</template>
         </template>
@@ -108,63 +204,72 @@ async function openDetail(id: number) {
     </div>
 
     <Modal
-      :open="detailVisible"
-      title="药物详情"
-      :confirm-loading="detailLoading"
-      @cancel="detailVisible = false"
-      @ok="detailVisible = false"
-      width="640px"
+      :open="modalVisible"
+      :title="currentId ? '编辑药物' : '新增药物'"
+      :confirm-loading="modalLoading"
+      @cancel="modalVisible = false"
+      @ok="handleOk"
+      :width="640"
     >
-      <div v-if="detailLoading" class="detail-loading">加载中...</div>
-      <div v-else-if="currentMedicine" class="detail-content">
-        <div class="detail-item">
-          <span class="detail-label">ID：</span>
-          <span class="detail-value">{{ currentMedicine.id }}</span>
+      <Form ref="formRef" :model="formState" layout="vertical">
+        <Form.Item label="药名" name="name" :rules="[{ required: true, message: '请输入药名' }]">
+          <Input v-model:value="formState.name" placeholder="请输入药名" />
+        </Form.Item>
+        <div class="form-row">
+          <Form.Item label="拼音" name="pinyin">
+            <Input v-model:value="formState.pinyin" placeholder="请输入拼音" />
+          </Form.Item>
+          <Form.Item label="别名" name="alias_text">
+            <Input
+              v-model:value="formState.alias"
+              placeholder="多个别名用逗号分隔"
+              :value="Array.isArray(formState.alias) ? formState.alias.join('、') : ''"
+              @input="(e: Event) => { formState.alias = (e.target as HTMLInputElement).value.split(/[,，、]/).map(s => s.trim()).filter(Boolean); }"
+            />
+          </Form.Item>
         </div>
-        <div class="detail-item">
-          <span class="detail-label">药名：</span>
-          <span class="detail-value">{{ currentMedicine.name }}</span>
+        <div class="form-row">
+          <Form.Item label="性味" name="nature">
+            <Select v-model:value="formState.nature" placeholder="药性">
+              <Select.Option value="寒">寒</Select.Option>
+              <Select.Option value="凉">凉</Select.Option>
+              <Select.Option value="平">平</Select.Option>
+              <Select.Option value="温">温</Select.Option>
+              <Select.Option value="热">热</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="味" name="flavor">
+            <Select v-model:value="formState.flavor" placeholder="药味">
+              <Select.Option value="酸">酸</Select.Option>
+              <Select.Option value="苦">苦</Select.Option>
+              <Select.Option value="甘">甘</Select.Option>
+              <Select.Option value="辛">辛</Select.Option>
+              <Select.Option value="咸">咸</Select.Option>
+              <Select.Option value="淡">淡</Select.Option>
+              <Select.Option value="涩">涩</Select.Option>
+            </Select>
+          </Form.Item>
         </div>
-        <div class="detail-item">
-          <span class="detail-label">拼音：</span>
-          <span class="detail-value">{{ currentMedicine.pinyin || '—' }}</span>
+        <Form.Item label="归经" name="meridian">
+          <Input v-model:value="formState.meridian" placeholder="如：肝经、心经、脾经" />
+        </Form.Item>
+        <Form.Item label="功效" name="efficacy">
+          <Input.TextArea v-model:value="formState.efficacy" placeholder="请输入功效" :rows="3" />
+        </Form.Item>
+        <div class="form-row">
+          <Form.Item label="用量" name="dosage">
+            <Input v-model:value="formState.dosage" placeholder="如：3-9g" />
+          </Form.Item>
+          <Form.Item label="毒性" name="toxicity">
+            <Select v-model:value="formState.toxicity" placeholder="毒性">
+              <Select.Option value="无毒">无毒</Select.Option>
+              <Select.Option value="小毒">小毒</Select.Option>
+              <Select.Option value="有毒">有毒</Select.Option>
+              <Select.Option value="大毒">大毒</Select.Option>
+            </Select>
+          </Form.Item>
         </div>
-        <div class="detail-item">
-          <span class="detail-label">别名：</span>
-          <span class="detail-value">
-            <template v-if="Array.isArray(currentMedicine.alias_json)">
-              {{ currentMedicine.alias_json.join('、') || '—' }}
-            </template>
-            <template v-else>
-              {{ currentMedicine.alias_json || '—' }}
-            </template>
-          </span>
-        </div>
-        <div class="detail-row">
-          <div class="detail-item">
-            <span class="detail-label">性味：</span>
-            <span class="detail-value">{{ currentMedicine.nature }}{{ currentMedicine.flavor }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">归经：</span>
-            <span class="detail-value">{{ currentMedicine.meridian || '—' }}</span>
-          </div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-item">
-            <span class="detail-label">用量：</span>
-            <span class="detail-value">{{ currentMedicine.dosage || '—' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">毒性：</span>
-            <span class="detail-value">{{ currentMedicine.toxicity || '—' }}</span>
-          </div>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">功效：</span>
-          <span class="detail-value">{{ currentMedicine.efficacy || '—' }}</span>
-        </div>
-      </div>
+      </Form>
     </Modal>
   </div>
 </template>
@@ -179,13 +284,6 @@ async function openDetail(id: number) {
 
 .toolbar {
   margin-bottom: var(--tcm-spacing-base);
-  display: flex;
-  align-items: center;
-}
-
-.table-hint {
-  color: rgba(31, 42, 68, 0.55);
-  font-size: 14px;
 }
 
 .pagination-wrap {
@@ -194,37 +292,12 @@ async function openDetail(id: number) {
   margin-top: var(--tcm-spacing-lg);
 }
 
-.detail-loading {
-  color: rgba(31, 42, 68, 0.55);
-  text-align: center;
-  padding: var(--tcm-spacing-lg) 0;
-}
-
-.detail-content {
+.form-row {
   display: flex;
-  flex-direction: column;
   gap: var(--tcm-spacing-base);
-}
 
-.detail-row {
-  display: flex;
-  gap: var(--tcm-spacing-lg);
-}
-
-.detail-item {
-  display: flex;
-  flex: 1;
-  line-height: 1.6;
-}
-
-.detail-label {
-  color: rgba(31, 42, 68, 0.55);
-  min-width: 70px;
-  flex-shrink: 0;
-}
-
-.detail-value {
-  color: #1f2a44;
-  word-break: break-all;
+  .ant-form-item {
+    flex: 1;
+  }
 }
 </style>

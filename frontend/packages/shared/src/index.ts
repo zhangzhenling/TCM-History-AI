@@ -3,3 +3,7 @@ export * from './design-tokens';
 export * from './constants/error-codes';
 export * from './constants/entity';
 export * from './utils/format';
+
+// 组件
+export { default as ErrorBoundary } from './components/ErrorBoundary.vue';
+export { default as LoadingWrapper } from './components/LoadingWrapper.vue';

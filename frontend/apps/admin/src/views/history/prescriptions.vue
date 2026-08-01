@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Table, Pagination, Button, Modal, Form, Input, Select, Popconfirm, message } from 'ant-design-vue';
+import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
 import { truncate } from '@tcm/shared';
-import type { Prescription, PrescriptionRequest } from '@tcm/api';
+import type { Prescription, PrescriptionRequest, Dynasty, Book, Person } from '@tcm/api';
 
 const apis = useApi();
 
@@ -16,7 +17,11 @@ const modalVisible = ref(false);
 const modalLoading = ref(false);
 const currentId = ref<number | null>(null);
 
-const formRef = ref();
+const dynasties = ref<Dynasty[]>([]);
+const books = ref<Book[]>([]);
+const persons = ref<Person[]>([]);
+
+const formRef = ref<FormInstance>();
 const formState = reactive<PrescriptionRequest>({
   name: '',
   pinyin: '',
@@ -33,25 +38,68 @@ const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
   { title: '方剂名', dataIndex: 'name', key: 'name' },
   { title: '拼音', dataIndex: 'pinyin', key: 'pinyin', width: 140 },
-  { title: '来源著作', dataIndex: 'source_book_id', key: 'source_book_id', width: 100 },
-  { title: '来源人物', dataIndex: 'source_person_id', key: 'source_person_id', width: 100 },
-  { title: '朝代', dataIndex: 'dynasty_id', key: 'dynasty_id', width: 100 },
+  { title: '朝代', dataIndex: 'dynasty_name', key: 'dynasty_name', width: 120 },
   { title: '分类', dataIndex: 'category', key: 'category', width: 120 },
   { title: '功效', dataIndex: 'indications', key: 'indications' },
   { title: '操作', dataIndex: 'action', key: 'action', width: 160, fixed: 'right' as const },
 ];
+
+const dynastyMap = computed(() => {
+  const map: Record<number, string> = {};
+  dynasties.value.forEach((d) => { map[d.id] = d.name; });
+  return map;
+});
+
+const bookMap = computed(() => {
+  const map: Record<number, string> = {};
+  books.value.forEach((b) => { map[b.id] = b.title; });
+  return map;
+});
+
+const personMap = computed(() => {
+  const map: Record<number, string> = {};
+  persons.value.forEach((p) => { map[p.id] = p.name; });
+  return map;
+});
 
 const dataSource = computed(() =>
   prescriptions.value.map((p) => ({
     ...p,
     pinyin: p.pinyin || '—',
     category: p.category || '—',
+    dynasty_name: dynastyMap.value[p.dynasty_id] || p.dynasty_id || '—',
+    source_book_name: bookMap.value[p.source_book_id] || p.source_book_id || '—',
+    source_person_name: personMap.value[p.source_person_id] || p.source_person_id || '—',
     indications: truncate(p.indications, 40),
   })),
 );
 
-const isEdit = computed(() => currentId.value !== null);
-const modalTitle = computed(() => (isEdit.value ? '编辑方剂' : '新增方剂'));
+async function loadDynasties() {
+  try {
+    const res = await apis.history.listDynasties({ page: 1, page_size: 100 });
+    dynasties.value = res.items ?? [];
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function loadBooks() {
+  try {
+    const res = await apis.history.listBooks({ page: 1, page_size: 100 });
+    books.value = res.items ?? [];
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function loadPersons() {
+  try {
+    const res = await apis.history.listPersons({ page: 1, page_size: 100 });
+    persons.value = res.items ?? [];
+  } catch (e) {
+    // ignore
+  }
+}
 
 async function load() {
   loading.value = true;
@@ -64,7 +112,12 @@ async function load() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+  loadDynasties();
+  loadBooks();
+  loadPersons();
+});
 
 function onPageChange(p: number, ps: number) {
   query.page = p;
@@ -85,47 +138,55 @@ function resetForm() {
   formRef.value?.clearValidate();
 }
 
-async function openAddModal() {
+function openAddModal() {
   currentId.value = null;
   resetForm();
   modalVisible.value = true;
 }
 
-async function openEditModal(id: number) {
-  currentId.value = id;
+async function openEditModal(record: Prescription) {
+  currentId.value = record.id;
   resetForm();
-  modalLoading.value = true;
-  modalVisible.value = true;
   try {
-    const data = await apis.history.getPrescription(id);
-    formState.name = data.name;
-    formState.pinyin = data.pinyin;
-    formState.source_book_id = data.source_book_id;
-    formState.source_person_id = data.source_person_id;
-    formState.dynasty_id = data.dynasty_id;
-    formState.composition = data.composition;
-    formState.usage = data.usage;
-    formState.indications = data.indications;
-    formState.category = data.category;
-  } finally {
-    modalLoading.value = false;
+    const detail = await apis.history.getPrescription(record.id);
+    formState.name = detail.name;
+    formState.pinyin = detail.pinyin;
+    formState.source_book_id = detail.source_book_id;
+    formState.source_person_id = detail.source_person_id;
+    formState.dynasty_id = detail.dynasty_id;
+    formState.composition = detail.composition;
+    formState.usage = detail.usage;
+    formState.indications = detail.indications;
+    formState.category = detail.category;
+  } catch (e) {
+    formState.name = record.name;
+    formState.pinyin = record.pinyin;
+    formState.source_book_id = record.source_book_id;
+    formState.source_person_id = record.source_person_id;
+    formState.dynasty_id = record.dynasty_id;
+    formState.composition = record.composition;
+    formState.usage = record.usage;
+    formState.indications = record.indications;
+    formState.category = record.category;
   }
+  modalVisible.value = true;
 }
 
 async function handleOk() {
   try {
-    await formRef.value.validate();
-  } catch {
+    await formRef.value?.validate();
+  } catch (e) {
     return;
   }
+
   modalLoading.value = true;
   try {
-    if (isEdit.value && currentId.value) {
+    if (currentId.value) {
       await apis.history.updatePrescription(currentId.value, formState);
-      message.success('编辑成功');
+      message.success('更新成功');
     } else {
       await apis.history.createPrescription(formState);
-      message.success('新增成功');
+      message.success('创建成功');
     }
     modalVisible.value = false;
     load();
@@ -139,8 +200,8 @@ async function handleDelete(id: number) {
     await apis.history.deletePrescription(id);
     message.success('删除成功');
     load();
-  } catch {
-    message.error('删除失败');
+  } catch (e) {
+    // error handled by interceptor
   }
 }
 </script>
@@ -164,7 +225,7 @@ async function handleDelete(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openEditModal((record as Prescription).id)">编辑</Button>
+            <Button type="link" size="small" @click="openEditModal(record as Prescription)">编辑</Button>
             <Popconfirm title="确定删除该方剂吗？" @confirm="handleDelete((record as Prescription).id)">
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
@@ -186,30 +247,42 @@ async function handleDelete(id: number) {
 
     <Modal
       :open="modalVisible"
-      :title="modalTitle"
+      :title="currentId ? '编辑方剂' : '新增方剂'"
       :confirm-loading="modalLoading"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      width="640px"
+      :width="680"
     >
-      <Form ref="formRef" layout="vertical" :model="formState">
+      <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="方剂名称" name="name" :rules="[{ required: true, message: '请输入方剂名称' }]">
           <Input v-model:value="formState.name" placeholder="请输入方剂名称" />
         </Form.Item>
-        <Form.Item label="拼音" name="pinyin">
-          <Input v-model:value="formState.pinyin" placeholder="请输入拼音" />
-        </Form.Item>
         <div class="form-row">
-          <Form.Item label="来源著作ID" name="source_book_id">
-            <InputNumber v-model:value="formState.source_book_id" placeholder="著作ID" :min="1" style="width: 100%" />
+          <Form.Item label="拼音" name="pinyin">
+            <Input v-model:value="formState.pinyin" placeholder="请输入拼音" />
           </Form.Item>
-          <Form.Item label="来源人物ID" name="source_person_id">
-            <InputNumber v-model:value="formState.source_person_id" placeholder="人物ID" :min="1" style="width: 100%" />
-          </Form.Item>
-          <Form.Item label="朝代ID" name="dynasty_id">
-            <InputNumber v-model:value="formState.dynasty_id" placeholder="朝代ID" :min="1" style="width: 100%" />
+          <Form.Item label="朝代" name="dynasty_id">
+            <Select v-model:value="formState.dynasty_id" placeholder="请选择朝代" allow-clear show-search option-filter-prop="children">
+              <Select.Option v-for="d in dynasties" :key="d.id" :value="d.id">
+                {{ d.name }}
+              </Select.Option>
+            </Select>
           </Form.Item>
         </div>
+        <Form.Item label="来源著作" name="source_book_id">
+          <Select v-model:value="formState.source_book_id" placeholder="请选择来源著作" allow-clear show-search option-filter-prop="children">
+            <Select.Option v-for="b in books" :key="b.id" :value="b.id">
+              {{ b.title }}
+            </Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item label="来源人物" name="source_person_id">
+          <Select v-model:value="formState.source_person_id" placeholder="请选择来源人物" allow-clear show-search option-filter-prop="children">
+            <Select.Option v-for="p in persons" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </Select.Option>
+          </Select>
+        </Form.Item>
         <Form.Item label="分类" name="category">
           <Select v-model:value="formState.category" placeholder="请选择分类" allow-clear>
             <Select.Option value="解表剂">解表剂</Select.Option>

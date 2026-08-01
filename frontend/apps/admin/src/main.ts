@@ -11,6 +11,8 @@ import App from './App.vue';
 import { router } from './router';
 import { createApis, createHttp, configureErrorHandler } from '@tcm/api';
 import { useUserStore } from '@tcm/stores';
+import { ErrorBoundary } from '@tcm/shared';
+import { useErrorHandler } from './composables/useErrorHandler';
 
 import './styles/global.less';
 
@@ -22,6 +24,9 @@ app.use(pinia);
 // 全局错误提示：HTTP 拦截器与业务层共用。
 configureErrorHandler((msg) => message.error(msg));
 
+// 注册全局错误边界组件。
+app.component('ErrorBoundary', ErrorBoundary);
+
 // 创建 API 实例（API 模块已带 /api/v1 前缀，baseURL 留空即可）。
 const http = createHttp({ baseURL: import.meta.env.VITE_API_BASE || '' });
 const apis = createApis(http);
@@ -32,6 +37,10 @@ userStore.bindToHttp({ baseURL: import.meta.env.VITE_API_BASE || '' });
 
 // 全局提供 apis，组件用 inject('apis') 取用。
 app.provide('apis', apis);
+
+// 注册全局错误处理 composable。
+const errorHandler = useErrorHandler();
+app.provide('errorHandler', errorHandler);
 
 app.use(router);
 app.mount('#app');

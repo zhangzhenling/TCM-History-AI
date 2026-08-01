@@ -1,0 +1,1297 @@
+openapi: 3.0.3
+info:
+  title: TCM-History-AI User Service API
+  version: 1.0.0
+  description: |
+    User Service 是 TCM-History-AI 平台的身份与权限中心，负责用户认证（注册/登录/刷新令牌）、
+    个人资料管理、角色权限体系、会员订阅、API Key 以及多租户管理。
+  contact:
+    name: TCM-History-AI Team
+servers:
+  - url: http://localhost:8083
+    description: local dev
+  - url: http://gateway/api
+    description: production via gateway
+tags:
+  - name: health
+  - name: auth
+  - name: profile
+  - name: settings
+  - name: user
+  - name: role
+  - name: permission
+  - name: membership-plan
+  - name: subscription
+  - name: api-key
+  - name: tenant
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: user registered
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: duplicate username or email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Login with credentials (username/email + password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: login success
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refresh access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/users/me:
+    get:
+      tags: [profile]
+      summary: Get current user's profile
+      responses:
+        '200':
+          description: user profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [profile]
+      summary: Update current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: profile updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/users/settings:
+    get:
+      tags: [settings]
+      summary: Get current user's settings
+      responses:
+        '200':
+          description: user settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSettingsResponse'
+    put:
+      tags: [settings]
+      summary: Update current user's settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSettingsRequest'
+      responses:
+        '200':
+          description: settings updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSettingsResponse'
+
+  /api/v1/users:
+    get:
+      tags: [user]
+      summary: List users (admin only, paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+          description: search by username or email
+        - name: role_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: paginated list of users
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserList'
+
+  /api/v1/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [user]
+      summary: Get user by ID (admin only)
+      responses:
+        '200':
+          description: user detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [user]
+      summary: Update a user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [user]
+      summary: Delete a user (admin only)
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/users/{id}/roles:
+    get:
+      tags: [user]
+      summary: List roles assigned to a user
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: list of roles
+    post:
+      tags: [user]
+      summary: Assign a role to a user
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_id]
+              properties:
+                role_id:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: role assigned
+
+  /api/v1/users/{id}/roles/{role_id}:
+    delete:
+      tags: [user]
+      summary: Remove a role from a user
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: role removed
+
+  /api/v1/roles:
+    get:
+      tags: [role]
+      summary: List roles (paginated)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of roles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoleList'
+    post:
+      tags: [role]
+      summary: Create a role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoleResponse'
+
+  /api/v1/roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [role]
+      summary: Get role detail
+      responses:
+        '200':
+          description: role detail
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [role]
+      summary: Update a role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [role]
+      summary: Delete a role
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/roles/{id}/permissions:
+    get:
+      tags: [role]
+      summary: List permissions for a role
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: list of permissions
+    post:
+      tags: [role]
+      summary: Grant permissions to a role
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission_ids]
+              properties:
+                permission_ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+      responses:
+        '201':
+          description: permissions granted
+
+  /api/v1/permissions:
+    get:
+      tags: [permission]
+      summary: List all permissions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: resource
+          in: query
+          required: false
+          schema:
+            type: string
+          description: filter by resource (e.g. user, role, system)
+      responses:
+        '200':
+          description: paginated list of permissions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PermissionList'
+    post:
+      tags: [permission]
+      summary: Create a permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PermissionResponse'
+
+  /api/v1/permissions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    delete:
+      tags: [permission]
+      summary: Delete a permission
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/membership-plans:
+    get:
+      tags: [membership-plan]
+      summary: List membership plans (public)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of plans
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MembershipPlanList'
+    post:
+      tags: [membership-plan]
+      summary: Create a membership plan (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+      responses:
+        '201':
+          description: created
+
+  /api/v1/membership-plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [membership-plan]
+      summary: Update a membership plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipPlanRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [membership-plan]
+      summary: Delete a membership plan
+      responses:
+        '204':
+          description: deleted
+
+  /api/v1/membership/subscribe:
+    post:
+      tags: [subscription]
+      summary: Subscribe to a membership plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscribeRequest'
+      responses:
+        '201':
+          description: subscription created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/membership/cancel:
+    post:
+      tags: [subscription]
+      summary: Cancel current subscription
+      responses:
+        '200':
+          description: subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/membership/orders:
+    get:
+      tags: [subscription]
+      summary: List billing orders for current user
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of orders
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderList'
+
+  /api/v1/api-keys:
+    get:
+      tags: [api-key]
+      summary: List API keys for current user
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of API keys
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/APIKeyList'
+    post:
+      tags: [api-key]
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyRequest'
+      responses:
+        '201':
+          description: key created (full key shown once)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/APIKeyResponse'
+
+  /api/v1/api-keys/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [api-key]
+      summary: Update API key (rename, toggle)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [api-key]
+      summary: Revoke/delete an API key
+      responses:
+        '204':
+          description: revoked
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/tenants:
+    get:
+      tags: [tenant]
+      summary: List tenants (paginated, admin only)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated list of tenants
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantList'
+    post:
+      tags: [tenant]
+      summary: Create a new tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantResponse'
+
+  /api/v1/tenants/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [tenant]
+      summary: Get tenant detail
+      responses:
+        '200':
+          description: tenant detail
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [tenant]
+      summary: Update a tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantRequest'
+      responses:
+        '200':
+          description: updated
+    delete:
+      tags: [tenant]
+      summary: Delete a tenant
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/tenants/{id}/members:
+    get:
+      tags: [tenant]
+      summary: List members in a tenant
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: paginated member list
+    post:
+      tags: [tenant]
+      summary: Invite/add a member to tenant
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantMemberRequest'
+      responses:
+        '201':
+          description: member added
+
+  /api/v1/tenants/{id}/members/{user_id}:
+    delete:
+      tags: [tenant]
+      summary: Remove a member from tenant
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: member removed
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    BadRequest:
+      description: invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          description: payload; shape depends on the endpoint
+        trace_id:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 10004
+        message:
+          type: string
+          example: resource not found
+        trace_id:
+          type: string
+    PaginationEnvelope:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        total_page:
+          type: integer
+        items:
+          type: array
+          items: {}
+
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 64
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        display_name:
+          type: string
+        tenant_id:
+          type: integer
+          format: int64
+    LoginRequest:
+      type: object
+      required: [account, password]
+      properties:
+        account:
+          type: string
+          description: username or email
+        password:
+          type: string
+        captcha:
+          type: string
+          description: optional captcha token
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          format: int32
+          example: 7200
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        avatar_url:
+          type: string
+        bio:
+          type: string
+        status:
+          type: string
+          enum: [active, disabled, pending]
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleResponse'
+        tenant_id:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    UserUpdateRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatar_url:
+          type: string
+        bio:
+          type: string
+        password:
+          type: string
+          minLength: 8
+    UserList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserResponse'
+
+    UserSettingsRequest:
+      type: object
+      properties:
+        language:
+          type: string
+          enum: [zh-CN, en-US]
+        timezone:
+          type: string
+          example: Asia/Shanghai
+        theme:
+          type: string
+          enum: [light, dark, system]
+        email_notifications:
+          type: boolean
+        ai_preferences:
+          type: object
+          additionalProperties: true
+    UserSettingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserSettingsRequest'
+        - type: object
+          properties:
+            user_id:
+              type: integer
+              format: int64
+            updated_at:
+              type: string
+              format: date-time
+
+    RoleRequest:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        code:
+          type: string
+          maxLength: 64
+          description: unique code, e.g. admin, teacher
+        description:
+          type: string
+        is_system:
+          type: boolean
+          default: false
+    RoleResponse:
+      allOf:
+        - $ref: '#/components/schemas/RoleRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            permission_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+    RoleList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RoleResponse'
+
+    PermissionRequest:
+      type: object
+      required: [resource, action]
+      properties:
+        resource:
+          type: string
+          example: user
+        action:
+          type: string
+          enum: [read, create, update, delete, manage]
+        description:
+          type: string
+    PermissionResponse:
+      allOf:
+        - $ref: '#/components/schemas/PermissionRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+    PermissionList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PermissionResponse'
+
+    MembershipPlanRequest:
+      type: object
+      required: [name, price, interval]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+          minimum: 0
+        currency:
+          type: string
+          default: CNY
+        interval:
+          type: string
+          enum: [monthly, yearly, lifetime]
+        features:
+          type: array
+          items:
+            type: string
+        ai_quota:
+          type: integer
+          format: int64
+          description: monthly token quota
+        is_active:
+          type: boolean
+          default: true
+    MembershipPlanResponse:
+      allOf:
+        - $ref: '#/components/schemas/MembershipPlanRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+    MembershipPlanList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MembershipPlanResponse'
+
+    SubscribeRequest:
+      type: object
+      required: [plan_id]
+      properties:
+        plan_id:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+          enum: [alipay, wechat, card]
+    SubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        plan:
+          $ref: '#/components/schemas/MembershipPlanResponse'
+        status:
+          type: string
+          enum: [active, cancelled, expired]
+        started_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        order_no:
+          type: string
+        amount:
+          type: number
+          format: float
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, failed, refunded]
+        payment_method:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    OrderList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderResponse'
+
+    APIKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+        enabled:
+          type: boolean
+          default: true
+    APIKeyResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIKeyRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            key_preview:
+              type: string
+              description: masked key, e.g. sk-abc***xyz
+            full_key:
+              type: string
+              description: only shown once on creation
+            last_used_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+    APIKeyList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/APIKeyResponse'
+
+    TenantRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        display_name:
+          type: string
+        description:
+          type: string
+        plan:
+          type: string
+          enum: [free, pro, enterprise]
+        max_members:
+          type: integer
+          default: 10
+        settings:
+          type: object
+          additionalProperties: true
+    TenantResponse:
+      allOf:
+        - $ref: '#/components/schemas/TenantRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            owner_id:
+              type: integer
+              format: int64
+            member_count:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    TenantList:
+      allOf:
+        - $ref: '#/components/schemas/PaginationEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TenantResponse'
+
+    TenantMemberRequest:
+      type: object
+      required: [user_id, role]
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        role:
+          type: string
+          enum: [owner, admin, member, viewer]
+        email:
+          type: string
+          format: email
+          description: invite by email if user_id not known

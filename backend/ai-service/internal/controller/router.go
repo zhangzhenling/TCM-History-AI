@@ -1,13 +1,9 @@
 package controller
 
 import (
-	"context"
-
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"tcm-history-ai/backend/pkg/response"
+	"tcm-history-ai/backend/pkg/health"
 )
 
 // Deps bundles every controller the router needs. It is populated by wire.
@@ -23,12 +19,7 @@ type Deps struct {
 // RegisterRoutes wires every AI Service route onto the Hertz server.
 // Routes follow RESTful conventions under /api/v1/ai.
 func RegisterRoutes(h *server.Hertz, deps *Deps) {
-	h.GET("/health", func(ctx context.Context, c *app.RequestContext) {
-		response.OKWith(ctx, c, "ai-service up", map[string]any{
-			"service": "ai-service",
-			"status":  "ok",
-		})
-	})
+	health.Register(h, "ai-service")
 
 	v1 := h.Group("/api/v1/ai")
 
@@ -70,6 +61,4 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 		h.POST("/mcp/message", deps.MCP.Message)
 	}
 
-	// Suppress unused-import warning for consts.
-	_ = consts.StatusOK
 }

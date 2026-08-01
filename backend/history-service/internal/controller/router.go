@@ -1,13 +1,9 @@
 package controller
 
 import (
-	"context"
-
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"tcm-history-ai/backend/pkg/response"
+	"tcm-history-ai/backend/pkg/health"
 )
 
 // Deps bundles every controller the router needs. It is populated by wire.
@@ -27,12 +23,7 @@ type Deps struct {
 // RegisterRoutes wires every History Service route onto the Hertz server.
 // Routes follow RESTful conventions under /api/v1/history.
 func RegisterRoutes(h *server.Hertz, deps *Deps) {
-	h.GET("/health", func(ctx context.Context, c *app.RequestContext) {
-		response.OKWith(ctx, c, "history-service up", map[string]any{
-			"service": "history-service",
-			"status":  "ok",
-		})
-	})
+	health.Register(h, "history-service")
 
 	v1 := h.Group("/api/v1/history")
 
@@ -98,8 +89,4 @@ func RegisterRoutes(h *server.Hertz, deps *Deps) {
 	// File upload (portraits, books, ...)
 	v1.POST("/upload", deps.Upload.Upload)
 
-	// Suppress unused-import warning for consts (the package is referenced via
-	// the response helpers; this no-op keeps the linter happy if routes are
-	// trimmed during refactoring).
-	_ = consts.StatusOK
 }

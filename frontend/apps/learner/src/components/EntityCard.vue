@@ -36,6 +36,14 @@ const routeName = computed(() => {
       return 'BookDetail';
     case 'school':
       return 'SchoolDetail';
+    case 'dynasty':
+      return 'DynastyDetail';
+    case 'prescription':
+      return 'PrescriptionDetail';
+    case 'medicine':
+      return 'MedicineDetail';
+    case 'disease':
+      return 'DiseaseDetail';
     default:
       return null;
   }
