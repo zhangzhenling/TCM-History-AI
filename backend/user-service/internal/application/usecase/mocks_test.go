@@ -177,13 +177,19 @@ func cloneUser(u *entity.User) *entity.User {
 // ---------------------------------------------------------------------------
 
 type mockRoleRepo struct {
-	roles       map[string]*entity.Role // keyed by code
-	userRoles   map[int64][]entity.Role // keyed by userID
-	assignments map[int64][]int64       // userID → roleIDs assigned
-	findByCode  func(string) (*entity.Role, error)
-	findByUser  func(int64) ([]entity.Role, error)
-	listAll     func() ([]entity.Role, error)
-	assignRole  func(int64, int64) error
+	roles        map[string]*entity.Role // keyed by code
+	userRoles    map[int64][]entity.Role // keyed by userID
+	assignments  map[int64][]int64       // userID → roleIDs assigned
+	findByCode   func(string) (*entity.Role, error)
+	findByID     func(int64) (*entity.Role, error)
+	findByUser   func(int64) ([]entity.Role, error)
+	listAll      func() ([]entity.Role, error)
+	assignRole   func(int64, int64) error
+	create       func(*entity.Role) error
+	update       func(*entity.Role) error
+	del          func(int64) error
+	setUserRoles func(int64, []int64) error
+	setRolePerms func(int64, []int64) error
 }
 
 func newMockRoleRepo() *mockRoleRepo {
@@ -234,6 +240,9 @@ func (m *mockRoleRepo) AssignRole(_ context.Context, userID, roleID int64) error
 }
 
 func (m *mockRoleRepo) FindByID(_ context.Context, id int64) (*entity.Role, error) {
+	if m.findByID != nil {
+		return m.findByID(id)
+	}
 	for _, r := range m.roles {
 		if r.ID == id {
 			c := *r
@@ -244,16 +253,25 @@ func (m *mockRoleRepo) FindByID(_ context.Context, id int64) (*entity.Role, erro
 }
 
 func (m *mockRoleRepo) Create(_ context.Context, r *entity.Role) error {
+	if m.create != nil {
+		return m.create(r)
+	}
 	m.roles[r.Code] = r
 	return nil
 }
 
 func (m *mockRoleRepo) Update(_ context.Context, r *entity.Role) error {
+	if m.update != nil {
+		return m.update(r)
+	}
 	m.roles[r.Code] = r
 	return nil
 }
 
 func (m *mockRoleRepo) Delete(_ context.Context, id int64) error {
+	if m.del != nil {
+		return m.del(id)
+	}
 	for code, r := range m.roles {
 		if r.ID == id {
 			delete(m.roles, code)
@@ -264,6 +282,9 @@ func (m *mockRoleRepo) Delete(_ context.Context, id int64) error {
 }
 
 func (m *mockRoleRepo) SetUserRoles(_ context.Context, userID int64, roleIDs []int64) error {
+	if m.setUserRoles != nil {
+		return m.setUserRoles(userID, roleIDs)
+	}
 	m.assignments[userID] = roleIDs
 	roles := make([]entity.Role, 0, len(roleIDs))
 	for _, rid := range roleIDs {
@@ -283,6 +304,9 @@ func (m *mockRoleRepo) AssignPermission(_ context.Context, roleID, permissionID 
 }
 
 func (m *mockRoleRepo) SetRolePermissions(_ context.Context, roleID int64, permissionIDs []int64) error {
+	if m.setRolePerms != nil {
+		return m.setRolePerms(roleID, permissionIDs)
+	}
 	return nil
 }
 
@@ -393,16 +417,36 @@ func (m *mockSettingsRepo) Update(_ context.Context, s *entity.UserSettings) err
 // ---------------------------------------------------------------------------
 
 type mockPermissionRepo struct {
+	items        map[int64]*entity.Permission
+	rolePerms    map[int64][]int64
 	findByRoleID func(int64) ([]entity.Permission, error)
 	findByUser   func(int64) ([]entity.Permission, error)
+	findByID     func(int64) (*entity.Permission, error)
 	listAll      func() ([]entity.Permission, error)
+}
+
+func newMockPermissionRepo() *mockPermissionRepo {
+	return &mockPermissionRepo{
+		items:     map[int64]*entity.Permission{},
+		rolePerms: map[int64][]int64{},
+	}
 }
 
 func (m *mockPermissionRepo) FindByRoleID(_ context.Context, roleID int64) ([]entity.Permission, error) {
 	if m.findByRoleID != nil {
 		return m.findByRoleID(roleID)
 	}
-	return nil, nil
+	pids, ok := m.rolePerms[roleID]
+	if !ok {
+		return nil, nil
+	}
+	out := make([]entity.Permission, 0, len(pids))
+	for _, pid := range pids {
+		if p, ok := m.items[pid]; ok {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
 }
 
 func (m *mockPermissionRepo) FindByUserID(_ context.Context, userID int64) ([]entity.Permission, error) {
@@ -412,11 +456,26 @@ func (m *mockPermissionRepo) FindByUserID(_ context.Context, userID int64) ([]en
 	return nil, nil
 }
 
+func (m *mockPermissionRepo) FindByID(_ context.Context, id int64) (*entity.Permission, error) {
+	if m.findByID != nil {
+		return m.findByID(id)
+	}
+	if p, ok := m.items[id]; ok {
+		c := *p
+		return &c, nil
+	}
+	return nil, nil
+}
+
 func (m *mockPermissionRepo) ListAll(_ context.Context) ([]entity.Permission, error) {
 	if m.listAll != nil {
 		return m.listAll()
 	}
-	return nil, nil
+	out := make([]entity.Permission, 0, len(m.items))
+	for _, p := range m.items {
+		out = append(out, *p)
+	}
+	return out, nil
 }
 
 // ---------------------------------------------------------------------------
