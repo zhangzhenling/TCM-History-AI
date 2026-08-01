@@ -13,7 +13,12 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "vue": "^3.5.22",
+    "ant-design-vue": "^4.2.6"
+  },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vue-tsc": "^2.2.0"
   }
 }

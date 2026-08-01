@@ -23,9 +23,6 @@ const showError = computed(() => props.error);
 const showEmpty = computed(
   () => !props.loading && !props.error && props.empty,
 );
-const showContent = computed(
-  () => !props.loading && !props.error && !props.empty,
-);
 </script>
 
 <template>

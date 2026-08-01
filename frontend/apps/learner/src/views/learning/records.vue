@@ -5,7 +5,7 @@ import { Spin, Empty, Pagination, Table, Tag } from 'ant-design-vue';
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
 import { useUserStore } from '@tcm/stores';
-import type { LearningRecord } from '@tcm/api';
+import type { LearningRecord, ListResponse } from '@tcm/api';
 
 const apis = useApi();
 const userStore = useUserStore();
@@ -60,13 +60,13 @@ async function load() {
       total.value = 0;
       return;
     }
-    const res = await apis.learning.listLearningRecords(userId, {
+    const res = (await apis.learning.listLearningRecords(userId, {
       page: query.page,
       page_size: query.page_size,
-    });
+    })) as ListResponse<LearningRecord>;
     if (Array.isArray(res)) {
-      records.value = [res];
-      total.value = 1;
+      records.value = res;
+      total.value = res.length;
     } else {
       records.value = res.items ?? [];
       total.value = res.total ?? 0;
