@@ -489,4 +489,80 @@ function clearSelected() {
 .edge-arrow {
   color: rgba(31, 26, 23, 0.4);
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .graph-layout {
+    gap: var(--tcm-spacing-lg);
+  }
+
+  .result-meta {
+    margin-bottom: 8px;
+  }
+
+  .node-list {
+    gap: 8px;
+  }
+
+  .node-item {
+    padding: 10px 12px;
+    border-radius: var(--tcm-radius-base);
+    min-height: 64px;
+  }
+
+  .node-name {
+    font-size: 14px;
+  }
+
+  .node-summary {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .node-extra {
+    gap: 6px;
+  }
+
+  .center-name {
+    font-size: 16px;
+  }
+
+  .center-summary {
+    padding: 10px 12px;
+    border-radius: var(--tcm-radius-base);
+    font-size: 13px;
+  }
+
+  .related-list {
+    gap: 4px;
+  }
+
+  .related-item {
+    padding: 10px 8px;
+    min-height: 44px;
+    border-radius: var(--tcm-radius-base);
+  }
+
+  .edge-list {
+    gap: 6px;
+  }
+
+  .edge-item {
+    font-size: 12px;
+    padding: 8px;
+    border-radius: var(--tcm-radius-base);
+  }
+}
+
+@media (max-width: 480px) {
+  .graph-layout {
+    grid-template-columns: 1fr;
+    gap: var(--tcm-spacing-base);
+  }
+
+  .subgraph-panel {
+    position: relative;
+    top: 0;
+  }
+}
 </style>

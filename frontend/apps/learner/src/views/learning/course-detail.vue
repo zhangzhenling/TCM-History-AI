@@ -269,4 +269,63 @@ watch(() => props.id, load);
   font-weight: 500;
   margin-right: 8px;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .course-detail-page {
+    max-width: 100%;
+    padding: 0 var(--tcm-spacing-base);
+  }
+
+  .header-progress {
+    width: 100%;
+    margin: 8px 0;
+    display: block;
+  }
+
+  .progress-text {
+    display: block;
+    margin: 0 0 4px 0;
+  }
+
+  .detail-body {
+    padding: var(--tcm-spacing-base) 0;
+  }
+
+  .info-section {
+    margin-bottom: var(--tcm-spacing-lg);
+  }
+
+  .section-title {
+    font-size: 16px;
+    padding-left: 8px;
+    margin-bottom: var(--tcm-spacing-base);
+  }
+
+  .lesson-item {
+    padding: 10px 12px;
+    min-height: 64px;
+    border-radius: var(--tcm-radius-base);
+  }
+
+  .lesson-order {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  :deep(.ant-descriptions .ant-descriptions-item-label),
+  :deep(.ant-descriptions .ant-descriptions-item-content) {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.ant-descriptions) {
+    .ant-descriptions-row {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
 </style>

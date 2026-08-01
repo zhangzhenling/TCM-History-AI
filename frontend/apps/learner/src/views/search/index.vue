@@ -359,4 +359,57 @@ function goDetail(h: SearchHit) {
   color: rgba(31, 26, 23, 0.65);
   line-height: 1.6;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .search-box {
+    margin-bottom: var(--tcm-spacing-lg);
+  }
+
+  .search-history,
+  .hot-keywords {
+    margin-bottom: var(--tcm-spacing-md);
+  }
+
+  .tag-list {
+    gap: 6px;
+  }
+
+  .history-tag,
+  .hot-tag {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  .result-meta {
+    margin-bottom: var(--tcm-spacing-base);
+  }
+
+  .result-groups {
+    gap: var(--tcm-spacing-lg);
+  }
+
+  .result-group {
+    gap: 8px;
+  }
+
+  .hit-list {
+    gap: 8px;
+  }
+
+  .hit-item {
+    padding: 12px var(--tcm-spacing-base);
+    border-radius: var(--tcm-radius-base);
+    min-height: 64px;
+  }
+
+  .hit-title {
+    font-size: 14px;
+  }
+
+  .hit-desc {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
 </style>

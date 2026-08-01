@@ -200,4 +200,48 @@ function goToCourse(id: number) {
   justify-content: center;
   margin-top: var(--tcm-spacing-xl);
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .course-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--tcm-spacing-base);
+  }
+
+  .course-card {
+    border-radius: var(--tcm-radius-base);
+  }
+
+  .course-cover {
+    height: 90px;
+  }
+
+  .course-info {
+    padding: 10px;
+  }
+
+  .course-title {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  .course-desc {
+    font-size: 11px;
+  }
+
+  .course-meta {
+    gap: 4px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .course-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .course-cover {
+    height: 120px;
+  }
+}
 </style>

@@ -12,10 +12,12 @@ import { useApi } from '@/composables/useApi';
 import { useUserStore } from '@tcm/stores';
 import { truncate } from '@tcm/shared';
 import type { Person, Book } from '@tcm/api';
+import { useViewport } from '@/composables/useViewport';
 
 const router = useRouter();
 const apis = useApi();
 const userStore = useUserStore();
+const { isMobile } = useViewport();
 
 const loading = ref(false);
 const persons = ref<Person[]>([]);
@@ -52,8 +54,8 @@ onMounted(async () => {
   loading.value = true;
   try {
     const [personsRes, booksRes] = await Promise.all([
-      apis.history.listPersons({ page: 1, page_size: 4 }),
-      apis.history.listBooks({ page: 1, page_size: 4 }),
+      apis.history.listPersons({ page: 1, page_size: isMobile.value ? 3 : 4 }),
+      apis.history.listBooks({ page: 1, page_size: isMobile.value ? 3 : 4 }),
     ]);
     persons.value = personsRes.items ?? [];
     books.value = booksRes.items ?? [];
@@ -68,17 +70,18 @@ function go(name: string) {
 </script>
 
 <template>
-  <div class="tcm-container">
+  <div class="tcm-container home-page" :class="{ 'is-mobile': isMobile }">
     <PageHeader
       :title="`欢迎，${userStore.nickname || '学习者'}`"
       subtitle="中医发展史 AI 学习平台 · 首页"
     />
 
-    <section class="quick-grid">
+    <!-- 移动端：快捷入口 2x2 网格 -->
+    <section class="quick-grid" :class="{ 'mobile-grid': isMobile }">
       <div
         v-for="entry in quickEntries"
         :key="entry.name"
-        class="quick-entry tcm-card-shadow"
+        class="quick-entry tcm-card-shadow tcm-touch-target"
         :style="{ '--entry-color': entry.color }"
         @click="go(entry.name)"
       >
@@ -95,7 +98,7 @@ function go(name: string) {
           <h2 class="section-title">医家一览</h2>
           <a class="section-more" @click="go('PersonList')">查看全部 →</a>
         </div>
-        <div v-if="persons.length" class="card-grid">
+        <div v-if="persons.length" class="card-grid" :class="{ 'mobile-grid-1': isMobile }">
           <EntityCard
             v-for="p in persons"
             :id="p.id"
@@ -103,7 +106,7 @@ function go(name: string) {
             type="person"
             :title="p.name"
             :subtitle="p.title || p.alias_name || ''"
-            :description="truncate(p.biography || p.achievements || '', 60)"
+            :description="truncate(p.biography || p.achievements || '', isMobile ? 40 : 60)"
             :year-range="{ start: p.birth_year, end: p.death_year }"
           />
         </div>
@@ -115,7 +118,7 @@ function go(name: string) {
           <h2 class="section-title">典籍推荐</h2>
           <a class="section-more" @click="go('BookList')">查看全部 →</a>
         </div>
-        <div v-if="books.length" class="card-grid">
+        <div v-if="books.length" class="card-grid" :class="{ 'mobile-grid-1': isMobile }">
           <EntityCard
             v-for="b in books"
             :id="b.id"
@@ -123,7 +126,7 @@ function go(name: string) {
             type="book"
             :title="b.title"
             :subtitle="b.category || ''"
-            :description="truncate(b.summary || '', 60)"
+            :description="truncate(b.summary || '', isMobile ? 40 : 60)"
             :year-range="{ start: b.published_year, end: b.published_year }"
           />
         </div>
@@ -139,6 +142,11 @@ function go(name: string) {
   grid-template-columns: repeat(4, 1fr);
   gap: var(--tcm-spacing-lg);
   margin-bottom: var(--tcm-spacing-xl);
+
+  &.mobile-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--tcm-spacing-base);
+  }
 }
 
 @media (max-width: 1024px) {
@@ -149,7 +157,15 @@ function go(name: string) {
 
 @media (max-width: 768px) {
   .quick-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: var(--tcm-spacing-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 }
 
@@ -161,12 +177,25 @@ function go(name: string) {
   border: 1px solid rgba(31, 26, 23, 0.06);
   cursor: pointer;
   overflow: hidden;
+  min-height: 100px;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+  }
 }
+
 .quick-entry:hover {
   transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .quick-entry {
+    padding: 14px;
+    min-height: 86px;
+  }
 }
 
 .quick-entry-accent {
@@ -182,25 +211,56 @@ function go(name: string) {
   margin: 0 0 6px;
   font-size: 16px;
   font-weight: 600;
+  padding-left: 8px;
+}
+
+@media (max-width: 768px) {
+  .quick-entry-title {
+    font-size: 14px;
+    padding-left: 6px;
+  }
 }
 
 .quick-entry-desc {
   margin: 0;
   font-size: 12px;
-  color: rgba(31, 26, 23, 0.6);
-  line-height: 1.6;
+  color: var(--tcm-color-text-secondary);
+  line-height: 1.5;
+  padding-left: 8px;
+}
+
+@media (max-width: 768px) {
+  .quick-entry-desc {
+    font-size: 11px;
+    line-height: 1.4;
+    padding-left: 6px;
+  }
 }
 
 .quick-entry-arrow {
   position: absolute;
-  right: 16px;
-  bottom: 14px;
+  right: 12px;
+  bottom: 10px;
   color: var(--entry-color);
   font-size: 16px;
 }
 
+@media (max-width: 480px) {
+  .quick-entry-arrow {
+    font-size: 14px;
+    right: 10px;
+    bottom: 8px;
+  }
+}
+
 .home-section {
   margin-top: var(--tcm-spacing-xl);
+}
+
+@media (max-width: 768px) {
+  .home-section {
+    margin-top: var(--tcm-spacing-lg);
+  }
 }
 
 .section-header {
@@ -216,9 +276,26 @@ function go(name: string) {
   font-weight: 600;
 }
 
+@media (max-width: 768px) {
+  .section-title {
+    font-size: 17px;
+  }
+}
+
 .section-more {
   font-size: 13px;
   cursor: pointer;
+  padding: 6px 2px;
+  min-height: 44px;
+  min-width: 60px;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .section-more {
+    font-size: 12px;
+  }
 }
 
 .card-grid {
@@ -227,8 +304,18 @@ function go(name: string) {
   gap: var(--tcm-spacing-lg);
 }
 
+.card-grid.mobile-grid-1 {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--tcm-spacing-base);
+}
+
 @media (max-width: 480px) {
   .card-grid {
+    grid-template-columns: 1fr;
+    gap: var(--tcm-spacing-base);
+  }
+
+  .card-grid.mobile-grid-1 {
     grid-template-columns: 1fr;
   }
 }

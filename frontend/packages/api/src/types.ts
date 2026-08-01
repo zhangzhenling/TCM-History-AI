@@ -1,4 +1,5 @@
 // 统一响应包络与分页结构，与后端 backend/pkg/response、backend/pkg/pagination 对齐。
+import type { AxiosRequestConfig } from 'axios';
 
 /** 后端统一响应体。 */
 export interface ApiEnvelope<T = unknown> {
@@ -22,6 +23,9 @@ export interface PageParams {
   page?: number;
   page_size?: number;
 }
+
+/** 请求附加选项，透传给 axios，用于取消请求等。 */
+export interface RequestOptions extends Pick<AxiosRequestConfig, 'signal' | 'timeout'> {}
 
 /** 通用查询字符串构造，自动剔除 null/undefined/空字符串。 */
 export function buildQuery(params: object): Record<string, string> {

@@ -214,4 +214,46 @@ watch(() => props.id, load);
     background-color: var(--tcm-color-bg-secondary);
   }
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .study-plan-detail-page {
+    max-width: 100%;
+    padding: 0 var(--tcm-spacing-base);
+  }
+
+  .detail-body {
+    padding: var(--tcm-spacing-base) 0;
+  }
+
+  .info-section {
+    margin-bottom: var(--tcm-spacing-lg);
+  }
+
+  .section-title {
+    font-size: 16px;
+    padding-left: 8px;
+    margin-bottom: var(--tcm-spacing-base);
+  }
+
+  .course-item {
+    padding: 10px 12px;
+    min-height: 48px;
+  }
+
+  :deep(.ant-descriptions .ant-descriptions-item-label),
+  :deep(.ant-descriptions .ant-descriptions-item-content) {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.ant-descriptions) {
+    .ant-descriptions-row {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
 </style>
