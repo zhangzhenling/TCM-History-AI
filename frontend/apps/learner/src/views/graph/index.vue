@@ -8,6 +8,7 @@ import { SearchOutlined, NodeIndexOutlined, UnorderedListOutlined } from '@ant-d
 import PageHeader from '@/components/PageHeader.vue';
 import ForceGraph from '@/components/ForceGraph.vue';
 import { useApi } from '@/composables/useApi';
+import { useViewport } from '@/composables/useViewport';
 import { truncate } from '@tcm/shared';
 import {
   GRAPH_NODE_LABELS,
@@ -19,6 +20,10 @@ import {
 } from '@tcm/api';
 
 const apis = useApi();
+const { isMobile } = useViewport();
+
+// 图谱画布高度：移动端 300 桌面端 380
+const graphHeight = computed(() => (isMobile.value ? 300 : 380));
 
 // ---- 节点类型中文标签映射 ----
 const LABEL_TEXT: Record<GraphNodeLabel, string> = {
@@ -259,7 +264,7 @@ function onGraphNodeClick(node: GraphNodeView) {
               <ForceGraph
                 :nodes="graphNodes"
                 :edges="graphEdges"
-                :height="380"
+                :height="graphHeight"
                 @node-click="onGraphNodeClick"
               />
             </div>
@@ -460,6 +465,12 @@ function onGraphNodeClick(node: GraphNodeView) {
 
 .graph-visual :deep(.force-graph) {
   height: 380px;
+}
+
+@media (max-width: 768px) {
+  .graph-visual :deep(.force-graph) {
+    height: 300px;
+  }
 }
 
 .subgraph-title {

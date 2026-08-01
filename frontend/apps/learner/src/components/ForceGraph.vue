@@ -12,10 +12,22 @@ const emit = defineEmits<{
   (e: 'node-click', node: GraphNodeView): void;
 }>();
 
+const MOBILE_BREAKPOINT = 768;
+
 const height = computed(() => props.height ?? 400);
 const svgRef = ref<SVGSVGElement | null>(null);
 const containerWidth = ref(600);
 const containerHeight = ref(400);
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
+
+// 判断是否为移动端显示：容器宽度或窗口宽度小于断点
+const isMobileDisplay = computed(
+  () => containerWidth.value < MOBILE_BREAKPOINT || viewportWidth.value < MOBILE_BREAKPOINT,
+);
+
+// 根据显示尺寸动态缩放节点半径与字体
+const nodeRadiusScale = computed(() => (isMobileDisplay.value ? 0.75 : 1));
+const labelFontSize = computed(() => (isMobileDisplay.value ? 11 : 13));
 
 const LABEL_COLOR: Record<string, string> = {
   Person: '#a23a30',
@@ -56,6 +68,7 @@ function initLayout() {
   const cy = containerHeight.value / 2;
   const radius = Math.min(containerWidth.value, containerHeight.value) / 2 - 60;
   const n = props.nodes.length;
+  const scale = nodeRadiusScale.value;
 
   simNodes.value = props.nodes.map((node, i) => {
     const angle = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
@@ -67,7 +80,7 @@ function initLayout() {
       y: cy + Math.sin(angle) * radius * (n > 1 ? 1 : 0),
       vx: 0,
       vy: 0,
-      r: node.label === 'Person' || node.label === 'Classic' ? 22 : 18,
+      r: (node.label === 'Person' || node.label === 'Classic' ? 22 : 18) * scale,
     };
   });
 
@@ -205,6 +218,50 @@ function onSvgMouseUp() {
   setTimeout(startSimulation, 50);
 }
 
+// ---- 触摸事件处理（移动端拖拽）----
+function getTouchPos(e: TouchEvent): { x: number; y: number } | null {
+  const touch = e.touches[0] ?? e.changedTouches[0];
+  if (!touch || !svgRef.value) return null;
+  const rect = svgRef.value.getBoundingClientRect();
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+function onSvgTouchStart(e: TouchEvent) {
+  const target = e.target as SVGElement;
+  const nodeUid = target.closest('[data-node-uid]')?.getAttribute('data-node-uid');
+  if (nodeUid) {
+    draggingUid.value = nodeUid;
+    selectedUid.value = nodeUid;
+    e.preventDefault();
+  }
+}
+
+function onSvgTouchMove(e: TouchEvent) {
+  if (!draggingUid.value) return;
+  const pos = getTouchPos(e);
+  if (!pos) return;
+  const node = simNodes.value.find((n) => n.uid === draggingUid.value);
+  if (node) {
+    node.x = pos.x;
+    node.y = pos.y;
+    node.vx = 0;
+    node.vy = 0;
+    e.preventDefault();
+  }
+}
+
+function onSvgTouchEnd(e: TouchEvent) {
+  void e;
+  if (draggingUid.value && selectedUid.value) {
+    const original = props.nodes.find((n) => n.uid === selectedUid.value);
+    if (original) {
+      emit('node-click', original);
+    }
+  }
+  draggingUid.value = null;
+  setTimeout(startSimulation, 50);
+}
+
 function onNodeClick(_e: MouseEvent, uid: string) {
   // 如果是点击（非拖拽结束），触发节点选择
   if (draggingUid.value === null || draggingUid.value !== uid) {
@@ -230,18 +287,25 @@ watch(
   { immediate: true },
 );
 
+function onWindowResize() {
+  if (typeof window !== 'undefined') {
+    viewportWidth.value = window.innerWidth;
+  }
+  updateSize();
+}
+
 onMounted(() => {
+  onWindowResize();
   nextTick(() => {
-    updateSize();
     initLayout();
     startSimulation();
   });
-  window.addEventListener('resize', updateSize);
+  window.addEventListener('resize', onWindowResize, { passive: true });
 });
 
 onBeforeUnmount(() => {
   stopSimulation();
-  window.removeEventListener('resize', updateSize);
+  window.removeEventListener('resize', onWindowResize);
 });
 
 const edgePaths = computed(() => {
@@ -274,6 +338,10 @@ const showEmpty = computed(() => props.nodes.length === 0);
       @mousemove="onSvgMouseMove"
       @mouseup="onSvgMouseUp"
       @mouseleave="onSvgMouseUp"
+      @touchstart.passive="onSvgTouchStart"
+      @touchmove.prevent="onSvgTouchMove"
+      @touchend="onSvgTouchEnd"
+      @touchcancel="onSvgTouchEnd"
     >
       <defs>
         <marker
@@ -323,9 +391,10 @@ const showEmpty = computed(() => props.nodes.length === 0);
         />
         <text
           :x="node.x"
-          :y="node.y + node.r + 14"
+          :y="node.y + node.r + (isMobileDisplay ? 12 : 14)"
           text-anchor="middle"
           class="node-label"
+          :style="{ fontSize: labelFontSize + 'px' }"
         >
           {{ node.name }}
         </text>
