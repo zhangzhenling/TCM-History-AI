@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { Spin, Empty, Pagination, Card, Tag, message } from 'ant-design-vue';
+import { useRouter } from 'vue-router';
 
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
 import type { Course } from '@tcm/api';
 
 const apis = useApi();
+const router = useRouter();
 
 const loading = ref(false);
+const error = ref(false);
 const courses = ref<Course[]>([]);
 const total = ref(0);
 const query = reactive({ page: 1, page_size: 12 });
@@ -27,10 +30,14 @@ const difficultyLabels: Record<string, string> = {
 
 async function load() {
   loading.value = true;
+  error.value = false;
   try {
     const res = await apis.learning.listCourses({ page: query.page, page_size: query.page_size });
     courses.value = res.items ?? [];
     total.value = res.total ?? 0;
+  } catch {
+    error.value = true;
+    message.error('加载课程列表失败，请重试');
   } finally {
     loading.value = false;
   }
@@ -45,17 +52,27 @@ function onPageChange(p: number, ps: number) {
 }
 
 function goToCourse(id: number) {
-  // Navigate to course detail (placeholder for future implementation)
-  message.info(`课程详情页待实现 (ID: ${id})`);
+  router.push({ name: 'CourseDetail', params: { id } });
 }
 </script>
 
 <template>
   <div class="learning-page">
-    <PageHeader title="课程中心" subtitle="系统学习中医理论知识" />
+    <PageHeader title="课程中心" subtitle="系统学习中医理论知识">
+      <template #extra>
+        <a-button type="primary" @click="load" :loading="loading">刷新</a-button>
+      </template>
+    </PageHeader>
 
     <Spin :spinning="loading">
-      <div v-if="courses.length > 0" class="course-grid">
+      <div v-if="error" class="state-wrap">
+        <Empty description="加载失败">
+          <template #extra>
+            <a-button type="primary" @click="load">重新加载</a-button>
+          </template>
+        </Empty>
+      </div>
+      <div v-else-if="courses.length > 0" class="course-grid">
         <Card
           v-for="course in courses"
           :key="course.id"
@@ -172,9 +189,59 @@ function goToCourse(id: number) {
   }
 }
 
+.state-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--tcm-spacing-xl) 0;
+}
+
 .pagination-wrap {
   display: flex;
   justify-content: center;
   margin-top: var(--tcm-spacing-xl);
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .course-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--tcm-spacing-base);
+  }
+
+  .course-card {
+    border-radius: var(--tcm-radius-base);
+  }
+
+  .course-cover {
+    height: 90px;
+  }
+
+  .course-info {
+    padding: 10px;
+  }
+
+  .course-title {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  .course-desc {
+    font-size: 11px;
+  }
+
+  .course-meta {
+    gap: 4px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .course-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .course-cover {
+    height: 120px;
+  }
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref, computed } from 'vue';
-import { Spin, Empty, Pagination, Table, Tag } from 'ant-design-vue';
+import { Spin, Empty, Pagination, Table, Tag, message } from 'ant-design-vue';
 
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
@@ -60,17 +60,19 @@ async function load() {
       total.value = 0;
       return;
     }
-    const res = (await apis.learning.listLearningRecords(userId, {
+    const res = await apis.learning.listLearningRecords(userId, {
       page: query.page,
       page_size: query.page_size,
-    })) as ListResponse<LearningRecord>;
+    });
     if (Array.isArray(res)) {
       records.value = res;
       total.value = res.length;
     } else {
-      records.value = res.items ?? [];
-      total.value = res.total ?? 0;
+      records.value = (res as ListResponse<LearningRecord>).items ?? [];
+      total.value = (res as ListResponse<LearningRecord>).total ?? 0;
     }
+  } catch {
+    message.error('加载学习记录失败，请重试');
   } finally {
     loading.value = false;
   }

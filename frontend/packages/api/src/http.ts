@@ -37,6 +37,18 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean;
 }
 
+/** 创建一个可取消的请求控制器，返回 abort 函数供组件卸载时调用。 */
+export function createRequestCtl(): {
+  signal: AbortSignal;
+  abort: () => void;
+} {
+  const controller = new AbortController();
+  return {
+    signal: controller.signal,
+    abort: () => controller.abort(),
+  };
+}
+
 let tokenAccessor: TokenAccessor = () => ({ accessToken: null, refreshToken: null });
 let refresher: AccessTokenRefresher | null = null;
 let logoutHandler: LogoutHandler | null = null;
@@ -79,6 +91,15 @@ export function createHttp(opts: HttpOptions): AxiosInstance {
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `rid-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    // 支持 AbortSignal 取消请求
+    if ((config as AxiosRequestConfig & { signal?: AbortSignal }).signal) {
+      (config as AxiosRequestConfig & { signal?: AbortSignal }).signal?.addEventListener(
+        'abort',
+        () => {
+          // axios 会自动处理 signal，这里做额外的清理
+        },
+      );
+    }
     return config;
   });
 

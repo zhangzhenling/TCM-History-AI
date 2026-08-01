@@ -86,6 +86,13 @@ export const learnerRoutes: RouteRecordRaw[] = [
         meta: { title: '课程中心', keepAlive: true },
       },
       {
+        path: 'learning/courses/:id',
+        name: 'CourseDetail',
+        component: () => import('@/views/learning/course-detail.vue'),
+        props: true,
+        meta: { title: '课程详情' },
+      },
+      {
         path: 'learning/exams',
         name: 'LearningExams',
         component: () => import('@/views/learning/exams.vue'),
@@ -115,6 +122,13 @@ export const learnerRoutes: RouteRecordRaw[] = [
         name: 'LearningStudyPlans',
         component: () => import('@/views/learning/study-plans.vue'),
         meta: { title: '学习计划', keepAlive: true },
+      },
+      {
+        path: 'learning/study-plans/:id',
+        name: 'StudyPlanDetail',
+        component: () => import('@/views/learning/study-plan-detail.vue'),
+        props: true,
+        meta: { title: '学习计划详情' },
       },
       {
         path: 'dynasties',

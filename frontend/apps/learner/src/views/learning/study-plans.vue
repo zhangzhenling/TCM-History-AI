@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { Spin, Empty, Pagination, Card, Tag, Progress, message } from 'ant-design-vue';
+import { useRouter } from 'vue-router';
 
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
-import type { StudyPlan } from '@tcm/api';
+import { useUserStore } from '@tcm/stores';
+import type { StudyPlan, ListResponse } from '@tcm/api';
 
 const apis = useApi();
+const userStore = useUserStore();
+const router = useRouter();
 
 const loading = ref(false);
+const error = ref(false);
 const plans = ref<StudyPlan[]>([]);
 const total = ref(0);
 const query = reactive({ page: 1, page_size: 10 });
@@ -27,15 +32,28 @@ const statusLabels: Record<string, string> = {
 
 async function load() {
   loading.value = true;
+  error.value = false;
   try {
-    const userId = 1; // TODO: get from auth store
-    const res = await apis.learning.listStudyPlans(userId, {
+    const userId = userStore.userId;
+    if (!userId) {
+      plans.value = [];
+      total.value = 0;
+      return;
+    }
+    const res = (await apis.learning.listStudyPlans(userId, {
       page: query.page,
       page_size: query.page_size,
-    });
-    const data = Array.isArray(res) ? res : ((res as { items?: StudyPlan[] }).items ?? []);
-    plans.value = data;
-    total.value = Array.isArray(res) ? data.length : ((res as { total?: number }).total ?? 0);
+    })) as ListResponse<StudyPlan> | StudyPlan[];
+    if (Array.isArray(res)) {
+      plans.value = res;
+      total.value = res.length;
+    } else {
+      plans.value = res.items ?? [];
+      total.value = res.total ?? 0;
+    }
+  } catch {
+    error.value = true;
+    message.error('加载学习计划失败，请重试');
   } finally {
     loading.value = false;
   }
@@ -50,16 +68,27 @@ function onPageChange(p: number, ps: number) {
 }
 
 function viewPlan(id: number) {
-  message.info(`学习计划详情待实现 (ID: ${id})`);
+  router.push({ name: 'StudyPlanDetail', params: { id } });
 }
 </script>
 
 <template>
   <div class="learning-page">
-    <PageHeader title="学习计划" subtitle="制定学习目标，跟踪学习进度" />
+    <PageHeader title="学习计划" subtitle="制定学习目标，跟踪学习进度">
+      <template #extra>
+        <a-button type="primary" @click="load" :loading="loading">刷新</a-button>
+      </template>
+    </PageHeader>
 
     <Spin :spinning="loading">
-      <div v-if="plans.length > 0" class="plan-list">
+      <div v-if="error" class="state-wrap">
+        <Empty description="加载失败">
+          <template #extra>
+            <a-button type="primary" @click="load">重新加载</a-button>
+          </template>
+        </Empty>
+      </div>
+      <div v-else-if="plans.length > 0" class="plan-list">
         <Card
           v-for="plan in plans"
           :key="plan.id"
@@ -146,6 +175,12 @@ function viewPlan(id: number) {
       color: var(--tcm-color-text-tertiary);
     }
   }
+}
+
+.state-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--tcm-spacing-xl) 0;
 }
 
 .pagination-wrap {

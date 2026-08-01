@@ -354,4 +354,56 @@ function onListItemClick(event: HistoryEvent) {
   font-size: 12px;
   color: rgba(31, 26, 23, 0.65);
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .dynasty-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dynasty-chip {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    padding: 8px 16px;
+    font-size: 14px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .dynasty-banner {
+    padding: var(--tcm-spacing-base);
+    margin-bottom: var(--tcm-spacing-lg);
+  }
+
+  .dynasty-name {
+    font-size: 18px;
+    display: block;
+    margin-right: 0;
+    margin-bottom: 4px;
+  }
+
+  .timeline-item {
+    padding-left: 24px;
+    padding-bottom: var(--tcm-spacing-lg);
+  }
+
+  .timeline-content {
+    padding: var(--tcm-spacing-base);
+    border-radius: var(--tcm-radius-base);
+  }
+
+  .timeline-title {
+    font-size: 15px;
+  }
+
+  .timeline-desc {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
 </style>

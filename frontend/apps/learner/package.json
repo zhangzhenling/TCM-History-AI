@@ -1,6 +1,6 @@
 {
   "name": "@tcm/learner",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -28,6 +28,7 @@
     "typescript": "^5.5.4",
     "unplugin-vue-components": "^0.27.4",
     "vite": "^5.4.2",
+    "vite-plugin-pwa": "^0.21.0",
     "vue-tsc": "^2.0.29"
   }
 }
