@@ -29,10 +29,13 @@ async function load() {
   loading.value = true;
   try {
     const userId = 1; // TODO: get from auth store
-    const res = await apis.learning.listStudyPlans(userId, { page: query.page, page_size: query.page_size });
-    const data = Array.isArray(res) ? res : (res as { items?: StudyPlan[] }).items ?? [];
+    const res = await apis.learning.listStudyPlans(userId, {
+      page: query.page,
+      page_size: query.page_size,
+    });
+    const data = Array.isArray(res) ? res : ((res as { items?: StudyPlan[] }).items ?? []);
     plans.value = data;
-    total.value = Array.isArray(res) ? data.length : (res as { total?: number }).total ?? 0;
+    total.value = Array.isArray(res) ? data.length : ((res as { total?: number }).total ?? 0);
   } finally {
     loading.value = false;
   }
@@ -72,10 +75,15 @@ function viewPlan(id: number) {
               </Tag>
             </div>
             <div class="plan-progress">
-              <Progress :percent="plan.progress_percent" :stroke-color="{ from: '#108ee9', to: '#87d068' }" />
+              <Progress
+                :percent="plan.progress_percent"
+                :stroke-color="{ from: '#108ee9', to: '#87d068' }"
+              />
             </div>
             <div class="plan-footer">
-              <span v-if="plan.target_date" class="plan-target">目标日期: {{ plan.target_date }}</span>
+              <span v-if="plan.target_date" class="plan-target"
+                >目标日期: {{ plan.target_date }}</span
+              >
               <span class="plan-updated">更新于: {{ plan.updated_at?.slice(0, 10) || '—' }}</span>
             </div>
           </div>

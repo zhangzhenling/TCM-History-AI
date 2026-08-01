@@ -155,7 +155,12 @@ function onListItemClick(event: HistoryEvent) {
 
       <!-- 列表视图（纵向时间线，辅助视图）-->
       <div v-if="viewMode === 'list' && events.length" class="timeline">
-        <div v-for="(evt, idx) in events" :key="evt.id" class="timeline-item clickable" @click="onListItemClick(evt)">
+        <div
+          v-for="(evt, idx) in events"
+          :key="evt.id"
+          class="timeline-item clickable"
+          @click="onListItemClick(evt)"
+        >
           <div class="timeline-dot" :style="{ borderColor: eventTypeColor(evt.event_type) }" />
           <div v-if="idx !== events.length - 1" class="timeline-line" />
           <div class="timeline-content">
@@ -178,7 +183,11 @@ function onListItemClick(event: HistoryEvent) {
     </Spin>
 
     <!-- 事件详情侧滑 -->
-    <EventDrawer v-model:open="drawerOpen" :event="selectedEvent" :dynasty="activeDynasty ?? null" />
+    <EventDrawer
+      v-model:open="drawerOpen"
+      :event="selectedEvent"
+      :dynasty="activeDynasty ?? null"
+    />
   </div>
 </template>
 

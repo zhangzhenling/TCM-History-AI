@@ -20,12 +20,7 @@ const props = withDefaults(
 
 const showLoading = computed(() => props.loading);
 const showError = computed(() => props.error);
-const showEmpty = computed(
-  () => !props.loading && !props.error && props.empty,
-);
-const showContent = computed(
-  () => !props.loading && !props.error && !props.empty,
-);
+const showEmpty = computed(() => !props.loading && !props.error && props.empty);
 </script>
 
 <template>

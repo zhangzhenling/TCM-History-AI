@@ -5,7 +5,7 @@ import { Spin, Empty, Pagination, Table, Tag } from 'ant-design-vue';
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
 import { useUserStore } from '@tcm/stores';
-import type { LearningRecord } from '@tcm/api';
+import type { LearningRecord, ListResponse } from '@tcm/api';
 
 const apis = useApi();
 const userStore = useUserStore();
@@ -42,14 +42,14 @@ const columns = [
     key: 'is_completed',
     width: 100,
     customRender: ({ record }: { record: LearningRecord }) =>
-      record.is_completed ? h(Tag, { color: 'green' }, () => '已完成') : h(Tag, { color: 'blue' }, () => '学习中'),
+      record.is_completed
+        ? h(Tag, { color: 'green' }, () => '已完成')
+        : h(Tag, { color: 'blue' }, () => '学习中'),
   },
   { title: '学习时间', dataIndex: 'learned_at', key: 'learned_at', width: 180 },
 ];
 
-const dataSource = computed(() =>
-  records.value.map((r) => ({ ...r, key: r.id })),
-);
+const dataSource = computed(() => records.value.map((r) => ({ ...r, key: r.id })));
 
 async function load() {
   loading.value = true;
@@ -60,13 +60,13 @@ async function load() {
       total.value = 0;
       return;
     }
-    const res = await apis.learning.listLearningRecords(userId, {
+    const res = (await apis.learning.listLearningRecords(userId, {
       page: query.page,
       page_size: query.page_size,
-    });
+    })) as ListResponse<LearningRecord>;
     if (Array.isArray(res)) {
-      records.value = [res];
-      total.value = 1;
+      records.value = res;
+      total.value = res.length;
     } else {
       records.value = res.items ?? [];
       total.value = res.total ?? 0;

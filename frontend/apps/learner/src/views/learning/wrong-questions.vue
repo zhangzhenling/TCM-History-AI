@@ -18,7 +18,10 @@ async function load() {
   try {
     // Get current user ID from store or context
     const userId = 1; // TODO: get from auth store
-    const res = await apis.learning.listWrongQuestions(userId, { page: query.page, page_size: query.page_size });
+    const res = await apis.learning.listWrongQuestions(userId, {
+      page: query.page,
+      page_size: query.page_size,
+    });
     wrongQuestions.value = res.items ?? [];
     total.value = res.total ?? 0;
   } finally {
@@ -51,11 +54,7 @@ async function markMastered(id: number) {
 
     <Spin :spinning="loading">
       <div v-if="wrongQuestions.length > 0" class="wrong-list">
-        <Card
-          v-for="item in wrongQuestions"
-          :key="item.id"
-          class="wrong-card"
-        >
+        <Card v-for="item in wrongQuestions" :key="item.id" class="wrong-card">
           <div class="wrong-info">
             <div class="wrong-main">
               <div class="wrong-header">

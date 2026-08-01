@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, Select, Tag, Popconfirm, message, Space } from 'ant-design-vue';
-import type { FormInstance } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Input,
+  Select,
+  Tag,
+  Popconfirm,
+  message,
+  Space,
+} from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
 import { formatDateTime } from '@tcm/shared';
@@ -154,15 +163,13 @@ async function handleDelete(record: UserListItem) {
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'status'">
             <Tag :color="statusColorMap[(record as UserListItem).status] || 'default'">
-              {{ statusLabelMap[(record as UserListItem).status] || (record as UserListItem).status }}
+              {{
+                statusLabelMap[(record as UserListItem).status] || (record as UserListItem).status
+              }}
             </Tag>
           </template>
           <template v-else-if="column.dataIndex === 'action'">
-            <Button
-              type="link"
-              size="small"
-              @click="handleToggleStatus(record as UserListItem)"
-            >
+            <Button type="link" size="small" @click="handleToggleStatus(record as UserListItem)">
               {{ (record as UserListItem).status === 'active' ? '封禁' : '解封' }}
             </Button>
             <Popconfirm

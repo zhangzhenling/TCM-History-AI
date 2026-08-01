@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { h, computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { Spin, Descriptions, DescriptionsItem, Tag, Empty, Table, Button, message } from 'ant-design-vue';
+import {
+  Spin,
+  Descriptions,
+  DescriptionsItem,
+  Tag,
+  Empty,
+  Table,
+  Button,
+  message,
+} from 'ant-design-vue';
 
 import PageHeader from '@/components/PageHeader.vue';
 import { useApi } from '@/composables/useApi';
@@ -77,14 +86,11 @@ const attemptColumns = [
     dataIndex: 'submitted_at',
     key: 'submitted_at',
     width: 180,
-    customRender: ({ record }: { record: ExamAttempt }) =>
-      record.submitted_at || '进行中',
+    customRender: ({ record }: { record: ExamAttempt }) => record.submitted_at || '进行中',
   },
 ];
 
-const attemptDataSource = computed(() =>
-  attempts.value.map((a) => ({ ...a, key: a.id })),
-);
+const attemptDataSource = computed(() => attempts.value.map((a) => ({ ...a, key: a.id })));
 
 async function loadAttempts() {
   const userId = userStore.userId;

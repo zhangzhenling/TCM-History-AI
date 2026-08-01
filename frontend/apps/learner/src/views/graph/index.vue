@@ -78,18 +78,18 @@ const relatedNodes = computed<GraphNodeView[]>(() => {
 });
 
 // 为每条边附加两端节点的名称，便于在 UI 上呈现「A → 关系 → B」。
-const edgeWithNames = computed<
-  { edge: GraphEdgeView; sourceName: string; targetName: string }[]
->(() => {
-  if (!subgraph.value) return [];
-  const nameByUid = new Map<string, string>();
-  for (const n of subgraph.value.nodes) nameByUid.set(n.uid, n.name);
-  return subgraph.value.edges.map((edge) => ({
-    edge,
-    sourceName: nameByUid.get(edge.source_uid) ?? edge.source_uid,
-    targetName: nameByUid.get(edge.target_uid) ?? edge.target_uid,
-  }));
-});
+const edgeWithNames = computed<{ edge: GraphEdgeView; sourceName: string; targetName: string }[]>(
+  () => {
+    if (!subgraph.value) return [];
+    const nameByUid = new Map<string, string>();
+    for (const n of subgraph.value.nodes) nameByUid.set(n.uid, n.name);
+    return subgraph.value.edges.map((edge) => ({
+      edge,
+      sourceName: nameByUid.get(edge.source_uid) ?? edge.source_uid,
+      targetName: nameByUid.get(edge.target_uid) ?? edge.target_uid,
+    }));
+  },
+);
 
 async function doSearch() {
   if (!keyword.value.trim()) return;
@@ -128,14 +128,7 @@ async function selectNode(node: GraphNodeView) {
 // 节点 properties 是任意结构的 Record，这里抽取常见字段做摘要展示。
 function nodeSummary(node: GraphNodeView): string {
   const p = node.properties ?? {};
-  const candidates = [
-    p.biography,
-    p.summary,
-    p.description,
-    p.efficacy,
-    p.composition,
-    p.note,
-  ];
+  const candidates = [p.biography, p.summary, p.description, p.efficacy, p.composition, p.note];
   for (const c of candidates) {
     if (typeof c === 'string' && c.trim()) return truncate(c, 80);
   }
@@ -145,14 +138,7 @@ function nodeSummary(node: GraphNodeView): string {
 // properties 中除常见摘要字段外的其它键值对，用于在卡片底部以小字展示。
 function nodeExtraProps(node: GraphNodeView): { key: string; value: string }[] {
   const p = node.properties ?? {};
-  const skip = new Set([
-    'biography',
-    'summary',
-    'description',
-    'efficacy',
-    'composition',
-    'note',
-  ]);
+  const skip = new Set(['biography', 'summary', 'description', 'efficacy', 'composition', 'note']);
   return Object.entries(p)
     .filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
     .slice(0, 4)

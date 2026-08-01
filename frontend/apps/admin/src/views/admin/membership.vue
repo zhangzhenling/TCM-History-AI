@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Switch, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Switch,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -47,7 +58,10 @@ const dataSource = computed<any>(() =>
 async function load() {
   loading.value = true;
   try {
-    const res = await apis.user.listMembershipPlans({ page: query.page, page_size: query.page_size });
+    const res = await apis.user.listMembershipPlans({
+      page: query.page,
+      page_size: query.page_size,
+    });
     plans.value = res.items ?? [];
     total.value = res.total ?? 0;
   } finally {
@@ -124,11 +138,18 @@ async function handleDelete(id: number) {
     <h1 class="admin-page-title">会员方案管理</h1>
 
     <div class="table-card">
-      <div style="margin-bottom: 16px;">
+      <div style="margin-bottom: 16px">
         <Button type="primary" @click="openCreate">新增方案</Button>
       </div>
 
-      <Table :data-source="(dataSource as any)" :columns="columns" :loading="loading" :pagination="false" row-key="id" size="middle">
+      <Table
+        :data-source="dataSource as any"
+        :columns="columns"
+        :loading="loading"
+        :pagination="false"
+        row-key="id"
+        size="middle"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
             <Button type="link" size="small" @click="openEdit(record as any)">编辑</Button>
@@ -140,11 +161,23 @@ async function handleDelete(id: number) {
       </Table>
 
       <div v-if="total > 0" class="pagination-wrap">
-        <Pagination :current="query.page" :page-size="query.page_size" :total="total" show-size-changer :page-size-options="['10', '20', '50']" @change="onPageChange" />
+        <Pagination
+          :current="query.page"
+          :page-size="query.page_size"
+          :total="total"
+          show-size-changer
+          :page-size-options="['10', '20', '50']"
+          @change="onPageChange"
+        />
       </div>
     </div>
 
-    <Modal v-model:open="modalVisible" :title="currentId ? '编辑方案' : '新增方案'" :confirm-loading="modalLoading" @ok="handleSubmit">
+    <Modal
+      v-model:open="modalVisible"
+      :title="currentId ? '编辑方案' : '新增方案'"
+      :confirm-loading="modalLoading"
+      @ok="handleSubmit"
+    >
       <Form ref="formRef" :model="formState" layout="vertical">
         <Form.Item label="方案名称" required>
           <Input v-model:value="formState.name" placeholder="请输入方案名称" />
@@ -153,10 +186,15 @@ async function handleDelete(id: number) {
           <Input v-model:value="formState.description" placeholder="请输入方案描述" />
         </Form.Item>
         <Form.Item label="价格(分)" required>
-          <InputNumber v-model:value="formState.price" :min="0" style="width: 100%;" placeholder="价格单位：分" />
+          <InputNumber
+            v-model:value="formState.price"
+            :min="0"
+            style="width: 100%"
+            placeholder="价格单位：分"
+          />
         </Form.Item>
         <Form.Item label="有效期(天)" required>
-          <InputNumber v-model:value="formState.duration_days" :min="1" style="width: 100%;" />
+          <InputNumber v-model:value="formState.duration_days" :min="1" style="width: 100%" />
         </Form.Item>
         <Form.Item label="启用">
           <Switch v-model:checked="formState.is_active" />

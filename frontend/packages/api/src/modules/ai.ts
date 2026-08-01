@@ -79,7 +79,9 @@ export class AiApi {
     return this.http.delete(`/api/v1/ai/prompts/${id}`) as unknown as Promise<void>;
   }
   activatePrompt(id: number | string): Promise<PromptTemplate> {
-    return this.http.patch(`/api/v1/ai/prompts/${id}/activate`) as unknown as Promise<PromptTemplate>;
+    return this.http.patch(
+      `/api/v1/ai/prompts/${id}/activate`,
+    ) as unknown as Promise<PromptTemplate>;
   }
 
   // ---- Tools (MCP) ----

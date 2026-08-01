@@ -1,7 +1,7 @@
 // useErrorHandler 组合式函数：封装 ant-design-vue 的 message 与 modal，
 // 提供统一的错误处理、成功提示与确认对话框接口。
 
-import { message, modal } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 
 export interface ErrorHandler {
   handleError: (error: unknown) => void;
@@ -31,7 +31,7 @@ export function useErrorHandler(): ErrorHandler {
 
   function confirmAction(msg: string, title = '确认操作'): Promise<boolean> {
     return new Promise((resolve) => {
-      modal.confirm({
+      Modal.confirm({
         title,
         content: msg,
         okText: '确认',

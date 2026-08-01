@@ -34,14 +34,21 @@ watch(() => props.id, load);
   <div class="tcm-container">
     <Spin :spinning="loading">
       <template v-if="dynasty">
-        <PageHeader :title="dynasty.name" :subtitle="formatYearRange(dynasty.start_year, dynasty.end_year)">
+        <PageHeader
+          :title="dynasty.name"
+          :subtitle="formatYearRange(dynasty.start_year, dynasty.end_year)"
+        >
           <template #actions>
-            <Tag color="var(--tcm-color-primary)" style="color: #fff">第 {{ dynasty.sort_order }} 朝</Tag>
+            <Tag color="var(--tcm-color-primary)" style="color: #fff"
+              >第 {{ dynasty.sort_order }} 朝</Tag
+            >
           </template>
         </PageHeader>
 
         <Descriptions :column="2" bordered size="middle">
-          <DescriptionsItem label="起止年份">{{ formatYearRange(dynasty.start_year, dynasty.end_year) }}</DescriptionsItem>
+          <DescriptionsItem label="起止年份">{{
+            formatYearRange(dynasty.start_year, dynasty.end_year)
+          }}</DescriptionsItem>
           <DescriptionsItem label="排序">{{ dynasty.sort_order }}</DescriptionsItem>
         </Descriptions>
 

@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, Switch, Popconfirm, message, Alert } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Switch,
+  Popconfirm,
+  message,
+  Alert,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -79,10 +90,16 @@ async function handleSubmit() {
   modalLoading.value = true;
   try {
     if (currentId.value) {
-      await apis.user.updateApiKey(currentId.value, { name: formState.name, is_active: formState.is_active });
+      await apis.user.updateApiKey(currentId.value, {
+        name: formState.name,
+        is_active: formState.is_active,
+      });
       message.success('更新成功');
     } else {
-      const res = await apis.user.createApiKey({ name: formState.name, is_active: formState.is_active });
+      const res = await apis.user.createApiKey({
+        name: formState.name,
+        is_active: formState.is_active,
+      });
       newKey.value = (res as unknown as ApiKeyCreateResponse).key ?? null;
       message.success('创建成功');
     }
@@ -121,11 +138,18 @@ function closeModal() {
     <h1 class="admin-page-title">API Key 管理</h1>
 
     <div class="table-card">
-      <div style="margin-bottom: 16px;">
+      <div style="margin-bottom: 16px">
         <Button type="primary" @click="openCreate">创建 API Key</Button>
       </div>
 
-      <Table :data-source="(dataSource as any)" :columns="columns" :loading="loading" :pagination="false" row-key="id" size="middle">
+      <Table
+        :data-source="dataSource as any"
+        :columns="columns"
+        :loading="loading"
+        :pagination="false"
+        row-key="id"
+        size="middle"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'action'">
             <Button type="link" size="small" @click="openEdit(record as any)">编辑</Button>
@@ -138,15 +162,30 @@ function closeModal() {
       </Table>
 
       <div v-if="total > 0" class="pagination-wrap">
-        <Pagination :current="query.page" :page-size="query.page_size" :total="total" show-size-changer :page-size-options="['10', '20', '50']" @change="onPageChange" />
+        <Pagination
+          :current="query.page"
+          :page-size="query.page_size"
+          :total="total"
+          show-size-changer
+          :page-size-options="['10', '20', '50']"
+          @change="onPageChange"
+        />
       </div>
     </div>
 
-    <Modal v-model:open="modalVisible" :title="currentId ? '编辑 API Key' : '创建 API Key'" :confirm-loading="modalLoading" @ok="handleSubmit" @cancel="closeModal">
-      <Alert v-if="newKey" type="success" show-icon style="margin-bottom: 16px;">
+    <Modal
+      v-model:open="modalVisible"
+      :title="currentId ? '编辑 API Key' : '创建 API Key'"
+      :confirm-loading="modalLoading"
+      @ok="handleSubmit"
+      @cancel="closeModal"
+    >
+      <Alert v-if="newKey" type="success" show-icon style="margin-bottom: 16px">
         <template #message>
           <div>API Key 已生成，请立即复制保存，关闭后将无法再次查看：</div>
-          <code style="word-break: break-all; font-size: 12px; margin-top: 8px; display: block;">{{ newKey }}</code>
+          <code style="word-break: break-all; font-size: 12px; margin-top: 8px; display: block">{{
+            newKey
+          }}</code>
         </template>
       </Alert>
 

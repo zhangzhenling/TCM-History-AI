@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Select, Tag, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Tag,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -44,9 +56,21 @@ const statusOptions = [
   { label: '已过期', value: 'expired' },
 ];
 
-const planMap: Record<string, string> = { standard: '基础版', premium: '高级版', enterprise: '企业版' };
-const statusColorMap: Record<string, string> = { active: 'green', suspended: 'orange', expired: 'red' };
-const statusLabelMap: Record<string, string> = { active: '活跃', suspended: '已暂停', expired: '已过期' };
+const planMap: Record<string, string> = {
+  standard: '基础版',
+  premium: '高级版',
+  enterprise: '企业版',
+};
+const statusColorMap: Record<string, string> = {
+  active: 'green',
+  suspended: 'orange',
+  expired: 'red',
+};
+const statusLabelMap: Record<string, string> = {
+  active: '活跃',
+  suspended: '已暂停',
+  expired: '已过期',
+};
 
 const dataSource = computed(() =>
   tenants.value.map((t) => ({
@@ -60,7 +84,11 @@ const dataSource = computed(() =>
 async function load() {
   loading.value = true;
   try {
-    const res = await apis.tenant.list({ page: query.page, page_size: query.page_size, status: query.status });
+    const res = await apis.tenant.list({
+      page: query.page,
+      page_size: query.page_size,
+      status: query.status,
+    });
     tenants.value = res.items ?? [];
     total.value = res.total ?? 0;
   } finally {
@@ -287,11 +315,7 @@ async function handleAddMember() {
 
     <div class="table-card">
       <div class="toolbar">
-        <Select
-          v-model:value="query.status"
-          style="width: 140px"
-          @change="onStatusChange"
-        >
+        <Select v-model:value="query.status" style="width: 140px" @change="onStatusChange">
           <Select.Option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
             {{ opt.label }}
           </Select.Option>
@@ -316,12 +340,19 @@ async function handleAddMember() {
             </Tag>
           </template>
           <template v-else-if="column.dataIndex === 'max_users'">
-            <span>{{ (record as Tenant).max_users > 0 ? (record as Tenant).max_users : '不限' }}</span>
+            <span>{{
+              (record as Tenant).max_users > 0 ? (record as Tenant).max_users : '不限'
+            }}</span>
           </template>
           <template v-else-if="column.dataIndex === 'action'">
             <Button type="link" size="small" @click="openEditModal(record as Tenant)">编辑</Button>
-            <Button type="link" size="small" @click="openMemberModal(record as Tenant)">成员</Button>
-            <Popconfirm title="确定删除该机构吗？删除后成员关系将一并移除。" @confirm="handleDelete((record as Tenant).id)">
+            <Button type="link" size="small" @click="openMemberModal(record as Tenant)"
+              >成员</Button
+            >
+            <Popconfirm
+              title="确定删除该机构吗？删除后成员关系将一并移除。"
+              @confirm="handleDelete((record as Tenant).id)"
+            >
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
           </template>
@@ -349,10 +380,18 @@ async function handleAddMember() {
       @ok="handleOk"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
-        <Form.Item label="机构名称" name="name" :rules="[{ required: true, message: '请输入机构名称' }]">
+        <Form.Item
+          label="机构名称"
+          name="name"
+          :rules="[{ required: true, message: '请输入机构名称' }]"
+        >
           <Input v-model:value="formState.name" placeholder="如：北京中医药大学" />
         </Form.Item>
-        <Form.Item label="机构编码" name="code" :rules="[{ required: true, message: '请输入机构编码' }]">
+        <Form.Item
+          label="机构编码"
+          name="code"
+          :rules="[{ required: true, message: '请输入机构编码' }]"
+        >
           <Input v-model:value="formState.code" placeholder="如：bucm" :disabled="!!currentId" />
         </Form.Item>
         <Form.Item label="套餐" name="plan" :rules="[{ required: true, message: '请选择套餐' }]">
@@ -370,10 +409,18 @@ async function handleAddMember() {
           </Select>
         </Form.Item>
         <Form.Item label="最大用户数" name="max_users">
-          <InputNumber v-model:value="formState.max_users" placeholder="0 表示不限" style="width: 100%" :min="0" />
+          <InputNumber
+            v-model:value="formState.max_users"
+            placeholder="0 表示不限"
+            style="width: 100%"
+            :min="0"
+          />
         </Form.Item>
         <Form.Item label="到期时间" name="expires_at">
-          <Input v-model:value="formState.expires_at" placeholder="留空表示永久，如 2027-12-31T23:59:59Z" />
+          <Input
+            v-model:value="formState.expires_at"
+            placeholder="留空表示永久，如 2027-12-31T23:59:59Z"
+          />
         </Form.Item>
       </Form>
     </Modal>
@@ -399,10 +446,15 @@ async function handleAddMember() {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'role'">
-            <Tag>{{ memberRoleMap[(record as TenantMember).role] || (record as TenantMember).role }}</Tag>
+            <Tag>{{
+              memberRoleMap[(record as TenantMember).role] || (record as TenantMember).role
+            }}</Tag>
           </template>
           <template v-else-if="column.dataIndex === 'action'">
-            <Popconfirm title="确定移除该成员吗？" @confirm="handleRemoveMember((record as TenantMember).user_id)">
+            <Popconfirm
+              title="确定移除该成员吗？"
+              @confirm="handleRemoveMember((record as TenantMember).user_id)"
+            >
               <Button type="link" size="small" danger>移除</Button>
             </Popconfirm>
           </template>
@@ -420,8 +472,17 @@ async function handleAddMember() {
       @ok="handleAddMember"
     >
       <Form ref="addMemberFormRef" :model="addMemberForm" layout="vertical">
-        <Form.Item label="用户 ID" name="user_id" :rules="[{ required: true, message: '请输入用户 ID' }]">
-          <InputNumber v-model:value="addMemberForm.user_id" placeholder="请输入用户 ID" style="width: 100%" :min="1" />
+        <Form.Item
+          label="用户 ID"
+          name="user_id"
+          :rules="[{ required: true, message: '请输入用户 ID' }]"
+        >
+          <InputNumber
+            v-model:value="addMemberForm.user_id"
+            placeholder="请输入用户 ID"
+            style="width: 100%"
+            :min="1"
+          />
         </Form.Item>
         <Form.Item label="角色" name="role" :rules="[{ required: true, message: '请选择角色' }]">
           <Select v-model:value="addMemberForm.role">

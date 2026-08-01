@@ -44,8 +44,12 @@ watch(() => props.id, load);
         <Descriptions :column="2" bordered size="middle">
           <DescriptionsItem label="拼音">{{ prescription.pinyin || '—' }}</DescriptionsItem>
           <DescriptionsItem label="分类">{{ prescription.category || '—' }}</DescriptionsItem>
-          <DescriptionsItem label="来源著作">ID: {{ prescription.source_book_id || '—' }}</DescriptionsItem>
-          <DescriptionsItem label="来源人物">ID: {{ prescription.source_person_id || '—' }}</DescriptionsItem>
+          <DescriptionsItem label="来源著作"
+            >ID: {{ prescription.source_book_id || '—' }}</DescriptionsItem
+          >
+          <DescriptionsItem label="来源人物"
+            >ID: {{ prescription.source_person_id || '—' }}</DescriptionsItem
+          >
         </Descriptions>
 
         <section v-if="prescription.composition" class="block">

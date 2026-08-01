@@ -194,10 +194,7 @@ export class HistoryApi {
     return this.http.post('/api/v1/history/diseases', payload) as unknown as Promise<Disease>;
   }
   updateDisease(id: number | string, payload: DiseaseRequest): Promise<Disease> {
-    return this.http.put(
-      `/api/v1/history/diseases/${id}`,
-      payload,
-    ) as unknown as Promise<Disease>;
+    return this.http.put(`/api/v1/history/diseases/${id}`, payload) as unknown as Promise<Disease>;
   }
   deleteDisease(id: number | string): Promise<void> {
     return this.http.delete(`/api/v1/history/diseases/${id}`) as unknown as Promise<void>;

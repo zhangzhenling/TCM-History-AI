@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { Table, Pagination, Button, Modal, Form, Input, InputNumber, Select, Popconfirm, message } from 'ant-design-vue';
+import {
+  Table,
+  Pagination,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Popconfirm,
+  message,
+} from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 
 import { useApi } from '@/composables/useApi';
@@ -200,8 +211,13 @@ async function handleDelete(id: number) {
       >
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'action'">
-            <Button type="link" size="small" @click="openEditModal(record as HistoryEvent)">编辑</Button>
-            <Popconfirm title="确定删除该事件吗？" @confirm="handleDelete((record as HistoryEvent).id)">
+            <Button type="link" size="small" @click="openEditModal(record as HistoryEvent)"
+              >编辑</Button
+            >
+            <Popconfirm
+              title="确定删除该事件吗？"
+              @confirm="handleDelete((record as HistoryEvent).id)"
+            >
               <Button type="link" size="small" danger>删除</Button>
             </Popconfirm>
           </template>
@@ -224,12 +240,16 @@ async function handleDelete(id: number) {
       :open="modalVisible"
       :title="currentId ? '编辑事件' : '新增事件'"
       :confirm-loading="modalLoading"
+      :width="600"
       @cancel="modalVisible = false"
       @ok="handleOk"
-      :width="600"
     >
       <Form ref="formRef" :model="formState" layout="vertical">
-        <Form.Item label="事件标题" name="title" :rules="[{ required: true, message: '请输入事件标题' }]">
+        <Form.Item
+          label="事件标题"
+          name="title"
+          :rules="[{ required: true, message: '请输入事件标题' }]"
+        >
           <Input v-model:value="formState.title" placeholder="请输入事件标题" />
         </Form.Item>
         <Form.Item label="朝代" name="dynasty_id">
@@ -240,9 +260,17 @@ async function handleDelete(id: number) {
           </Select>
         </Form.Item>
         <Form.Item label="发生年份" name="occurred_year">
-          <InputNumber v-model:value="formState.occurred_year" placeholder="请输入发生年份" style="width: 100%" />
+          <InputNumber
+            v-model:value="formState.occurred_year"
+            placeholder="请输入发生年份"
+            style="width: 100%"
+          />
         </Form.Item>
-        <Form.Item label="事件类型" name="event_type" :rules="[{ required: true, message: '请选择事件类型' }]">
+        <Form.Item
+          label="事件类型"
+          name="event_type"
+          :rules="[{ required: true, message: '请选择事件类型' }]"
+        >
           <Select v-model:value="formState.event_type" placeholder="请选择事件类型">
             <Select.Option v-for="o in eventTypeOptions" :key="o.value" :value="o.value">
               {{ o.label }}
@@ -253,7 +281,11 @@ async function handleDelete(id: number) {
           <Input v-model:value="formState.location" placeholder="请输入地点" />
         </Form.Item>
         <Form.Item label="描述" name="description">
-          <Input.TextArea v-model:value="formState.description" placeholder="请输入描述" :rows="3" />
+          <Input.TextArea
+            v-model:value="formState.description"
+            placeholder="请输入描述"
+            :rows="3"
+          />
         </Form.Item>
         <Form.Item label="影响" name="impact">
           <Input.TextArea v-model:value="formState.impact" placeholder="请输入影响" :rows="3" />

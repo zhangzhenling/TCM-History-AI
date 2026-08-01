@@ -34,11 +34,7 @@ function toggleCollapse() {
         type="error"
         show-icon
         message="出错了！"
-        :description="
-          collapsed
-            ? errorMessage
-            : '应用遇到了一个意外错误，请尝试重试或刷新页面。'
-        "
+        :description="collapsed ? errorMessage : '应用遇到了一个意外错误，请尝试重试或刷新页面。'"
       >
         <template #actions>
           <Button size="small" type="primary" @click="retry">重试</Button>
