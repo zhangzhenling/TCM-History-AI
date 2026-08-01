@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // 跨实体检索页：调用 History Service /search，按类型分组呈现结果。
-import { computed, onMounted, ref } from 'vue';
-import { Input, Spin, Empty, Tag, Button, message } from 'ant-design-vue';
-import { SearchOutlined, FireOutlined, HistoryOutlined } from '@ant-design/icons-vue';
+// 支持防抖自动补全建议，输入时实时提示热门匹配。
+import { computed, onMounted, ref, watch } from 'vue';
+import { Spin, Empty, Tag, Button, AutoComplete, message } from 'ant-design-vue';
+import { FireOutlined, HistoryOutlined } from '@ant-design/icons-vue';
 import { useRouter } from 'vue-router';
 
 import PageHeader from '@/components/PageHeader.vue';
@@ -24,6 +25,58 @@ const result = ref<SearchResponse | null>(null);
 const searched = ref(false);
 const error = ref(false);
 const searchHistory = ref<string[]>([]);
+
+// ---- 自动补全 ----
+const suggestions = ref<{ value: string; label: string }[]>([]);
+const showSuggestions = ref(false);
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+const autocompleteOptions = computed(() =>
+  suggestions.value.map((s) => ({ value: s.value })),
+);
+
+watch(keyword, (val) => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  if (!val.trim()) {
+    suggestions.value = [];
+    showSuggestions.value = false;
+    return;
+  }
+  debounceTimer = setTimeout(async () => {
+    const q = val.trim();
+    if (!q) {
+      suggestions.value = [];
+      return;
+    }
+    // 生成建议：历史 + 热门 + 服务端搜索
+    const fromHistory = searchHistory.value.filter((h) => h.includes(q)).slice(0, 3);
+    const fromHot = HOT_KEYWORDS.filter((h) => h.includes(q)).slice(0, 3);
+
+    // 服务端搜索前 3 条作为建议
+    try {
+      const res = await apis.history.search({ q, page: 1, page_size: 3 });
+      const fromResult = (res.items ?? [])
+        .map((h) => String(h.source?.name ?? h.source?.title ?? ''))
+        .filter((v) => v && v !== q)
+        .slice(0, 2);
+
+      const merged = [...new Set([...fromHistory, ...fromHot, ...fromResult])].map((v) => ({
+        value: v,
+        label: v,
+      }));
+      suggestions.value = merged.slice(0, 6);
+      showSuggestions.value = merged.length > 0;
+    } catch {
+      // 服务端失败时只展示本地建议
+      const local = [...new Set([...fromHistory, ...fromHot])].map((v) => ({
+        value: v,
+        label: v,
+      }));
+      suggestions.value = local.slice(0, 6);
+      showSuggestions.value = local.length > 0;
+    }
+  }, 250);
+});
 
 onMounted(() => {
   loadHistory();
@@ -142,18 +195,20 @@ function goDetail(h: SearchHit) {
     <PageHeader title="跨实体检索" subtitle="一次查询，遍历人物、典籍、方剂、药物等" />
 
     <div class="search-box">
-      <Input
+      <AutoComplete
         v-model:value="keyword"
+        :options="autocompleteOptions"
         placeholder="输入关键词，如「伤寒」「麻黄」「张仲景」"
         size="large"
         allow-clear
         @press-enter="doSearch"
-      >
-        <template #prefix><SearchOutlined /></template>
-        <template #button-content>
-          <Button type="primary" @click="doSearch">搜索</Button>
-        </template>
-      </Input>
+        @select="(val: unknown) => { keyword = String(val); doSearch() }"
+      />
+      <Button
+        type="primary"
+        class="search-btn"
+        @click="doSearch"
+      >搜索</Button>
     </div>
 
     <!-- 搜索历史 -->
@@ -242,6 +297,17 @@ function goDetail(h: SearchHit) {
 .search-box {
   max-width: 640px;
   margin-bottom: var(--tcm-spacing-xl);
+  display: flex;
+  gap: 8px;
+
+  :deep(.ant-select-selector) {
+    border-radius: var(--tcm-radius-base);
+  }
+}
+
+.search-btn {
+  min-width: 80px;
+  height: 40px;
 }
 
 .search-history,

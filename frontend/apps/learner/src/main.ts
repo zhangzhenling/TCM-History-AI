@@ -44,3 +44,14 @@ app.provide('errorHandler', errorHandler);
 
 app.use(router);
 app.mount('#app');
+
+// PWA Service Worker 注册（生产环境由 vite-plugin-pwa 自动生成 sw.js）
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .catch(() => {
+        /* 静默失败：不影响用户体验 */
+      });
+  });
+}

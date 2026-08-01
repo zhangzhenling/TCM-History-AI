@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// 首页：欢迎区 + 快捷入口 + 最近医家/典籍。
-// P3 阶段未接入 Learning/AI Service，今日学习卡片以占位呈现。
+// 首页：欢迎区 + 快捷入口 + AI 学习推荐 + 最近医家/典籍。
+// P3 阶段未接入 Learning/AI Service，推荐以规则引擎生成。
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Spin, Empty } from 'ant-design-vue';
+import { Spin, Empty, Card, Tag } from 'ant-design-vue';
+import { BulbOutlined, RightOutlined } from '@ant-design/icons-vue';
 
 import PageHeader from '@/components/PageHeader.vue';
 import EntityCard from '@/components/EntityCard.vue';
@@ -22,6 +23,71 @@ const { isMobile } = useViewport();
 const loading = ref(false);
 const persons = ref<Person[]>([]);
 const books = ref<Book[]>([]);
+
+// ---- AI 学习推荐（本地规则引擎）----
+interface Recommendation {
+  id: string;
+  type: 'course' | 'entity' | 'search';
+  title: string;
+  reason: string;
+  action: { name: string; params?: Record<string, unknown> };
+  color: string;
+  icon: string;
+}
+
+const recommendations = computed<Recommendation[]>(() => {
+  const list: Recommendation[] = [];
+
+  // 基于热门实体推荐
+  if (persons.value[0]) {
+    list.push({
+      id: `p-${persons.value[0].id}`,
+      type: 'entity',
+      title: `探索 ${persons.value[0].name}`,
+      reason: '热门医家',
+      action: { name: 'PersonDetail', params: { id: persons.value[0].id } },
+      color: '#a23a30',
+      icon: '👤',
+    });
+  }
+  if (books.value[0]) {
+    list.push({
+      id: `b-${books.value[0].id}`,
+      type: 'entity',
+      title: `研读《${books.value[0].title}》`,
+      reason: '经典典籍',
+      action: { name: 'BookDetail', params: { id: books.value[0].id } },
+      color: '#2c4a6b',
+      icon: '📖',
+    });
+  }
+
+  // 固定推荐
+  list.push({
+    id: 'r-timeline',
+    type: 'search',
+    title: '浏览发展时间轴',
+    reason: '推荐学习路径',
+    action: { name: 'Timeline' },
+    color: '#5c8a6a',
+    icon: '⏳',
+  });
+  list.push({
+    id: 'r-search',
+    type: 'search',
+    title: '搜索「伤寒论」',
+    reason: '热门检索',
+    action: { name: 'Search' },
+    color: '#c9a24a',
+    icon: '🔍',
+  });
+
+  return list.slice(0, isMobile.value ? 3 : 4);
+});
+
+function goRecommend(rec: Recommendation) {
+  router.push({ name: rec.action.name, params: rec.action.params as Record<string, string | number> });
+}
 
 const quickEntries = [
   {
@@ -89,6 +155,35 @@ function go(name: string) {
         <h3 class="quick-entry-title">{{ entry.title }}</h3>
         <p class="quick-entry-desc">{{ entry.desc }}</p>
         <span class="quick-entry-arrow">→</span>
+      </div>
+    </section>
+
+    <!-- AI 学习推荐 -->
+    <section v-if="recommendations.length" class="recommend-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <BulbOutlined class="ai-icon" /> AI 学习推荐
+        </h2>
+        <span class="section-sub">为你精选的学习路径</span>
+      </div>
+      <div class="recommend-grid">
+        <Card
+          v-for="rec in recommendations"
+          :key="rec.id"
+          class="recommend-card tcm-card-shadow"
+          :style="{ '--rec-color': rec.color }"
+          hoverable
+          @click="goRecommend(rec)"
+        >
+          <div class="rec-icon">{{ rec.icon }}</div>
+          <div class="rec-content">
+            <div class="rec-title">{{ rec.title }}</div>
+            <div class="rec-reason">
+              <Tag :color="rec.color" style="color: #fff">{{ rec.reason }}</Tag>
+            </div>
+          </div>
+          <RightOutlined class="rec-arrow" />
+        </Card>
       </div>
     </section>
 
@@ -257,9 +352,111 @@ function go(name: string) {
   margin-top: var(--tcm-spacing-xl);
 }
 
+/* AI 推荐区 */
+.recommend-section {
+  margin-bottom: var(--tcm-spacing-xl);
+}
+
+.recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--tcm-spacing-lg);
+}
+
+.recommend-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  border-left: 4px solid var(--rec-color);
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  :deep(.ant-card-body) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    width: 100%;
+  }
+}
+
+.rec-icon {
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background-color: var(--tcm-color-bg-secondary);
+  flex-shrink: 0;
+}
+
+.rec-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.rec-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-reason {
+  display: flex;
+}
+
+.rec-arrow {
+  color: var(--tcm-color-text-tertiary);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ai-icon {
+  color: var(--tcm-color-gold);
+  margin-right: 6px;
+}
+
+.section-sub {
+  font-size: 13px;
+  color: var(--tcm-color-text-tertiary);
+}
+
 @media (max-width: 768px) {
   .home-section {
     margin-top: var(--tcm-spacing-lg);
+  }
+
+  .recommend-section {
+    margin-bottom: var(--tcm-spacing-lg);
+  }
+
+  .recommend-grid {
+    grid-template-columns: 1fr;
+    gap: var(--tcm-spacing-base);
+  }
+
+  .recommend-card {
+    padding: 10px 12px;
+  }
+
+  .rec-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+  }
+
+  .rec-title {
+    font-size: 13px;
   }
 }
 

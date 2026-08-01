@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// 知识图谱浏览页：节点检索 + 子图关系展示。
+// 知识图谱浏览页：节点检索 + 子图关系展示 + SVG 力导向可视化。
 // 调用 Graph Service：searchNodes 检索节点，getSubgraph 获取中心节点的关联子图。
-import { computed, ref } from 'vue';
-import { Input, Spin, Empty, Tag, Select, SelectOption, Card } from 'ant-design-vue';
-import { SearchOutlined } from '@ant-design/icons-vue';
+import { computed, h, ref } from 'vue';
+import { Input, Spin, Empty, Tag, Select, SelectOption, Card, Segmented } from 'ant-design-vue';
+import { SearchOutlined, NodeIndexOutlined, UnorderedListOutlined } from '@ant-design/icons-vue';
 
 import PageHeader from '@/components/PageHeader.vue';
+import ForceGraph from '@/components/ForceGraph.vue';
 import { useApi } from '@/composables/useApi';
 import { truncate } from '@tcm/shared';
 import {
@@ -67,6 +68,7 @@ const searched = ref(false);
 const selectedNode = ref<GraphNodeView | null>(null);
 const subgraph = ref<GraphSubgraph | null>(null);
 const subgraphLoading = ref(false);
+const viewMode = ref<'graph' | 'list'>('graph');
 
 const nodes = computed<GraphNodeView[]>(() => result.value?.items ?? []);
 
@@ -149,6 +151,14 @@ function clearSelected() {
   selectedNode.value = null;
   subgraph.value = null;
 }
+
+// 力导向图所需数据：子图的节点和边
+const graphNodes = computed<GraphNodeView[]>(() => subgraph.value?.nodes ?? []);
+const graphEdges = computed<GraphEdgeView[]>(() => subgraph.value?.edges ?? []);
+
+function onGraphNodeClick(node: GraphNodeView) {
+  selectNode(node);
+}
 </script>
 
 <template>
@@ -226,49 +236,73 @@ function clearSelected() {
                 </Tag>
                 <span class="center-name">{{ selectedNode.name }}</span>
               </div>
-              <a class="subgraph-close" @click="clearSelected">收起 ×</a>
+              <div class="subgraph-actions">
+                <Segmented
+                  v-model:value="viewMode"
+                  size="small"
+                  :options="[
+                    { label: h(UnorderedListOutlined), value: 'list' },
+                    { label: h(NodeIndexOutlined), value: 'graph' },
+                  ]"
+                  class="view-mode-seg"
+                />
+                <a class="subgraph-close" @click="clearSelected">收起 ×</a>
+              </div>
             </div>
 
             <div v-if="nodeSummary(selectedNode)" class="center-summary">
               {{ nodeSummary(selectedNode) }}
             </div>
 
-            <Card v-if="subgraph" size="small" class="subgraph-card">
-              <template #title>
-                关联节点 <span class="count">({{ relatedNodes.length }})</span>
-              </template>
-              <div v-if="relatedNodes.length" class="related-list">
-                <div
-                  v-for="rn in relatedNodes"
-                  :key="rn.uid"
-                  class="related-item"
-                  @click="selectNode(rn)"
-                >
-                  <Tag :color="LABEL_COLOR[rn.label]" style="color: #fff">
-                    {{ LABEL_TEXT[rn.label] }}
-                  </Tag>
-                  <span class="related-name">{{ rn.name }}</span>
-                </div>
-              </div>
-              <Empty v-else description="无关联节点" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
-            </Card>
+            <!-- 图谱可视化视图 -->
+            <div v-if="viewMode === 'graph' && subgraph" class="graph-visual">
+              <ForceGraph
+                :nodes="graphNodes"
+                :edges="graphEdges"
+                :height="380"
+                @node-click="onGraphNodeClick"
+              />
+            </div>
 
-            <Card v-if="subgraph" size="small" class="subgraph-card">
-              <template #title>
-                关系 <span class="count">({{ edgeWithNames.length }})</span>
-              </template>
-              <div v-if="edgeWithNames.length" class="edge-list">
-                <div v-for="item in edgeWithNames" :key="item.edge.uid" class="edge-item">
-                  <span class="edge-node">{{ item.sourceName }}</span>
-                  <Tag color="var(--tcm-color-gold)" style="color: #fff">
-                    {{ EDGE_TEXT[item.edge.type] ?? item.edge.type }}
-                  </Tag>
-                  <span class="edge-arrow">→</span>
-                  <span class="edge-node">{{ item.targetName }}</span>
+            <!-- 列表视图 -->
+            <template v-else-if="subgraph">
+              <Card size="small" class="subgraph-card">
+                <template #title>
+                  关联节点 <span class="count">({{ relatedNodes.length }})</span>
+                </template>
+                <div v-if="relatedNodes.length" class="related-list">
+                  <div
+                    v-for="rn in relatedNodes"
+                    :key="rn.uid"
+                    class="related-item"
+                    @click="selectNode(rn)"
+                  >
+                    <Tag :color="LABEL_COLOR[rn.label]" style="color: #fff">
+                      {{ LABEL_TEXT[rn.label] }}
+                    </Tag>
+                    <span class="related-name">{{ rn.name }}</span>
+                  </div>
                 </div>
-              </div>
-              <Empty v-else description="无关系" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
-            </Card>
+                <Empty v-else description="无关联节点" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+              </Card>
+
+              <Card size="small" class="subgraph-card">
+                <template #title>
+                  关系 <span class="count">({{ edgeWithNames.length }})</span>
+                </template>
+                <div v-if="edgeWithNames.length" class="edge-list">
+                  <div v-for="item in edgeWithNames" :key="item.edge.uid" class="edge-item">
+                    <span class="edge-node">{{ item.sourceName }}</span>
+                    <Tag color="var(--tcm-color-gold)" style="color: #fff">
+                      {{ EDGE_TEXT[item.edge.type] ?? item.edge.type }}
+                    </Tag>
+                    <span class="edge-arrow">→</span>
+                    <span class="edge-node">{{ item.targetName }}</span>
+                  </div>
+                </div>
+                <Empty v-else description="无关系" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+              </Card>
+            </template>
           </template>
 
           <Empty
@@ -402,6 +436,30 @@ function clearSelected() {
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--tcm-spacing-base);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.subgraph-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-mode-seg {
+  :deep(.ant-segmented-item) {
+    padding: 2px 8px;
+  }
+}
+
+.graph-visual {
+  margin-bottom: var(--tcm-spacing-base);
+  border-radius: var(--tcm-radius-lg);
+  overflow: hidden;
+}
+
+.graph-visual :deep(.force-graph) {
+  height: 380px;
 }
 
 .subgraph-title {
