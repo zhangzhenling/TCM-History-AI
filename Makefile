@@ -49,10 +49,25 @@ frontend-dev: ## 启动前端开发服务器
 	cd frontend && pnpm dev
 
 frontend-build: ## 构建前端生产产物
-	cd frontend && pnpm build
+	cd frontend && pnpm build && pnpm build:admin
+
+frontend-lint: ## 前端代码检查
+	cd frontend && pnpm lint
+
+frontend-typecheck: ## 前端类型检查
+	cd frontend && pnpm typecheck
 
 mobile-pub: ## Flutter 拉取依赖
 	cd mobile && flutter pub get
 
 mobile-run: ## Flutter 运行
 	cd mobile && flutter run
+
+mobile-test: ## Flutter 运行测试
+	cd mobile && flutter test
+
+mobile-analyze: ## Flutter 静态分析
+	cd mobile && flutter analyze --no-fatal-infos
+
+backend-vet: ## 后端 go vet
+	$(MAKE) -C backend vet

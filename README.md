@@ -14,8 +14,7 @@ tcm-history-ai/
 ├── frontend/       # PC 前端：Vue3 + Vben Admin
 ├── mobile/         # 移动端：Flutter
 ├── deploy/         # 部署配置：docker-compose / k8s / helm
-├── doc/            # 软件设计说明书（00–20 章）
-├── docs/           # 辅助文档（架构图导出、ADR 等）
+├── doc/            # 软件设计说明书（00–23 章）与辅助文档
 ├── .github/        # CI/CD：GitHub Actions workflows + PR 模板
 ├── Makefile        # 顶层编排
 └── README.md       # 本文件
@@ -82,7 +81,7 @@ make mobile-run          # flutter run
 | ---- | -------- |
 | 后端语言 | Go 1.22+ |
 | HTTP 框架 | Hertz（CloudWeGo） |
-| RPC 框架 | Kitex（CloudWeGo） |
+| RPC 框架 | Kitex（CloudWeGo，当前为预留，跨服务调用通过 Gateway HTTP 反代） |
 | ORM | GORM v2 |
 | 依赖注入 | Google Wire |
 | 关系数据库 | PostgreSQL 16 |
